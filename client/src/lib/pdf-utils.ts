@@ -1,4 +1,26 @@
 import { PDFDocument, rgb, StandardFonts, degrees } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
+
+let _unicodeFontBytes: ArrayBuffer | null = null;
+
+async function loadUnicodeFont(): Promise<ArrayBuffer> {
+  if (!_unicodeFontBytes) {
+    const resp = await fetch("/fonts/NotoSans-Regular.ttf");
+    if (!resp.ok) throw new Error("Could not load Unicode font.");
+    _unicodeFontBytes = await resp.arrayBuffer();
+  }
+  return _unicodeFontBytes;
+}
+
+async function embedUnicodeFont(pdfDoc: PDFDocument) {
+  pdfDoc.registerFontkit(fontkit);
+  const bytes = await loadUnicodeFont();
+  return pdfDoc.embedFont(bytes);
+}
+
+function needsUnicode(text: string) {
+  return /[^\x00-\x7F]/.test(text);
+}
 
 export async function mergePdfs(files: File[]): Promise<Uint8Array> {
   const mergedPdf = await PDFDocument.create();
@@ -85,7 +107,9 @@ export async function addWatermark(
 ): Promise<Uint8Array> {
   const bytes = await file.arrayBuffer();
   const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
-  const font = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const font = needsUnicode(text)
+    ? await embedUnicodeFont(pdf)
+    : await pdf.embedFont(StandardFonts.HelveticaBold);
   const pages = pdf.getPages();
   pages.forEach((page) => {
     const { width, height } = page.getSize();
@@ -157,7 +181,9 @@ export async function imagesToPdf(files: File[]): Promise<Uint8Array> {
 
 export async function textToPdf(text: string): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
-  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const font = needsUnicode(text)
+    ? await embedUnicodeFont(pdf)
+    : await pdf.embedFont(StandardFonts.Helvetica);
   const fontSize = 12;
   const margin = 50;
   const lineHeight = fontSize * 1.4;
@@ -209,7 +235,10 @@ export async function addHeaderFooter(
 ): Promise<Uint8Array> {
   const bytes = await file.arrayBuffer();
   const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
-  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const hasNonAscii = needsUnicode(header) || needsUnicode(footer);
+  const font = hasNonAscii
+    ? await embedUnicodeFont(pdf)
+    : await pdf.embedFont(StandardFonts.Helvetica);
   const pages = pdf.getPages();
   pages.forEach((page) => {
     const { width, height } = page.getSize();
@@ -277,7 +306,9 @@ export async function signPdf(file: File, signatureText: string, color: [number,
   if (!signatureText.trim()) throw new Error("Please enter your signature text.");
   const bytes = await file.arrayBuffer();
   const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
-  const font = await pdf.embedFont(StandardFonts.HelveticaBoldOblique);
+  const font = needsUnicode(signatureText)
+    ? await embedUnicodeFont(pdf)
+    : await pdf.embedFont(StandardFonts.HelveticaBoldOblique);
   const pages = pdf.getPages();
   const lastPage = pages[pages.length - 1];
   const { width, height } = lastPage.getSize();
