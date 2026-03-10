@@ -1,5 +1,7 @@
 import { Link } from "wouter";
 import { type Tool, categoryColors } from "@/lib/tools";
+import { getToolTranslation } from "@/lib/tool-translations";
+import { useLang } from "@/lib/lang-context";
 import { Badge } from "@/components/ui/badge";
 import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -9,8 +11,10 @@ interface ToolCardProps {
 }
 
 export function ToolCard({ tool }: ToolCardProps) {
+  const { lang } = useLang();
   const colors = categoryColors[tool.color] || categoryColors.blue;
   const Icon = tool.icon;
+  const { name, description } = getToolTranslation(tool.slug, lang);
 
   return (
     <Link href={`/tools/${tool.slug}`}>
@@ -18,7 +22,8 @@ export function ToolCard({ tool }: ToolCardProps) {
         className="group relative flex flex-col gap-3 p-4 rounded-md border border-card-border bg-card cursor-pointer transition-all duration-200 hover-elevate h-full select-none"
         data-testid={`card-tool-${tool.slug}`}
       >
-        <div className="absolute inset-0 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
+        <div
+          className="absolute inset-0 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
           style={{ background: "radial-gradient(ellipse at 30% 30%, rgba(59,130,246,0.04) 0%, transparent 70%)" }}
         />
 
@@ -29,7 +34,7 @@ export function ToolCard({ tool }: ToolCardProps) {
               colors.bg
             )}
           >
-            <Icon className={cn("w-4.5 h-4.5", colors.text)} style={{ width: "1.1rem", height: "1.1rem" }} />
+            <Icon className={cn(colors.text)} style={{ width: "1.1rem", height: "1.1rem" }} />
           </div>
           {tool.pro && (
             <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 shrink-0">
@@ -41,10 +46,10 @@ export function ToolCard({ tool }: ToolCardProps) {
 
         <div>
           <h3 className="font-semibold text-[13px] leading-snug mb-1 group-hover:text-primary transition-colors duration-150">
-            {tool.name}
+            {name}
           </h3>
           <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">
-            {tool.description}
+            {description}
           </p>
         </div>
       </div>

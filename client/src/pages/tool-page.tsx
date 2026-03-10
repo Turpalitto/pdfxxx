@@ -26,6 +26,7 @@ import { FileUpload } from "@/components/file-upload";
 import { ProgressRing } from "@/components/progress-ring";
 import { ToolCard } from "@/components/tool-card";
 import { getToolBySlug, tools, categoryColors } from "@/lib/tools";
+import { getToolTranslation } from "@/lib/tool-translations";
 import {
   mergePdfs,
   splitPdf,
@@ -49,7 +50,8 @@ export default function ToolPage() {
   const [, params] = useRoute("/tools/:slug");
   const slug = params?.slug || "";
   const tool = getToolBySlug(slug);
-  const { t } = useLang();
+  const { t, lang } = useLang();
+  const toolTr = tool ? getToolTranslation(tool.slug, lang) : null;
 
   const [files, setFiles] = useState<File[]>([]);
   const [state, setState] = useState<ProcessingState>("idle");
@@ -250,7 +252,7 @@ export default function ToolPage() {
               </div>
               <div>
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <h1 className="text-2xl font-bold">{tool.name}</h1>
+                  <h1 className="text-2xl font-bold">{toolTr?.name ?? tool.name}</h1>
                   {tool.pro && (
                     <Badge variant="secondary">
                       <Lock className="w-3 h-3 mr-1" />
@@ -258,7 +260,7 @@ export default function ToolPage() {
                     </Badge>
                   )}
                 </div>
-                <p className="text-muted-foreground">{tool.description}</p>
+                <p className="text-muted-foreground">{toolTr?.description ?? tool.description}</p>
               </div>
             </div>
 
@@ -524,7 +526,7 @@ export default function ToolPage() {
                         data-testid="button-process"
                       >
                         <Icon className="w-4 h-4" />
-                        {tool.name}
+                        {toolTr?.name ?? tool.name}
                       </Button>
                     </motion.div>
                   )}
