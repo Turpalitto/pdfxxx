@@ -2,7 +2,6 @@ import { Link } from "wouter";
 import { type Tool, categoryColors } from "@/lib/tools";
 import { getToolTranslation } from "@/lib/tool-translations";
 import { useLang } from "@/lib/lang-context";
-import { cn } from "@/lib/utils";
 
 interface ToolCardProps {
   tool: Tool;
@@ -12,62 +11,52 @@ export function ToolCard({ tool }: ToolCardProps) {
   const { lang } = useLang();
   const colors = categoryColors[tool.color] || categoryColors.blue;
   const { name, description } = getToolTranslation(tool.slug, lang);
+  const Icon = tool.icon;
 
   return (
     <Link href={`/tools/${tool.slug}`}>
       <div
-        className="group relative flex flex-col items-center text-center gap-3 p-5 rounded-2xl border border-border cursor-pointer transition-all duration-300 hover:-translate-y-1 h-full select-none overflow-hidden"
-        style={{ background: "rgba(255,255,255,0.02)" }}
+        className="group relative overflow-hidden rounded-2xl p-6 cursor-pointer transition-all duration-300 hover:scale-[1.03] hover:border-white/20 h-full"
+        style={{
+          background: "linear-gradient(135deg, rgba(15,23,42,0.7) 0%, rgba(30,41,59,0.4) 100%)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          backdropFilter: "blur(8px)",
+        }}
         data-testid={`card-tool-${tool.slug}`}
       >
-        {/* hover glow overlay */}
+        {/* Hover glow overlay */}
         <div
-          className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl"
-          style={{
-            background: `radial-gradient(ellipse at 50% 0%, ${colors.glow} 0%, transparent 65%)`,
-          }}
-        />
-        {/* hover border glow */}
-        <div
-          className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl"
-          style={{
-            boxShadow: `0 0 0 1px ${colors.glow}, 0 8px 24px ${colors.glow}`,
-          }}
+          className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+          style={{ background: "linear-gradient(135deg, rgba(59,130,246,0.08), rgba(124,58,237,0.08))" }}
         />
 
-        {/* Icon */}
         <div className="relative">
-          <div
-            className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl transition-transform duration-200 group-hover:scale-110"
-            style={{
-              background: `linear-gradient(135deg, ${colors.gradient}, ${colors.gradient.replace("0.18", "0.06")})`,
-              border: `1px solid ${colors.gradient.replace("0.18", "0.25")}`,
-            }}
-          >
-            {tool.emoji}
-          </div>
-          {tool.pro && (
+          {/* Icon box */}
+          <div className="relative inline-block mb-4">
             <div
-              className="absolute -top-1.5 -right-1.5 text-[9px] font-bold text-white px-1.5 py-0.5 rounded-md tracking-wider"
-              style={{ background: "linear-gradient(135deg, #6c5ce7, #ec4899)" }}
+              className="flex items-center justify-center size-14 rounded-xl shadow-lg transition-transform duration-200 group-hover:scale-110"
+              style={{
+                background: `linear-gradient(135deg, ${colors.from} 0%, ${colors.to} 100%)`,
+                boxShadow: `0 4px 16px ${colors.glow}`,
+              }}
             >
-              PRO
+              <Icon className="size-7 text-white" />
             </div>
-          )}
-        </div>
+            {tool.pro && (
+              <div
+                className="absolute -top-1.5 -right-1.5 text-[9px] font-bold text-white px-1.5 py-0.5 rounded-md tracking-wider"
+                style={{ background: "linear-gradient(135deg, #7c3aed, #ec4899)" }}
+              >
+                PRO
+              </div>
+            )}
+          </div>
 
-        {/* Text */}
-        <div className="relative flex flex-col gap-1">
-          <h3
-            className="font-semibold leading-snug transition-colors duration-150"
-            style={{ fontSize: 13, color: "var(--foreground)" }}
-          >
+          {/* Text */}
+          <h3 className="text-white font-semibold text-base mb-2 leading-snug">
             {name}
           </h3>
-          <p
-            className="text-muted-foreground leading-snug line-clamp-2"
-            style={{ fontSize: 11 }}
-          >
+          <p className="text-slate-400 text-sm leading-relaxed line-clamp-2">
             {description}
           </p>
         </div>

@@ -212,6 +212,8 @@ export default function Pricing() {
     },
   };
 
+  let prevCat = "";
+  const tableRows: Array<{ type: "cat"; label: string } | { type: "row"; row: (typeof T.comparison.rows)[0]; index: number }> = [];
   T.comparison.rows.forEach((row, index) => {
     if (row.cat !== prevCat) {
       prevCat = row.cat;

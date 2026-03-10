@@ -1,55 +1,84 @@
 import { Link } from "wouter";
-import { FileText, Github, Twitter } from "lucide-react";
+import { FileText, Github, Twitter, Linkedin } from "lucide-react";
 import { categories } from "@/lib/tools";
+import { getCategoryLabel } from "@/lib/tools";
 import { useLang } from "@/lib/lang-context";
 
 export function Footer() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
 
   return (
-    <footer className="border-t border-border/40 bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+    <footer
+      className="border-t backdrop-blur-xl"
+      style={{ background: "rgba(2,6,23,0.85)", borderColor: "rgba(255,255,255,0.1)" }}
+    >
+      <div className="container mx-auto px-4 sm:px-6 py-12">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
           <div className="col-span-2 md:col-span-1">
-            <Link href="/" className="flex items-center gap-2 mb-4 group">
-              <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center shadow-md shadow-primary/40">
-                <FileText className="w-3.5 h-3.5 text-primary-foreground" />
+            <Link href="/" className="flex items-center gap-2.5 mb-4 group">
+              <div
+                className="flex size-9 items-center justify-center rounded-xl shadow-lg"
+                style={{ background: "linear-gradient(135deg, #3b82f6 0%, #7c3aed 100%)", boxShadow: "0 4px 12px rgba(99,102,241,0.4)" }}
+              >
+                <FileText className="size-5 text-white" />
               </div>
-              <span className="font-bold text-base tracking-tight">
-                PDF<span className="text-primary">X</span>
+              <span
+                className="text-lg font-bold"
+                style={{
+                  background: "linear-gradient(90deg, #ffffff, #bfdbfe)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                }}
+              >
+                PDF<span style={{ color: "#60a5fa", WebkitTextFillColor: "#60a5fa" }}>X</span>
               </span>
             </Link>
-            <p className="text-xs text-muted-foreground leading-relaxed max-w-xs mb-4">
-              {t.footer.desc}
+            <p className="text-sm text-slate-400 leading-relaxed mb-4 max-w-xs">
+              {lang === "ru"
+                ? "Все PDF инструменты в одном месте. Бесплатно, безопасно, без водяных знаков."
+                : "All PDF tools in one place. Free, secure, no watermarks."}
             </p>
-            <div className="flex gap-1.5">
+            <div className="flex gap-2">
               <a
                 href="#"
-                className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors"
+                className="flex size-8 items-center justify-center rounded-lg text-slate-400 hover:text-white transition-colors"
+                style={{ background: "rgba(255,255,255,0.06)" }}
                 aria-label="GitHub"
               >
-                <Github className="w-3.5 h-3.5" />
+                <Github className="size-4" />
               </a>
               <a
                 href="#"
-                className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors"
+                className="flex size-8 items-center justify-center rounded-lg text-slate-400 hover:text-white transition-colors"
+                style={{ background: "rgba(255,255,255,0.06)" }}
                 aria-label="Twitter"
               >
-                <Twitter className="w-3.5 h-3.5" />
+                <Twitter className="size-4" />
+              </a>
+              <a
+                href="#"
+                className="flex size-8 items-center justify-center rounded-lg text-slate-400 hover:text-white transition-colors"
+                style={{ background: "rgba(255,255,255,0.06)" }}
+                aria-label="LinkedIn"
+              >
+                <Linkedin className="size-4" />
               </a>
             </div>
           </div>
 
           <div>
-            <h3 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-3">{t.footer.pdfTools}</h3>
-            <ul className="space-y-2">
-              {categories.slice(0, 3).map((cat) => (
+            <h3 className="text-white font-semibold mb-4 text-sm">
+              {lang === "ru" ? "Инструменты" : "Tools"}
+            </h3>
+            <ul className="space-y-2.5">
+              {categories.slice(0, 4).map((cat) => (
                 <li key={cat.id}>
                   <Link
                     href={`/?category=${cat.id}`}
-                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    className="text-sm text-slate-400 hover:text-white transition-colors"
                   >
-                    {cat.label}
+                    {getCategoryLabel(cat.id, lang)}
                   </Link>
                 </li>
               ))}
@@ -57,15 +86,17 @@ export function Footer() {
           </div>
 
           <div>
-            <h3 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-3">{t.footer.moreTools}</h3>
-            <ul className="space-y-2">
-              {categories.slice(3).map((cat) => (
+            <h3 className="text-white font-semibold mb-4 text-sm">
+              {lang === "ru" ? "Ещё инструменты" : "More tools"}
+            </h3>
+            <ul className="space-y-2.5">
+              {categories.slice(4).map((cat) => (
                 <li key={cat.id}>
                   <Link
                     href={`/?category=${cat.id}`}
-                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    className="text-sm text-slate-400 hover:text-white transition-colors"
                   >
-                    {cat.label}
+                    {getCategoryLabel(cat.id, lang)}
                   </Link>
                 </li>
               ))}
@@ -73,25 +104,27 @@ export function Footer() {
           </div>
 
           <div>
-            <h3 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-3">{t.footer.company}</h3>
-            <ul className="space-y-2">
+            <h3 className="text-white font-semibold mb-4 text-sm">
+              {lang === "ru" ? "Компания" : "Company"}
+            </h3>
+            <ul className="space-y-2.5">
               <li>
-                <Link href="/pricing" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                  {t.footer.pricing}
+                <Link href="/pricing" className="text-sm text-slate-400 hover:text-white transition-colors">
+                  {lang === "ru" ? "Цены" : "Pricing"}
                 </Link>
               </li>
               <li>
-                <a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <a href="#" className="text-sm text-slate-400 hover:text-white transition-colors">
                   {t.footer.privacy}
                 </a>
               </li>
               <li>
-                <a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <a href="#" className="text-sm text-slate-400 hover:text-white transition-colors">
                   {t.footer.terms}
                 </a>
               </li>
               <li>
-                <a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <a href="#" className="text-sm text-slate-400 hover:text-white transition-colors">
                   {t.footer.contact}
                 </a>
               </li>
@@ -99,12 +132,12 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-10 pt-6 border-t border-border/40 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} PDFX. All rights reserved.
+        <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+          <p className="text-sm text-slate-400">
+            &copy; {new Date().getFullYear()} PDFX. {lang === "ru" ? "Все права защищены." : "All rights reserved."}
           </p>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
+          <div className="flex items-center gap-2 text-sm text-slate-400">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block" />
             {t.footer.badge}
           </div>
         </div>
