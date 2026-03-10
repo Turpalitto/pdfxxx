@@ -121,7 +121,7 @@ export default function ToolPage() {
 
   const process = useCallback(async () => {
     if (!tool || (files.length === 0 && slug !== "text-to-pdf")) {
-      setError("Please select a file first.");
+      setError(t.tool.selectFile);
       return;
     }
 
@@ -216,11 +216,11 @@ export default function ToolPage() {
           result = await wordToPdf(files[0]);
           break;
         case "excel-to-pdf":
-          throw new Error("Excel to PDF conversion requires cloud processing. Available in Pro plan.");
+          throw new Error(t.tool.proOnlyError);
         case "pdf-to-word":
-          throw new Error("PDF to Word conversion requires cloud processing. Available in Pro plan.");
+          throw new Error(t.tool.proOnlyError);
         case "pdf-to-excel":
-          throw new Error("PDF to Excel conversion requires cloud processing. Available in Pro plan.");
+          throw new Error(t.tool.proOnlyError);
         case "pdf-to-text": {
           const text = await pdfToText(files[0]);
           setResultText(text);
@@ -243,9 +243,9 @@ export default function ToolPage() {
           break;
         }
         case "ocr-pdf":
-          throw new Error("OCR processing requires cloud infrastructure. Available in Pro plan.");
+          throw new Error(t.tool.proOnlyError);
         default:
-          throw new Error(`Tool "${slug}" is not yet implemented.`);
+          throw new Error(t.tool.proOnlyError);
       }
 
       setProgress(100);
@@ -253,7 +253,7 @@ export default function ToolPage() {
       setResultSize(result?.length ?? null);
       setState("done");
     } catch (err: any) {
-      setError(err?.message || "An error occurred during processing.");
+      setError(err?.message || t.tool.errorOccurred);
       setState("error");
     }
   }, [
@@ -261,7 +261,7 @@ export default function ToolPage() {
     pagesToDelete, pagesToExtract, compressionLevel,
     watermarkText, watermarkOpacity, pageNumPosition,
     headerText, footerText, freeTextContent,
-    pdfPassword, signatureText, imageScale,
+    pdfPassword, signatureText, imageScale, t,
   ]);
 
   const handleDownload = useCallback(() => {
@@ -287,9 +287,9 @@ export default function ToolPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4">
         <AlertCircle className="w-12 h-12 text-destructive" />
-        <h1 className="text-2xl font-bold">Tool not found</h1>
+        <h1 className="text-2xl font-bold">{t.tool.notFound}</h1>
         <Button asChild variant="outline">
-          <Link href="/">Back to home</Link>
+          <Link href="/">{t.tool.backHome}</Link>
         </Button>
       </div>
     );
@@ -316,8 +316,14 @@ export default function ToolPage() {
         <div className="grid lg:grid-cols-[1fr_340px] gap-8">
           <div className="space-y-6">
             <div className="flex items-start gap-4">
-              <div className={cn("w-12 h-12 rounded-md flex items-center justify-center shrink-0", colors.bg)}>
-                <Icon className={cn("w-6 h-6", colors.text)} />
+              <div
+                className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0"
+                style={{
+                  background: `linear-gradient(135deg, ${colors.gradient}, ${colors.gradient.replace("0.18","0.05")})`,
+                  border: `1px solid ${colors.gradient.replace("0.18","0.2")}`,
+                }}
+              >
+                {tool.emoji}
               </div>
               <div>
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -340,17 +346,17 @@ export default function ToolPage() {
                 onFiles={handleFiles}
                 files={files}
                 onRemoveFile={removeFile}
-                label={`Drop your ${tool.accept?.includes(".pdf") ? "PDF" : "file"} here`}
-                description={`${tool.multiple ? "Multiple files supported" : "Single file"} • Max 25MB`}
+                label={tool.accept?.includes(".pdf") ? t.tool.dropPdf : t.tool.chooseFile}
+                description={`${tool.multiple ? t.tool.multipleFiles : t.tool.singleFile} • ${t.tool.maxSize} 25MB`}
               />
 
               {slug === "text-to-pdf" && files.length === 0 && (
                 <div>
-                  <Label className="text-sm font-medium mb-2 block">Or paste text content</Label>
+                  <Label className="text-sm font-medium mb-2 block">{t.tool.orPasteText}</Label>
                   <textarea
                     value={freeTextContent}
                     onChange={(e) => setFreeTextContent(e.target.value)}
-                    placeholder="Type or paste your text here..."
+                    placeholder={t.tool.pasteTextPlaceholder}
                     className="w-full min-h-32 rounded-md border border-input bg-background px-3 py-2 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-ring"
                     data-testid="input-text-content"
                   />
@@ -360,7 +366,7 @@ export default function ToolPage() {
               {slug === "split-pdf" && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-sm font-medium mb-1.5 block">From page</Label>
+                    <Label className="text-sm font-medium mb-1.5 block">{t.tool.fromPage}</Label>
                     <Input
                       type="number"
                       min="1"
@@ -370,13 +376,13 @@ export default function ToolPage() {
                     />
                   </div>
                   <div>
-                    <Label className="text-sm font-medium mb-1.5 block">To page</Label>
+                    <Label className="text-sm font-medium mb-1.5 block">{t.tool.toPage}</Label>
                     <Input
                       type="number"
                       min="1"
                       value={splitEnd}
                       onChange={(e) => setSplitEnd(e.target.value)}
-                      placeholder="Last page"
+                      placeholder={t.tool.lastPage}
                       data-testid="input-split-end"
                     />
                   </div>
@@ -385,15 +391,15 @@ export default function ToolPage() {
 
               {slug === "rotate-pdf" && (
                 <div>
-                  <Label className="text-sm font-medium mb-1.5 block">Rotation angle</Label>
+                  <Label className="text-sm font-medium mb-1.5 block">{t.tool.rotationAngle}</Label>
                   <Select value={rotation} onValueChange={(v) => setRotation(v as any)} data-testid="select-rotation">
                     <SelectTrigger data-testid="select-rotation-trigger">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="90">90° Clockwise</SelectItem>
-                      <SelectItem value="180">180°</SelectItem>
-                      <SelectItem value="270">270° (90° Counter-clockwise)</SelectItem>
+                      <SelectItem value="90">{t.tool.rot90}</SelectItem>
+                      <SelectItem value="180">{t.tool.rot180}</SelectItem>
+                      <SelectItem value="270">{t.tool.rot270}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -401,13 +407,11 @@ export default function ToolPage() {
 
               {(slug === "delete-pages") && (
                 <div>
-                  <Label className="text-sm font-medium mb-1.5 block">
-                    Pages to delete (e.g. 1, 3, 5)
-                  </Label>
+                  <Label className="text-sm font-medium mb-1.5 block">{t.tool.pagesDelete}</Label>
                   <Input
                     value={pagesToDelete}
                     onChange={(e) => setPagesToDelete(e.target.value)}
-                    placeholder="1, 3, 5-7"
+                    placeholder="1, 3, 5"
                     data-testid="input-pages-delete"
                   />
                 </div>
@@ -416,7 +420,7 @@ export default function ToolPage() {
               {(slug === "extract-pages" || slug === "reorder-pages") && (
                 <div>
                   <Label className="text-sm font-medium mb-1.5 block">
-                    {slug === "reorder-pages" ? "New page order (e.g. 3, 1, 2)" : "Pages to extract (e.g. 1, 3, 5)"}
+                    {slug === "reorder-pages" ? t.tool.pagesReorder : t.tool.pagesExtract}
                   </Label>
                   <Input
                     value={pagesToExtract}
@@ -429,7 +433,7 @@ export default function ToolPage() {
 
               {slug === "compress-pdf" && (
                 <div>
-                  <Label className="text-sm font-medium mb-2 block">Compression level</Label>
+                  <Label className="text-sm font-medium mb-2 block">{t.tool.compressionLevel}</Label>
                   <div className="grid grid-cols-3 gap-2">
                     {(["low", "medium", "high"] as const).map((level) => (
                       <button
@@ -443,7 +447,7 @@ export default function ToolPage() {
                         )}
                         data-testid={`button-compression-${level}`}
                       >
-                        {level.charAt(0).toUpperCase() + level.slice(1)}
+                        {level === "low" ? t.tool.compressionLow : level === "medium" ? t.tool.compressionMedium : t.tool.compressionHigh}
                       </button>
                     ))}
                   </div>
@@ -453,7 +457,7 @@ export default function ToolPage() {
               {slug === "watermark-pdf" && (
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-sm font-medium mb-1.5 block">Watermark text</Label>
+                    <Label className="text-sm font-medium mb-1.5 block">{t.tool.watermarkText}</Label>
                     <Input
                       value={watermarkText}
                       onChange={(e) => setWatermarkText(e.target.value)}
@@ -463,7 +467,7 @@ export default function ToolPage() {
                   </div>
                   <div>
                     <Label className="text-sm font-medium mb-2 block">
-                      Opacity: {Math.round(watermarkOpacity[0] * 100)}%
+                      {t.tool.opacity}: {Math.round(watermarkOpacity[0] * 100)}%
                     </Label>
                     <Slider
                       min={5}
@@ -479,16 +483,16 @@ export default function ToolPage() {
 
               {slug === "pdf-page-numbers" && (
                 <div>
-                  <Label className="text-sm font-medium mb-1.5 block">Position</Label>
+                  <Label className="text-sm font-medium mb-1.5 block">{t.tool.position}</Label>
                   <Select value={pageNumPosition} onValueChange={(v) => setPageNumPosition(v as any)}>
                     <SelectTrigger data-testid="select-page-num-position">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="bottom-center">Bottom Center</SelectItem>
-                      <SelectItem value="bottom-right">Bottom Right</SelectItem>
-                      <SelectItem value="bottom-left">Bottom Left</SelectItem>
-                      <SelectItem value="top-center">Top Center</SelectItem>
+                      <SelectItem value="bottom-center">{t.tool.posBottomCenter}</SelectItem>
+                      <SelectItem value="bottom-right">{t.tool.posBottomRight}</SelectItem>
+                      <SelectItem value="bottom-left">{t.tool.posBottomLeft}</SelectItem>
+                      <SelectItem value="top-center">{t.tool.posTopCenter}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -496,12 +500,12 @@ export default function ToolPage() {
 
               {slug === "protect-pdf" && (
                 <div>
-                  <Label className="text-sm font-medium mb-1.5 block">Password</Label>
+                  <Label className="text-sm font-medium mb-1.5 block">{t.tool.password}</Label>
                   <Input
                     type="password"
                     value={pdfPassword}
                     onChange={(e) => setPdfPassword(e.target.value)}
-                    placeholder="Enter a strong password"
+                    placeholder={t.tool.passwordPlaceholder}
                     data-testid="input-pdf-password"
                   />
                 </div>
@@ -509,51 +513,51 @@ export default function ToolPage() {
 
               {slug === "sign-pdf" && (
                 <div>
-                  <Label className="text-sm font-medium mb-1.5 block">Signature text</Label>
+                  <Label className="text-sm font-medium mb-1.5 block">{t.tool.signatureText}</Label>
                   <Input
                     value={signatureText}
                     onChange={(e) => setSignatureText(e.target.value)}
-                    placeholder="Your Name"
+                    placeholder={t.tool.signaturePlaceholder}
                     data-testid="input-signature-text"
                   />
-                  <p className="text-xs text-muted-foreground mt-1.5">Will be placed in the bottom-right of the last page.</p>
+                  <p className="text-xs text-muted-foreground mt-1.5">{t.tool.signatureHint}</p>
                 </div>
               )}
 
               {(slug === "pdf-to-jpg" || slug === "pdf-to-png") && (
                 <div>
-                  <Label className="text-sm font-medium mb-1.5 block">Quality / Scale</Label>
+                  <Label className="text-sm font-medium mb-1.5 block">{t.tool.qualityScale}</Label>
                   <Select value={imageScale} onValueChange={(v) => setImageScale(v as any)} data-testid="select-image-scale">
                     <SelectTrigger data-testid="select-image-scale-trigger">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">Standard (72 DPI)</SelectItem>
-                      <SelectItem value="2">High (150 DPI)</SelectItem>
-                      <SelectItem value="3">Ultra (300 DPI)</SelectItem>
+                      <SelectItem value="1">{t.tool.qualityStandard}</SelectItem>
+                      <SelectItem value="2">{t.tool.qualityHigh}</SelectItem>
+                      <SelectItem value="3">{t.tool.qualityUltra}</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground mt-1.5">Output: ZIP file containing one image per page.</p>
+                  <p className="text-xs text-muted-foreground mt-1.5">{t.tool.outputZip}</p>
                 </div>
               )}
 
               {slug === "pdf-header-footer" && (
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-sm font-medium mb-1.5 block">Header text</Label>
+                    <Label className="text-sm font-medium mb-1.5 block">{t.tool.headerText}</Label>
                     <Input
                       value={headerText}
                       onChange={(e) => setHeaderText(e.target.value)}
-                      placeholder="Document header"
+                      placeholder={t.tool.headerPlaceholder}
                       data-testid="input-header-text"
                     />
                   </div>
                   <div>
-                    <Label className="text-sm font-medium mb-1.5 block">Footer text</Label>
+                    <Label className="text-sm font-medium mb-1.5 block">{t.tool.footerText}</Label>
                     <Input
                       value={footerText}
                       onChange={(e) => setFooterText(e.target.value)}
-                      placeholder="Document footer"
+                      placeholder={t.tool.footerPlaceholder}
                       data-testid="input-footer-text"
                     />
                   </div>
@@ -603,7 +607,7 @@ export default function ToolPage() {
                       {files[0] && (
                         <div className="flex items-center gap-1.5 text-sm text-emerald-400">
                           <CheckCircle className="w-4 h-4" />
-                          <span>Done! {resultSize && files[0] && (
+                          <span>{t.tool.doneLabel} {resultSize && files[0] && (
                             <span className="text-muted-foreground">
                               {formatBytes(files[0].size)} → {formatBytes(resultSize)}
                               {files[0].size > (resultSize || 0) && (
@@ -627,7 +631,7 @@ export default function ToolPage() {
                         <AlertCircle className="w-4 h-4" />
                         {error}
                       </div>
-                      <Button variant="outline" size="sm" onClick={reset}>Try again</Button>
+                      <Button variant="outline" size="sm" onClick={reset}>{t.tool.tryAgain}</Button>
                     </motion.div>
                   ) : (
                     <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>

@@ -69,11 +69,20 @@ PDFX is a modern SaaS PDF toolkit platform with a freemium model. All PDF proces
 - Header/Footer — custom text
 
 ## Design
-- Dark mode default, Inter font, deep navy/electric blue color scheme
-- Glassmorphism cards, gradient hero, smooth Framer Motion animations
+- Dark mode default, Inter font, purple accent (#6c5ce7)
+- Tool cards: emoji icons (56×56 gradient boxes) with hover glow + border glow based on category color
+- Category filter pills: fully translated via `getCategoryLabel(id, lang)` in tools.ts
+- Glassmorphism cards, gradient hero with animated orbs, smooth Framer Motion animations
 - Fully responsive (mobile 375px+, tablet 768px+, desktop 1280px+)
 - Shadcn/ui component system throughout
 
+## i18n
+- 20 languages; all UI strings in `i18n.ts` including all tool-page form labels/errors
+- Category labels: `getCategoryLabel(id, lang)` in `tools.ts` has all 20 languages
+- Tool names/descriptions: `getToolTranslation(slug, lang)` in `tool-translations.ts`
+- All form labels, error messages, placeholders, dropdown options fully localized
+
 ## Monetization (UI Only — Stripe not yet integrated)
-- Free tier: 3 ops/hour, 25MB limit, ad-supported
-- Pro tier: $4.99/month or $39.99/year, unlimited, AI tools, no ads
+- Free tier: 3 ops/hour, 25MB limit
+- Pro tier: ₽499/month or ₽374/month (annual), unlimited, AI tools
+- Team tier: ₽1490/month or ₽1118/month (annual)

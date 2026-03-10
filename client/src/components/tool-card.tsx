@@ -2,8 +2,6 @@ import { Link } from "wouter";
 import { type Tool, categoryColors } from "@/lib/tools";
 import { getToolTranslation } from "@/lib/tool-translations";
 import { useLang } from "@/lib/lang-context";
-import { Badge } from "@/components/ui/badge";
-import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ToolCardProps {
@@ -13,42 +11,63 @@ interface ToolCardProps {
 export function ToolCard({ tool }: ToolCardProps) {
   const { lang } = useLang();
   const colors = categoryColors[tool.color] || categoryColors.blue;
-  const Icon = tool.icon;
   const { name, description } = getToolTranslation(tool.slug, lang);
 
   return (
     <Link href={`/tools/${tool.slug}`}>
       <div
-        className="group relative flex flex-col gap-3 p-4 rounded-md border border-card-border bg-card cursor-pointer transition-all duration-200 hover-elevate h-full select-none"
+        className="group relative flex flex-col items-center text-center gap-3 p-5 rounded-2xl border border-border cursor-pointer transition-all duration-300 hover:-translate-y-1 h-full select-none overflow-hidden"
+        style={{ background: "rgba(255,255,255,0.02)" }}
         data-testid={`card-tool-${tool.slug}`}
       >
+        {/* hover glow overlay */}
         <div
-          className="absolute inset-0 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
-          style={{ background: "radial-gradient(ellipse at 30% 30%, rgba(59,130,246,0.04) 0%, transparent 70%)" }}
+          className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl"
+          style={{
+            background: `radial-gradient(ellipse at 50% 0%, ${colors.glow} 0%, transparent 65%)`,
+          }}
+        />
+        {/* hover border glow */}
+        <div
+          className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl"
+          style={{
+            boxShadow: `0 0 0 1px ${colors.glow}, 0 8px 24px ${colors.glow}`,
+          }}
         />
 
-        <div className="flex items-start justify-between gap-2">
+        {/* Icon */}
+        <div className="relative">
           <div
-            className={cn(
-              "w-9 h-9 rounded-md flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105",
-              colors.bg
-            )}
+            className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl transition-transform duration-200 group-hover:scale-110"
+            style={{
+              background: `linear-gradient(135deg, ${colors.gradient}, ${colors.gradient.replace("0.18", "0.06")})`,
+              border: `1px solid ${colors.gradient.replace("0.18", "0.25")}`,
+            }}
           >
-            <Icon className={cn(colors.text)} style={{ width: "1.1rem", height: "1.1rem" }} />
+            {tool.emoji}
           </div>
           {tool.pro && (
-            <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 shrink-0">
-              <Lock className="w-2 h-2 mr-0.5" />
-              Pro
-            </Badge>
+            <div
+              className="absolute -top-1.5 -right-1.5 text-[9px] font-bold text-white px-1.5 py-0.5 rounded-md tracking-wider"
+              style={{ background: "linear-gradient(135deg, #6c5ce7, #ec4899)" }}
+            >
+              PRO
+            </div>
           )}
         </div>
 
-        <div>
-          <h3 className="font-semibold text-[13px] leading-snug mb-1 group-hover:text-primary transition-colors duration-150">
+        {/* Text */}
+        <div className="relative flex flex-col gap-1">
+          <h3
+            className="font-semibold leading-snug transition-colors duration-150"
+            style={{ fontSize: 13, color: "var(--foreground)" }}
+          >
             {name}
           </h3>
-          <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">
+          <p
+            className="text-muted-foreground leading-snug line-clamp-2"
+            style={{ fontSize: 11 }}
+          >
             {description}
           </p>
         </div>

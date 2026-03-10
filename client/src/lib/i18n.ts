@@ -108,6 +108,51 @@ export interface Translations {
     maxSize: string;
     chooseFiles: string;
     chooseFile: string;
+    selectFile: string;
+    proOnlyError: string;
+    errorOccurred: string;
+    notFound: string;
+    backHome: string;
+    doneLabel: string;
+    tryAgain: string;
+    orPasteText: string;
+    pasteTextPlaceholder: string;
+    fromPage: string;
+    toPage: string;
+    lastPage: string;
+    rotationAngle: string;
+    rot90: string;
+    rot180: string;
+    rot270: string;
+    pagesDelete: string;
+    pagesExtract: string;
+    pagesReorder: string;
+    compressionLevel: string;
+    compressionLow: string;
+    compressionMedium: string;
+    compressionHigh: string;
+    watermarkText: string;
+    opacity: string;
+    position: string;
+    posBottomCenter: string;
+    posBottomRight: string;
+    posBottomLeft: string;
+    posTopCenter: string;
+    password: string;
+    passwordPlaceholder: string;
+    signatureText: string;
+    signaturePlaceholder: string;
+    signatureHint: string;
+    qualityScale: string;
+    qualityStandard: string;
+    qualityHigh: string;
+    qualityUltra: string;
+    outputZip: string;
+    headerText: string;
+    footerText: string;
+    headerPlaceholder: string;
+    footerPlaceholder: string;
+    noRegistration: string;
   };
   pricing: {
     badge: string;
@@ -205,6 +250,51 @@ const en: Translations = {
     maxSize: "Max",
     chooseFiles: "Choose Files",
     chooseFile: "Choose File",
+    selectFile: "Please select a file first.",
+    proOnlyError: "This tool requires a Pro plan.",
+    errorOccurred: "An error occurred during processing.",
+    notFound: "Tool not found",
+    backHome: "Back to home",
+    doneLabel: "Done!",
+    tryAgain: "Try again",
+    orPasteText: "Or paste text content",
+    pasteTextPlaceholder: "Type or paste your text here...",
+    fromPage: "From page",
+    toPage: "To page",
+    lastPage: "Last page",
+    rotationAngle: "Rotation angle",
+    rot90: "90° Clockwise",
+    rot180: "180°",
+    rot270: "270° (Counter-clockwise)",
+    pagesDelete: "Pages to delete (e.g. 1, 3, 5)",
+    pagesExtract: "Pages to extract (e.g. 1, 3, 5)",
+    pagesReorder: "New page order (e.g. 3, 1, 2)",
+    compressionLevel: "Compression level",
+    compressionLow: "Low",
+    compressionMedium: "Medium",
+    compressionHigh: "High",
+    watermarkText: "Watermark text",
+    opacity: "Opacity",
+    position: "Position",
+    posBottomCenter: "Bottom Center",
+    posBottomRight: "Bottom Right",
+    posBottomLeft: "Bottom Left",
+    posTopCenter: "Top Center",
+    password: "Password",
+    passwordPlaceholder: "Enter a strong password",
+    signatureText: "Signature text",
+    signaturePlaceholder: "Your Name",
+    signatureHint: "Will be placed in the bottom-right of the last page.",
+    qualityScale: "Quality / Scale",
+    qualityStandard: "Standard (72 DPI)",
+    qualityHigh: "High (150 DPI)",
+    qualityUltra: "Ultra (300 DPI)",
+    outputZip: "Output: ZIP archive with one image per page.",
+    headerText: "Header text",
+    footerText: "Footer text",
+    headerPlaceholder: "Document header",
+    footerPlaceholder: "Document footer",
+    noRegistration: "No registration",
   },
   pricing: {
     badge: "Simple, transparent pricing",
@@ -288,6 +378,51 @@ const ru: Translations = {
     maxSize: "Макс.",
     chooseFiles: "Выбрать файлы",
     chooseFile: "Выбрать файл",
+    selectFile: "Пожалуйста, выберите файл.",
+    proOnlyError: "Этот инструмент доступен в тарифе Pro.",
+    errorOccurred: "Произошла ошибка при обработке.",
+    notFound: "Инструмент не найден",
+    backHome: "На главную",
+    doneLabel: "Готово!",
+    tryAgain: "Попробовать снова",
+    orPasteText: "Или вставьте текст",
+    pasteTextPlaceholder: "Введите или вставьте текст сюда...",
+    fromPage: "С страницы",
+    toPage: "По страницу",
+    lastPage: "Последняя",
+    rotationAngle: "Угол поворота",
+    rot90: "90° по часовой",
+    rot180: "180°",
+    rot270: "270° (против часовой)",
+    pagesDelete: "Страницы для удаления (напр. 1, 3, 5)",
+    pagesExtract: "Страницы для извлечения (напр. 1, 3, 5)",
+    pagesReorder: "Новый порядок страниц (напр. 3, 1, 2)",
+    compressionLevel: "Уровень сжатия",
+    compressionLow: "Низкий",
+    compressionMedium: "Средний",
+    compressionHigh: "Высокий",
+    watermarkText: "Текст водяного знака",
+    opacity: "Прозрачность",
+    position: "Позиция",
+    posBottomCenter: "Снизу по центру",
+    posBottomRight: "Снизу справа",
+    posBottomLeft: "Снизу слева",
+    posTopCenter: "Сверху по центру",
+    password: "Пароль",
+    passwordPlaceholder: "Введите надёжный пароль",
+    signatureText: "Текст подписи",
+    signaturePlaceholder: "Ваше имя",
+    signatureHint: "Будет размещено в правом нижнем углу последней страницы.",
+    qualityScale: "Качество / Масштаб",
+    qualityStandard: "Стандарт (72 DPI)",
+    qualityHigh: "Высокое (150 DPI)",
+    qualityUltra: "Ультра (300 DPI)",
+    outputZip: "Результат: ZIP архив с одним изображением на страницу.",
+    headerText: "Текст колонтитула",
+    footerText: "Текст нижнего колонтитула",
+    headerPlaceholder: "Заголовок документа",
+    footerPlaceholder: "Подвал документа",
+    noRegistration: "Без регистрации",
   },
   pricing: {
     badge: "Простые и прозрачные цены",

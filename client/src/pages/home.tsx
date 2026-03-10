@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { ToolCard } from "@/components/tool-card";
-import { tools, categories } from "@/lib/tools";
+import { tools, categories, getCategoryLabel } from "@/lib/tools";
 import { useLang } from "@/lib/lang-context";
 import { cn } from "@/lib/utils";
 
@@ -29,7 +29,7 @@ export default function Home() {
     { icon: "🔒", text: t.hero.feat1 },
     { icon: "⚡", text: t.hero.feat2 },
     { icon: "📴", text: t.hero.feat3 },
-    { icon: "🚫", text: lang === "ru" ? "Без регистрации" : lang === "de" ? "Keine Anmeldung" : lang === "fr" ? "Sans inscription" : lang === "es" ? "Sin registro" : "No registration" },
+    { icon: "🚫", text: t.tool.noRegistration },
   ];
 
   return (
@@ -206,7 +206,7 @@ export default function Home() {
               style={{ background: activeCategory === cat.id ? "rgba(108,92,231,0.1)" : undefined }}
               data-testid={`filter-${cat.id}`}
             >
-              {cat.label}
+              {getCategoryLabel(cat.id, lang)}
             </Link>
           ))}
         </div>
