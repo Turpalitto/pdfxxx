@@ -14,7 +14,7 @@ PDFX is a modern SaaS PDF toolkit platform with a freemium model. All PDF proces
 
 ### Key Files
 - `client/src/App.tsx` — Root app with routing and providers
-- `client/src/lib/tools.ts` — Tool registry (28 tools, 7 categories)
+- `client/src/lib/tools.ts` — Tool registry (29 tools, 7 categories)
 - `client/src/lib/pdf-utils.ts` — PDF processing functions (pdf-lib)
 - `client/src/lib/theme.tsx` — Dark/light theme provider (dark by default)
 - `client/src/pages/home.tsx` — Landing page: hero + stats + feature chips + tool grid + AI demo section + CTA
@@ -28,10 +28,11 @@ PDFX is a modern SaaS PDF toolkit platform with a freemium model. All PDF proces
 
 ### Routes
 - `/` — Homepage with hero, tool grid, category filters, FAQ, social proof
+- `/tools/edit-pdf` — Dedicated PDF annotation editor (fabric.js + pdfjs-dist + pdf-lib)
 - `/tools/:slug` — Individual tool page (28 tool slugs)
 - `/pricing` — Pricing page with Free vs Pro comparison
 
-## Tools (28 total)
+## Tools (29 total)
 
 ### Convert from PDF
 - pdf-to-word, pdf-to-jpg, pdf-to-png, pdf-to-text, pdf-to-html, pdf-to-excel
@@ -52,7 +53,7 @@ PDFX is a modern SaaS PDF toolkit platform with a freemium model. All PDF proces
 - ocr-pdf, photo-to-pdf
 
 ### Utility
-- pdf-page-numbers, pdf-header-footer
+- pdf-page-numbers, pdf-header-footer, edit-pdf (dedicated page with fabric.js editor)
 
 ## Functional Processing (pdf-lib)
 - Merge PDF — combines multiple PDFs

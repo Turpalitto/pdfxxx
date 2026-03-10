@@ -36,6 +36,7 @@ const en: ToolTranslationMap = {
   "photo-to-pdf": { name: "Photo to PDF", description: "Capture from camera or upload photos, auto-crop and convert to clean PDF." },
   "pdf-page-numbers": { name: "Page Numbers", description: "Add page numbers to your PDF with custom position and format options." },
   "pdf-header-footer": { name: "Header & Footer", description: "Add custom headers and footers to every page of your PDF." },
+  "edit-pdf": { name: "Edit PDF", description: "Add text, images, drawings and signatures to PDF pages directly in your browser." },
 };
 
 const ru: ToolTranslationMap = {
@@ -67,6 +68,7 @@ const ru: ToolTranslationMap = {
   "photo-to-pdf": { name: "Фото в PDF", description: "Снимайте с камеры или загружайте фото, автоматически обрезайте и конвертируйте в чистый PDF." },
   "pdf-page-numbers": { name: "Нумерация страниц", description: "Добавляйте номера страниц к PDF с настройкой положения и формата." },
   "pdf-header-footer": { name: "Колонтитулы", description: "Добавляйте пользовательские верхние и нижние колонтитулы к каждой странице PDF." },
+  "edit-pdf": { name: "Редактировать PDF", description: "Добавляйте текст, изображения, рисунки и подписи прямо в браузере. Файл не покидает устройство." },
 };
 
 const es: ToolTranslationMap = {

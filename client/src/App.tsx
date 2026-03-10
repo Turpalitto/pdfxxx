@@ -10,6 +10,7 @@ import { Footer } from "@/components/footer";
 import { AnimatedBackground } from "@/components/animated-background";
 import Home from "@/pages/home";
 import ToolPage from "@/pages/tool-page";
+import EditPdfPage from "@/pages/edit-pdf-page";
 import Pricing from "@/pages/pricing";
 import NotFound from "@/pages/not-found";
 
@@ -17,6 +18,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/tools/edit-pdf" component={EditPdfPage} />
       <Route path="/tools/:slug" component={ToolPage} />
       <Route path="/pricing" component={Pricing} />
       <Route component={NotFound} />

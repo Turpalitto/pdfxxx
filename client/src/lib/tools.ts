@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { FileText, FileImage, Layers, Scissors, RotateCw, Trash2, ArrowUpDown, Lock, Unlock, PenLine, Droplets, Zap, Wrench, ScanLine, Camera, Hash, AlignLeft, Shield, Merge, Download, FileCode, FileSpreadsheet, Type } from "lucide-react";
+import { FileText, FileImage, Layers, Scissors, RotateCw, Trash2, ArrowUpDown, Lock, Unlock, PenLine, Droplets, Zap, Wrench, ScanLine, Camera, Hash, AlignLeft, Shield, Merge, Download, FileCode, FileSpreadsheet, Type, FileEdit } from "lucide-react";
 
 export interface Tool {
   slug: string;
@@ -406,6 +406,17 @@ export const tools: Tool[] = [
     emoji: "📌",
     category: "utility",
     color: "indigo",
+    accept: ".pdf",
+    outputExt: "pdf",
+  },
+  {
+    slug: "edit-pdf",
+    name: "Edit PDF",
+    description: "Add text, images, drawings and signatures to PDF pages directly in your browser.",
+    icon: FileEdit,
+    emoji: "✏️",
+    category: "utility",
+    color: "violet",
     accept: ".pdf",
     outputExt: "pdf",
   },
