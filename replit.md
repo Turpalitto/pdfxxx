@@ -17,9 +17,9 @@ PDFX is a modern SaaS PDF toolkit platform with a freemium model. All PDF proces
 - `client/src/lib/tools.ts` — Tool registry (28 tools, 7 categories)
 - `client/src/lib/pdf-utils.ts` — PDF processing functions (pdf-lib)
 - `client/src/lib/theme.tsx` — Dark/light theme provider (dark by default)
-- `client/src/pages/home.tsx` — Landing page with hero, tool grid, FAQ
+- `client/src/pages/home.tsx` — Landing page: hero + stats + feature chips + tool grid + AI demo section + CTA
 - `client/src/pages/tool-page.tsx` — Dynamic tool page with file upload and processing
-- `client/src/pages/pricing.tsx` — Pricing page with Free/Pro comparison
+- `client/src/pages/pricing.tsx` — Pricing page with Free/Pro/Team (₽ prices), billing toggle, comparison table, FAQ accordion, guarantee
 - `client/src/components/navbar.tsx` — Top navigation with tools dropdown
 - `client/src/components/footer.tsx` — Footer with links
 - `client/src/components/tool-card.tsx` — Tool card component

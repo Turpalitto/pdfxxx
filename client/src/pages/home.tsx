@@ -2,20 +2,6 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
-import {
-  Shield,
-  Zap,
-  Globe,
-  ArrowRight,
-  Star,
-  ChevronDown,
-  ChevronUp,
-  Lock,
-  Cpu,
-  WifiOff,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ToolCard } from "@/components/tool-card";
 import { tools, categories } from "@/lib/tools";
 import { useLang } from "@/lib/lang-context";
@@ -25,350 +11,353 @@ export default function Home() {
   const [location] = useLocation();
   const searchParams = new URLSearchParams(location.split("?")[1] || "");
   const activeCategory = searchParams.get("category") || "all";
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const { t } = useLang();
+  const { t, lang } = useLang();
 
   const filteredTools =
     activeCategory === "all"
       ? tools
       : tools.filter((tool) => tool.category === activeCategory);
 
-  const faqs = [
-    { q: t.faq.q1, a: t.faq.a1 },
-    { q: t.faq.q2, a: t.faq.a2 },
-    { q: t.faq.q3, a: t.faq.a3 },
-    { q: t.faq.q4, a: t.faq.a4 },
-    { q: t.faq.q5, a: t.faq.a5 },
+  const stats = [
+    { value: "2М+", label: t.stats.filesProcessed, color: "#a78bfa" },
+    { value: "180+", label: t.stats.countries, color: "#06b6d4" },
+    { value: "28", label: t.stats.pdfTools, color: "#10b981" },
+    { value: "100%", label: t.stats.freeToStart, color: "#f59e0b" },
   ];
 
-  const stats = [
-    { value: "2M+", label: t.stats.filesProcessed },
-    { value: "180+", label: t.stats.countries },
-    { value: "28", label: t.stats.pdfTools },
-    { value: "100%", label: t.stats.freeToStart },
+  const featureChips = [
+    { icon: "🔒", text: t.hero.feat1 },
+    { icon: "⚡", text: t.hero.feat2 },
+    { icon: "📴", text: t.hero.feat3 },
+    { icon: "🚫", text: lang === "ru" ? "Без регистрации" : lang === "de" ? "Keine Anmeldung" : lang === "fr" ? "Sans inscription" : lang === "es" ? "Sin registro" : "No registration" },
   ];
 
   return (
     <div className="min-h-screen">
-      <section className="relative overflow-hidden pt-20 pb-24 md:pt-28 md:pb-32 px-4 sm:px-6">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(59,130,246,0.15),transparent)]" />
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-primary/5 rounded-full blur-3xl" />
-          <div className="absolute top-20 right-10 w-64 h-64 bg-violet-500/8 rounded-full blur-3xl" />
-          <div className="absolute top-40 left-10 w-48 h-48 bg-cyan-500/6 rounded-full blur-3xl" />
+      {/* ─── HERO ─── */}
+      <section className="relative overflow-hidden text-center pt-[120px] pb-20 px-6">
+        <div className="pointer-events-none absolute inset-0">
           <div
-            className="absolute inset-0 opacity-[0.02] dark:opacity-[0.04]"
-            style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")" }}
+            className="absolute"
+            style={{
+              top: 60, left: "30%", width: 500, height: 500,
+              background: "radial-gradient(circle, rgba(108,92,231,0.06) 0%, transparent 60%)",
+              animation: "floatOrb 8s ease-in-out infinite",
+            }}
+          />
+          <div
+            className="absolute"
+            style={{
+              top: 100, right: "25%", width: 400, height: 400,
+              background: "radial-gradient(circle, rgba(6,182,212,0.05) 0%, transparent 60%)",
+              animation: "floatOrb 10s ease-in-out infinite reverse",
+            }}
           />
         </div>
 
-        <div className="relative max-w-4xl mx-auto text-center">
+        <div className="relative z-10 max-w-4xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45 }}
-            className="mb-6"
+            transition={{ duration: 0.5 }}
+            className="inline-flex items-center gap-2 px-5 py-2 rounded-full mb-8 text-sm font-semibold"
+            style={{
+              background: "rgba(16,185,129,0.08)",
+              border: "1px solid rgba(16,185,129,0.2)",
+              color: "#10b981",
+            }}
           >
-            <Badge
-              variant="secondary"
-              className="text-xs px-3 py-1.5 gap-1.5 border border-primary/20 bg-primary/8"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
-              {t.hero.badge}
-            </Badge>
+            🔒 {t.hero.badge}
           </motion.div>
 
           <motion.h1
-            className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight mb-6 leading-[1.05]"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
+            className="font-extrabold tracking-tight mb-3 leading-[1.08]"
+            style={{ fontSize: "clamp(36px, 6vw, 72px)", letterSpacing: "-0.04em" }}
           >
             <span className="block">{t.hero.headline1}</span>
-            <span className="block bg-gradient-to-r from-primary via-blue-400 to-violet-500 bg-clip-text text-transparent">
+            <span
+              className="block"
+              style={{
+                background: "linear-gradient(135deg, #6c5ce7 0%, #a78bfa 40%, #06b6d4 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+              }}
+            >
               {t.hero.headline2}
             </span>
-            <span className="block">{t.hero.headline3}</span>
+            <span className="block text-muted-foreground" style={{ fontSize: "clamp(28px, 4.5vw, 56px)" }}>
+              {t.hero.headline3}
+            </span>
           </motion.h1>
 
           <motion.p
-            className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto mb-8 leading-relaxed"
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
+            className="text-muted-foreground max-w-[580px] mx-auto mt-5 mb-10 leading-relaxed"
+            style={{ fontSize: 18 }}
           >
             {t.hero.sub}
           </motion.p>
 
           <motion.div
-            className="flex flex-wrap items-center justify-center gap-3 mb-12"
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
+            className="flex gap-3.5 justify-center flex-wrap"
           >
-            <Button
-              size="lg"
-              className="shadow-xl shadow-primary/30 gap-2 text-sm px-6 h-11"
-              asChild
-            >
-              <Link href="/tools/merge-pdf">
-                {t.hero.startFree}
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            </Button>
-            <Button size="lg" variant="outline" className="text-sm px-6 h-11" asChild>
-              <Link href="/pricing">{t.hero.viewPro}</Link>
-            </Button>
-          </motion.div>
-
-          <motion.div
-            className="flex flex-wrap items-center justify-center gap-6"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.5 }}
-          >
-            {[
-              { icon: Lock, text: t.hero.feat1 },
-              { icon: Zap, text: t.hero.feat2 },
-              { icon: WifiOff, text: t.hero.feat3 },
-            ].map(({ icon: Icon, text }) => (
-              <div key={text} className="flex items-center gap-2 text-sm text-muted-foreground">
-                <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Icon className="w-3 h-3 text-primary" />
-                </div>
-                {text}
-              </div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      <section className="py-8 border-y border-border/30">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-            {stats.map((stat, i) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.08 }}
-              >
-                <div
-                  className="text-3xl md:text-4xl font-black bg-gradient-to-r from-primary to-violet-400 bg-clip-text text-transparent mb-1"
-                  data-testid={`stat-value-${i}`}
-                >
-                  {stat.value}
-                </div>
-                <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{stat.label}</div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="py-16 px-4 sm:px-6">
-        <div className="max-w-7xl mx-auto">
-          <motion.div
-            className="text-center mb-10"
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <h2 className="text-2xl md:text-3xl font-bold mb-2">{t.tools.title}</h2>
-            <p className="text-sm text-muted-foreground">{t.tools.sub}</p>
-          </motion.div>
-
-          <div className="flex flex-wrap gap-2 justify-center mb-8">
             <Link
-              href="/"
-              className={cn(
-                "px-4 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150",
-                activeCategory === "all"
-                  ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/25"
-                  : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
-              )}
-              data-testid="filter-all"
+              href="/#tools"
+              className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl font-semibold text-white transition-all duration-250"
+              style={{
+                background: "linear-gradient(135deg, #6c5ce7, #8b5cf6)",
+                boxShadow: "0 4px 24px rgba(108,92,231,0.35)",
+                fontSize: 16,
+              }}
+              data-testid="button-start-free"
             >
-              {t.tools.allTools}
+              {t.hero.startFree} →
             </Link>
-            {categories.map((cat) => (
-              <Link
-                key={cat.id}
-                href={`/?category=${cat.id}`}
-                className={cn(
-                  "px-4 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150",
-                  activeCategory === cat.id
-                    ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/25"
-                    : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                )}
-                data-testid={`filter-${cat.id}`}
-              >
-                {cat.label}
-              </Link>
-            ))}
-          </div>
-
-          <motion.div
-            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"
-            layout
-          >
-            {filteredTools.map((tool, i) => (
-              <motion.div
-                key={tool.slug}
-                initial={{ opacity: 0, scale: 0.96 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.015 }}
-                layout
-              >
-                <ToolCard tool={tool} />
-              </motion.div>
-            ))}
+            <Link
+              href="/pricing"
+              className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl font-semibold transition-all duration-250 border text-muted-foreground hover:text-foreground"
+              style={{ fontSize: 16 }}
+              data-testid="button-view-pro"
+            >
+              {t.hero.viewPro}
+            </Link>
           </motion.div>
         </div>
       </section>
 
-      <section className="py-16 px-4 sm:px-6 border-y border-border/30">
-        <div className="max-w-5xl mx-auto">
-          <motion.div
-            className="text-center mb-10"
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <h2 className="text-2xl md:text-3xl font-bold mb-2">{t.why.title}</h2>
-            <p className="text-sm text-muted-foreground">{t.why.sub}</p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-5">
-            {[
-              {
-                icon: Shield,
-                title: t.why.privateTitle,
-                description: t.why.privateDesc,
-                gradient: "from-emerald-500/10 to-emerald-500/5",
-                iconColor: "text-emerald-400",
-                iconBg: "bg-emerald-500/15",
-                glow: "shadow-emerald-500/10",
-              },
-              {
-                icon: Cpu,
-                title: t.why.fastTitle,
-                description: t.why.fastDesc,
-                gradient: "from-yellow-500/10 to-yellow-500/5",
-                iconColor: "text-yellow-400",
-                iconBg: "bg-yellow-500/15",
-                glow: "shadow-yellow-500/10",
-              },
-              {
-                icon: WifiOff,
-                title: t.why.offlineTitle,
-                description: t.why.offlineDesc,
-                gradient: "from-blue-500/10 to-blue-500/5",
-                iconColor: "text-blue-400",
-                iconBg: "bg-blue-500/15",
-                glow: "shadow-blue-500/10",
-              },
-            ].map((feature, i) => (
-              <motion.div
-                key={feature.title}
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className={cn(
-                  "flex flex-col gap-4 p-6 rounded-md border border-card-border bg-gradient-to-br shadow-xl",
-                  feature.gradient, feature.glow
-                )}
-              >
-                <div className={cn("w-10 h-10 rounded-md flex items-center justify-center", feature.iconBg)}>
-                  <feature.icon className={cn("w-5 h-5", feature.iconColor)} />
-                </div>
-                <div>
-                  <h3 className="font-bold text-base mb-2">{feature.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{feature.description}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="py-16 px-4 sm:px-6 bg-gradient-to-b from-transparent to-muted/10">
-        <div className="max-w-2xl mx-auto">
-          <motion.div
-            className="text-center mb-10"
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <h2 className="text-2xl md:text-3xl font-bold mb-2">{t.faq.title}</h2>
-          </motion.div>
-          <div className="flex flex-col gap-2">
-            {faqs.map((faq, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 8 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.06 }}
-                className="rounded-md border border-border bg-card overflow-hidden"
-                data-testid={`faq-item-${i}`}
-              >
-                <button
-                  className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left"
-                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                  data-testid={`faq-toggle-${i}`}
-                >
-                  <span className="font-semibold text-sm">{faq.q}</span>
-                  {openFaq === i ? (
-                    <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
-                  )}
-                </button>
-                {openFaq === i && (
-                  <div className="px-5 pb-4 text-sm text-muted-foreground border-t border-border/50 pt-3 leading-relaxed">
-                    {faq.a}
-                  </div>
-                )}
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="py-16 px-4 sm:px-6">
-        <div className="max-w-3xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="relative overflow-hidden rounded-md border border-primary/20 p-10 text-center"
-            style={{
-              background: "radial-gradient(ellipse at center, rgba(59,130,246,0.12) 0%, transparent 70%)",
-            }}
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-transparent to-violet-500/8 pointer-events-none" />
-            <div className="relative">
-              <div className="flex justify-center gap-0.5 mb-5">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="w-5 h-5 text-yellow-400 fill-yellow-400" />
-                ))}
-              </div>
-              <h2 className="text-2xl md:text-3xl font-bold mb-3">{t.cta.title}</h2>
-              <p className="text-muted-foreground mb-7 max-w-md mx-auto">{t.cta.sub}</p>
-              <Button size="lg" className="shadow-xl shadow-primary/30 gap-2 px-8" asChild>
-                <Link href="/pricing">
-                  {t.cta.btn}
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
-              </Button>
+      {/* ─── STATS ─── */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.4 }}
+        className="flex justify-center gap-[60px] flex-wrap pb-20 px-6"
+      >
+        {stats.map((stat) => (
+          <div key={stat.label} className="text-center" data-testid={`stat-${stat.label}`}>
+            <div className="font-black leading-none mb-1" style={{ fontSize: 36, letterSpacing: "-0.03em", color: stat.color }}>
+              {stat.value}
             </div>
-          </motion.div>
+            <div className="text-muted-foreground font-medium uppercase tracking-widest" style={{ fontSize: 12 }}>
+              {stat.label}
+            </div>
+          </div>
+        ))}
+      </motion.div>
+
+      {/* ─── FEATURE CHIPS ─── */}
+      <div className="flex justify-center gap-8 flex-wrap pb-20 px-6">
+        {featureChips.map((chip) => (
+          <div
+            key={chip.text}
+            className="flex items-center gap-2.5 px-5 py-3 rounded-xl border text-muted-foreground font-medium"
+            style={{ fontSize: 14, background: "rgba(255,255,255,0.02)" }}
+          >
+            <span style={{ fontSize: 18 }}>{chip.icon}</span>
+            {chip.text}
+          </div>
+        ))}
+      </div>
+
+      {/* ─── TOOLS ─── */}
+      <section className="max-w-[1200px] mx-auto px-6 pb-20" id="tools">
+        <div className="text-center mb-12">
+          <h2 className="font-extrabold mb-3" style={{ fontSize: "clamp(24px, 3.5vw, 38px)", letterSpacing: "-0.03em" }}>
+            {t.tools.title}
+          </h2>
+          <p className="text-muted-foreground max-w-[500px] mx-auto" style={{ fontSize: 16 }}>
+            {t.tools.sub}
+          </p>
+        </div>
+
+        {/* Category pills */}
+        <div className="flex justify-center gap-2 flex-wrap mb-10">
+          <Link
+            href="/"
+            className={cn(
+              "px-4 py-2 rounded-[10px] text-xs font-semibold border transition-all duration-200",
+              activeCategory === "all"
+                ? "border-[#6c5ce7] text-[#a78bfa]"
+                : "border-border text-muted-foreground hover:border-[#6c5ce7]/50 hover:text-[#a78bfa]"
+            )}
+            style={{ background: activeCategory === "all" ? "rgba(108,92,231,0.1)" : undefined }}
+            data-testid="filter-all"
+          >
+            {t.tools.allTools}
+          </Link>
+          {categories.map((cat) => (
+            <Link
+              key={cat.id}
+              href={`/?category=${cat.id}`}
+              className={cn(
+                "px-4 py-2 rounded-[10px] text-xs font-semibold border transition-all duration-200",
+                activeCategory === cat.id
+                  ? "border-[#6c5ce7] text-[#a78bfa]"
+                  : "border-border text-muted-foreground hover:border-[#6c5ce7]/50 hover:text-[#a78bfa]"
+              )}
+              style={{ background: activeCategory === cat.id ? "rgba(108,92,231,0.1)" : undefined }}
+              data-testid={`filter-${cat.id}`}
+            >
+              {cat.label}
+            </Link>
+          ))}
+        </div>
+
+        <motion.div
+          className="grid gap-3.5"
+          style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}
+          layout
+        >
+          {filteredTools.map((tool, i) => (
+            <motion.div
+              key={tool.slug}
+              initial={{ opacity: 0, scale: 0.96 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.015 }}
+              layout
+            >
+              <ToolCard tool={tool} />
+            </motion.div>
+          ))}
+        </motion.div>
+      </section>
+
+      {/* ─── AI SECTION ─── */}
+      <section className="max-w-[1000px] mx-auto px-6 pb-20">
+        <div
+          className="relative overflow-hidden rounded-3xl p-[60px] border"
+          style={{ background: "rgba(255,255,255,0.02)" }}
+        >
+          <div
+            className="pointer-events-none absolute"
+            style={{
+              top: "-50%", right: "-20%", width: 500, height: 500,
+              background: "radial-gradient(circle, rgba(108,92,231,0.06) 0%, transparent 60%)",
+            }}
+          />
+          <div className="relative z-10 grid md:grid-cols-2 gap-12 items-center">
+            <div>
+              <h2 className="font-extrabold leading-tight mb-4" style={{ fontSize: 32, letterSpacing: "-0.03em" }}>
+                {lang === "ru" ? (
+                  <>Встроенный <span style={{ background: "linear-gradient(135deg, #a78bfa, #ec4899)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>AI-ассистент</span> для ваших документов</>
+                ) : lang === "de" ? (
+                  <>Integrierter <span style={{ background: "linear-gradient(135deg, #a78bfa, #ec4899)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>KI-Assistent</span> für Ihre Dokumente</>
+                ) : lang === "fr" ? (
+                  <>Assistant <span style={{ background: "linear-gradient(135deg, #a78bfa, #ec4899)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>IA intégré</span> pour vos documents</>
+                ) : lang === "es" ? (
+                  <>Asistente de <span style={{ background: "linear-gradient(135deg, #a78bfa, #ec4899)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>IA integrado</span> para sus documentos</>
+                ) : lang === "zh" ? (
+                  <>内置<span style={{ background: "linear-gradient(135deg, #a78bfa, #ec4899)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>AI助手</span>为您的文档服务</>
+                ) : (
+                  <>Built-in <span style={{ background: "linear-gradient(135deg, #a78bfa, #ec4899)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>AI assistant</span> for your documents</>
+                )}
+              </h2>
+              <p className="text-muted-foreground leading-relaxed mb-6" style={{ fontSize: 15 }}>
+                {lang === "ru"
+                  ? "Загрузите PDF и задайте любой вопрос. AI прочитает документ и ответит за секунды. Идеально для длинных отчётов, договоров и научных статей."
+                  : lang === "de"
+                  ? "Laden Sie eine PDF hoch und stellen Sie eine beliebige Frage. Die KI liest das Dokument und antwortet in Sekunden."
+                  : lang === "fr"
+                  ? "Téléchargez un PDF et posez n'importe quelle question. L'IA lit le document et répond en quelques secondes."
+                  : lang === "es"
+                  ? "Cargue un PDF y haga cualquier pregunta. La IA lee el documento y responde en segundos."
+                  : "Upload a PDF and ask any question. AI reads the document and answers in seconds. Perfect for long reports, contracts, and research papers."}
+              </p>
+              <ul className="flex flex-col gap-3">
+                {[
+                  { color: "#a78bfa", text: lang === "ru" ? "Суммаризация — краткое содержание за 10 секунд" : "Summarization — brief summary in 10 seconds" },
+                  { color: "#06b6d4", text: lang === "ru" ? "Чат с документом — вопрос-ответ по содержимому" : "Chat with document — Q&A on the content" },
+                  { color: "#ec4899", text: lang === "ru" ? "Перевод — 20 языков с сохранением форматирования" : "Translation — 20 languages with formatting preserved" },
+                  { color: "#10b981", text: lang === "ru" ? "OCR — распознавание текста со сканов" : "OCR — text recognition from scans" },
+                ].map((item) => (
+                  <li key={item.text} className="flex items-center gap-2.5 text-muted-foreground" style={{ fontSize: 14 }}>
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: item.color }} />
+                    {item.text}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div
+              className="rounded-2xl p-6 border font-mono leading-[1.8]"
+              style={{ background: "#0a0a14", fontSize: 13, color: "#8585a0" }}
+            >
+              <div style={{ color: "#a78bfa", marginBottom: 12 }}>📎 договор-аренды.pdf (24 стр.)</div>
+              <div style={{ color: "#a78bfa", marginBottom: 12 }}>→ «Какой срок аренды и штрафы за просрочку?»</div>
+              <div style={{ borderLeft: "2px solid #6c5ce7", paddingLeft: 14, marginTop: 8, color: "#8585a0" }}>
+                Срок аренды: 11 месяцев с 01.03.2026.<br />
+                Штраф за просрочку: 0.1% от суммы за каждый день.<br />
+                Максимальный штраф: 10% от годовой арендной платы.
+                <span
+                  className="inline-block align-middle ml-0.5"
+                  style={{
+                    width: 8, height: 16, background: "#a78bfa",
+                    animation: "blinkCursor 1s step-end infinite",
+                    verticalAlign: "middle",
+                  }}
+                />
+              </div>
+              <div className="mt-4 pt-4 border-t" style={{ borderColor: "#1a1a2e" }}>
+                <span
+                  className="text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded"
+                  style={{ background: "rgba(108,92,231,0.15)", color: "#a78bfa" }}
+                >
+                  PRO
+                </span>
+                <span className="ml-2 text-muted-foreground" style={{ fontSize: 12 }}>
+                  {lang === "ru" ? "Доступно в Pro плане" : "Available in Pro plan"}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
+
+      {/* ─── FINAL CTA ─── */}
+      <section className="text-center px-6 pb-24 relative">
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0"
+          style={{ height: 400, background: "radial-gradient(ellipse at 50% 100%, rgba(108,92,231,0.06) 0%, transparent 70%)" }}
+        />
+        <div className="relative">
+          <h2 className="font-extrabold mb-4" style={{ fontSize: "clamp(28px, 4vw, 44px)", letterSpacing: "-0.03em" }}>
+            {t.cta.title}
+          </h2>
+          <p className="text-muted-foreground mb-8" style={{ fontSize: 16 }}>{t.cta.sub}</p>
+          <Link
+            href="/#tools"
+            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl font-semibold text-white transition-all duration-250"
+            style={{
+              background: "linear-gradient(135deg, #6c5ce7, #8b5cf6)",
+              boxShadow: "0 4px 24px rgba(108,92,231,0.35)",
+              fontSize: 16,
+            }}
+            data-testid="button-cta-tools"
+          >
+            {t.cta.btn} →
+          </Link>
+        </div>
+      </section>
+
+      <style>{`
+        @keyframes floatOrb {
+          0%, 100% { transform: translate(0, 0); }
+          50% { transform: translate(30px, -20px); }
+        }
+        @keyframes blinkCursor {
+          0%, 50% { opacity: 1; }
+          51%, 100% { opacity: 0; }
+        }
+      `}</style>
     </div>
   );
 }
