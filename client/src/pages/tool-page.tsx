@@ -110,6 +110,7 @@ export default function ToolPage() {
   const [freeTextContent, setFreeTextContent] = useState("");
   const [pdfPassword, setPdfPassword] = useState("");
   const [signatureText, setSignatureText] = useState("");
+  const [redactSearchText, setRedactSearchText] = useState("");
   const [resultText, setResultText] = useState<string | null>(null);
   const [resultHtml, setResultHtml] = useState<string | null>(null);
   const [imageScale, setImageScale] = useState<"1" | "2" | "3">("2");
@@ -195,7 +196,7 @@ export default function ToolPage() {
           break;
         }
         case "compress-pdf":
-          result = await compressPdf(files[0], compressionLevel);
+          result = await compressPdf(files[0]);
           break;
         case "watermark-pdf":
           result = await addWatermark(files[0], watermarkText, watermarkOpacity[0]);
@@ -233,7 +234,7 @@ export default function ToolPage() {
           result = await signPdf(files[0], signatureText);
           break;
         case "redact-pdf":
-          result = await redactPdf(files[0]);
+          result = await redactPdf(files[0], redactSearchText);
           break;
         case "word-to-pdf":
           result = await wordToPdf(files[0]);
@@ -284,7 +285,7 @@ export default function ToolPage() {
     pagesToDelete, pagesToExtract, compressionLevel,
     watermarkText, watermarkOpacity, pageNumPosition,
     headerText, footerText, freeTextContent,
-    pdfPassword, signatureText, imageScale, t,
+    pdfPassword, signatureText, redactSearchText, imageScale, lang, t,
   ]);
 
   const handleDownload = useCallback(() => {
@@ -455,25 +456,16 @@ export default function ToolPage() {
               )}
 
               {slug === "compress-pdf" && (
-                <div>
-                  <Label className="text-sm font-medium mb-2 block">{t.tool.compressionLevel}</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(["low", "medium", "high"] as const).map((level) => (
-                      <button
-                        key={level}
-                        onClick={() => setCompressionLevel(level)}
-                        className={cn(
-                          "py-2 px-3 rounded-md text-sm font-medium border transition-all",
-                          compressionLevel === level
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-border text-muted-foreground hover:border-primary/40"
-                        )}
-                        data-testid={`button-compression-${level}`}
-                      >
-                        {level === "low" ? t.tool.compressionLow : level === "medium" ? t.tool.compressionMedium : t.tool.compressionHigh}
-                      </button>
-                    ))}
-                  </div>
+                <div
+                  className="flex items-start gap-3 rounded-lg p-3 text-sm"
+                  style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)" }}
+                >
+                  <span className="mt-0.5 text-emerald-400">✓</span>
+                  <span className="text-slate-300">
+                    {lang === "ru"
+                      ? "Оптимизирует структуру PDF. Если новый файл больше оригинала, возвращается оригинал."
+                      : "Optimises PDF structure with object streams. If the result is larger than the original, the original is returned unchanged."}
+                  </span>
                 </div>
               )}
 
@@ -522,15 +514,16 @@ export default function ToolPage() {
               )}
 
               {slug === "protect-pdf" && (
-                <div>
-                  <Label className="text-sm font-medium mb-1.5 block">{t.tool.password}</Label>
-                  <Input
-                    type="password"
-                    value={pdfPassword}
-                    onChange={(e) => setPdfPassword(e.target.value)}
-                    placeholder={t.tool.passwordPlaceholder}
-                    data-testid="input-pdf-password"
-                  />
+                <div
+                  className="flex items-start gap-3 rounded-lg p-3 text-sm"
+                  style={{ background: "rgba(249,115,22,0.08)", border: "1px solid rgba(249,115,22,0.25)" }}
+                >
+                  <span className="mt-0.5 text-orange-400">⚠</span>
+                  <span className="text-slate-300">
+                    {lang === "ru"
+                      ? "PDF-шифрование в браузере не поддерживается. Используйте Adobe Acrobat, LibreOffice или 7-Zip. Серверное шифрование появится в Pro-плане."
+                      : "Browser-side PDF encryption is not supported. Use Adobe Acrobat, LibreOffice, or 7-Zip to add passwords. Server-side encryption is coming to the Pro plan."}
+                  </span>
                 </div>
               )}
 
@@ -544,6 +537,25 @@ export default function ToolPage() {
                     data-testid="input-signature-text"
                   />
                   <p className="text-xs text-muted-foreground mt-1.5">{t.tool.signatureHint}</p>
+                </div>
+              )}
+
+              {slug === "redact-pdf" && (
+                <div>
+                  <Label className="text-sm font-medium mb-1.5 block">
+                    {lang === "ru" ? "Текст для затирания" : "Text to redact"}
+                  </Label>
+                  <Input
+                    value={redactSearchText}
+                    onChange={(e) => setRedactSearchText(e.target.value)}
+                    placeholder={lang === "ru" ? "например: SECRET-123" : "e.g. SECRET-123"}
+                    data-testid="input-redact-text"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    {lang === "ru"
+                      ? "Страницы с найденным текстом растеризируются — текст нельзя будет извлечь из PDF."
+                      : "Pages containing the text are rasterised — the text cannot be extracted from the output PDF."}
+                  </p>
                 </div>
               )}
 

@@ -153,13 +153,11 @@ export async function addPageNumbers(
   return pdf.save();
 }
 
-export async function compressPdf(
-  file: File,
-  level: "low" | "medium" | "high"
-): Promise<Uint8Array> {
+export async function compressPdf(file: File): Promise<Uint8Array> {
   const bytes = await file.arrayBuffer();
   const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
-  const saved = await pdf.save({ useObjectStreams: level !== "low" });
+  const saved = await pdf.save({ useObjectStreams: true });
+  if (saved.byteLength >= bytes.byteLength) return new Uint8Array(bytes);
   return saved;
 }
 
@@ -283,14 +281,12 @@ export async function flattenPdf(file: File): Promise<Uint8Array> {
   return newPdf.save();
 }
 
-export async function protectPdf(file: File, password: string): Promise<Uint8Array> {
-  if (!password) throw new Error("Please enter a password.");
-  const bytes = await file.arrayBuffer();
-  const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
-  const pdfBytes = await pdf.save();
-  const pdfDoc = await PDFDocument.load(pdfBytes);
-  await (pdfDoc as any).encrypt({ userPassword: password, ownerPassword: password + "_owner" });
-  return pdfDoc.save();
+export async function protectPdf(_file: File, _password: string): Promise<Uint8Array> {
+  throw new Error(
+    "PDF password encryption is not supported in the browser version. " +
+    "Please use Adobe Acrobat, LibreOffice, or a desktop PDF tool to add password protection. " +
+    "This feature is planned for the PDFX Pro server-side release."
+  );
 }
 
 export async function unlockPdf(file: File): Promise<Uint8Array> {
@@ -330,20 +326,77 @@ export async function signPdf(file: File, signatureText: string, color: [number,
   return pdf.save();
 }
 
-export async function redactPdf(file: File, pageNum: number = 1): Promise<Uint8Array> {
-  const bytes = await file.arrayBuffer();
-  const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
-  const pages = pdf.getPages();
-  const page = pages[Math.min(pageNum - 1, pages.length - 1)];
-  const { width, height } = page.getSize();
-  page.drawRectangle({
-    x: width * 0.1,
-    y: height * 0.45,
-    width: width * 0.8,
-    height: height * 0.1,
-    color: rgb(0, 0, 0),
-  });
-  return pdf.save();
+export async function redactPdf(file: File, searchText: string): Promise<Uint8Array> {
+  if (!searchText.trim()) {
+    throw new Error("Please enter the text you want to redact.");
+  }
+
+  const arrayBuffer = await file.arrayBuffer();
+  const pdfjs = await import("pdfjs-dist");
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+    "pdfjs-dist/build/pdf.worker.mjs",
+    import.meta.url
+  ).href;
+
+  const pdfjsDoc = await pdfjs.getDocument({ data: arrayBuffer.slice(0) }).promise;
+  const pdfLib = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+  const resultPdf = await PDFDocument.create();
+
+  const searchLower = searchText.trim().toLowerCase();
+
+  for (let pageIndex = 0; pageIndex < pdfjsDoc.numPages; pageIndex++) {
+    const page = await pdfjsDoc.getPage(pageIndex + 1);
+    const textContent = await page.getTextContent();
+    const RENDER_SCALE = 2;
+    const viewport = page.getViewport({ scale: RENDER_SCALE });
+
+    const matchingItems = textContent.items.filter(
+      (item: any) => item.str && item.str.toLowerCase().includes(searchLower)
+    );
+
+    if (matchingItems.length === 0) {
+      const [copied] = await resultPdf.copyPages(pdfLib, [pageIndex]);
+      resultPdf.addPage(copied);
+      continue;
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(viewport.width);
+    canvas.height = Math.round(viewport.height);
+    const ctx = canvas.getContext("2d")!;
+
+    await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+
+    ctx.fillStyle = "#000000";
+    for (const item of matchingItems) {
+      const it = item as any;
+      if (!it.transform) continue;
+      const [, , , , tx, ty] = it.transform;
+      const pt = viewport.convertToViewportPoint(tx, ty);
+      const fontHeight = Math.abs(it.transform[3]) * RENDER_SCALE;
+      const textW = (it.width || 0) * RENDER_SCALE;
+      ctx.fillRect(
+        Math.floor(pt[0]) - 1,
+        Math.floor(pt[1]) - fontHeight - 1,
+        Math.ceil(textW) + 4,
+        Math.ceil(fontHeight) + 4
+      );
+    }
+
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+    const base64 = dataUrl.split(",")[1];
+    const binaryStr = atob(base64);
+    const imgBytes = new Uint8Array(binaryStr.length);
+    for (let j = 0; j < binaryStr.length; j++) imgBytes[j] = binaryStr.charCodeAt(j);
+
+    const img = await resultPdf.embedJpg(imgBytes);
+    const origPage = pdfLib.getPage(pageIndex);
+    const { width, height } = origPage.getSize();
+    const newPage = resultPdf.addPage([width, height]);
+    newPage.drawImage(img, { x: 0, y: 0, width, height });
+  }
+
+  return resultPdf.save();
 }
 
 export async function wordToPdf(file: File): Promise<Uint8Array> {

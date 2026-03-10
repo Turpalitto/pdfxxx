@@ -171,7 +171,7 @@ export const tools: Tool[] = [
     emoji: "📑",
     category: "convert-to",
     color: "indigo",
-    accept: ".docx,.doc",
+    accept: ".docx",
     outputExt: "pdf",
   },
   {
@@ -182,7 +182,7 @@ export const tools: Tool[] = [
     emoji: "🗃️",
     category: "convert-to",
     color: "orange",
-    accept: ".jpg,.jpeg,.png,.webp",
+    accept: ".jpg,.jpeg,.png",
     multiple: true,
     outputExt: "pdf",
   },
@@ -245,7 +245,7 @@ export const tools: Tool[] = [
   {
     slug: "delete-pages",
     name: "Delete Pages",
-    description: "Remove specific pages from a PDF using a visual page selector.",
+    description: "Remove specific pages from a PDF by entering the page numbers to delete.",
     icon: Trash2,
     emoji: "🗑️",
     category: "organize",
@@ -256,7 +256,7 @@ export const tools: Tool[] = [
   {
     slug: "reorder-pages",
     name: "Reorder Pages",
-    description: "Drag and drop PDF pages into any order you need.",
+    description: "Rearrange PDF pages into any order by specifying a new page sequence.",
     icon: ArrowUpDown,
     emoji: "↕️",
     category: "organize",
@@ -278,7 +278,7 @@ export const tools: Tool[] = [
   {
     slug: "protect-pdf",
     name: "Protect PDF",
-    description: "Add AES-256 password encryption to protect your PDF files.",
+    description: "Add password protection to your PDF files (server-side processing — coming to Pro).",
     icon: Lock,
     emoji: "🔐",
     category: "security",
@@ -300,7 +300,7 @@ export const tools: Tool[] = [
   {
     slug: "sign-pdf",
     name: "Sign PDF",
-    description: "Draw your signature or upload an image and place it on your PDF.",
+    description: "Add a text signature to the last page of your PDF with custom color styling.",
     icon: PenLine,
     emoji: "✍️",
     category: "security",
