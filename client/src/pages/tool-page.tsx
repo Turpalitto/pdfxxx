@@ -39,7 +39,20 @@ import {
   imagesToPdf,
   textToPdf,
   addHeaderFooter,
+  repairPdf,
+  flattenPdf,
+  protectPdf,
+  unlockPdf,
+  signPdf,
+  redactPdf,
+  wordToPdf,
+  pdfToText,
+  pdfToImages,
+  pdfToHtml,
+  pdfImagesAsZip,
   downloadBlob,
+  downloadText,
+  downloadHtml,
   formatBytes,
 } from "@/lib/pdf-utils";
 import { cn } from "@/lib/utils";
@@ -72,6 +85,11 @@ export default function ToolPage() {
   const [headerText, setHeaderText] = useState("");
   const [footerText, setFooterText] = useState("");
   const [freeTextContent, setFreeTextContent] = useState("");
+  const [pdfPassword, setPdfPassword] = useState("");
+  const [signatureText, setSignatureText] = useState("");
+  const [resultText, setResultText] = useState<string | null>(null);
+  const [resultHtml, setResultHtml] = useState<string | null>(null);
+  const [imageScale, setImageScale] = useState<"1" | "2" | "3">("2");
 
   const handleFiles = useCallback(
     (newFiles: File[]) => {
@@ -97,6 +115,8 @@ export default function ToolPage() {
     setError(null);
     setResultBytes(null);
     setResultSize(null);
+    setResultText(null);
+    setResultHtml(null);
   }, []);
 
   const process = useCallback(async () => {
@@ -174,23 +194,58 @@ export default function ToolPage() {
         case "pdf-header-footer":
           result = await addHeaderFooter(files[0], headerText, footerText);
           break;
-        case "flatten-pdf":
         case "repair-pdf":
-        case "word-to-pdf":
-        case "pdf-to-word":
-        case "pdf-to-excel":
-        case "pdf-to-html":
-        case "protect-pdf":
-        case "unlock-pdf":
-        case "sign-pdf":
-        case "redact-pdf":
-        case "ocr-pdf":
-        case "handwriting-to-text":
-        default:
-          await new Promise((r) => setTimeout(r, 1500));
-          const bytes = await files[0].arrayBuffer();
-          result = new Uint8Array(bytes);
+          result = await repairPdf(files[0]);
           break;
+        case "flatten-pdf":
+          result = await flattenPdf(files[0]);
+          break;
+        case "protect-pdf":
+          result = await protectPdf(files[0], pdfPassword);
+          break;
+        case "unlock-pdf":
+          result = await unlockPdf(files[0]);
+          break;
+        case "sign-pdf":
+          result = await signPdf(files[0], signatureText);
+          break;
+        case "redact-pdf":
+          result = await redactPdf(files[0]);
+          break;
+        case "word-to-pdf":
+          result = await wordToPdf(files[0]);
+          break;
+        case "excel-to-pdf":
+          throw new Error("Excel to PDF conversion requires cloud processing. Available in Pro plan.");
+        case "pdf-to-word":
+          throw new Error("PDF to Word conversion requires cloud processing. Available in Pro plan.");
+        case "pdf-to-excel":
+          throw new Error("PDF to Excel conversion requires cloud processing. Available in Pro plan.");
+        case "pdf-to-text": {
+          const text = await pdfToText(files[0]);
+          setResultText(text);
+          result = new Uint8Array(new TextEncoder().encode(text));
+          break;
+        }
+        case "pdf-to-html": {
+          const html = await pdfToHtml(files[0]);
+          setResultHtml(html);
+          result = new Uint8Array(new TextEncoder().encode(html));
+          break;
+        }
+        case "pdf-to-jpg":
+        case "pdf-to-png": {
+          const fmt = slug === "pdf-to-jpg" ? "jpg" : "png";
+          const scale = parseInt(imageScale) || 2;
+          const images = await pdfToImages(files[0], fmt, scale);
+          const origName = files[0].name.replace(/\.[^.]+$/, "");
+          result = await pdfImagesAsZip(images, fmt, origName);
+          break;
+        }
+        case "ocr-pdf":
+          throw new Error("OCR processing requires cloud infrastructure. Available in Pro plan.");
+        default:
+          throw new Error(`Tool "${slug}" is not yet implemented.`);
       }
 
       setProgress(100);
@@ -206,13 +261,27 @@ export default function ToolPage() {
     pagesToDelete, pagesToExtract, compressionLevel,
     watermarkText, watermarkOpacity, pageNumPosition,
     headerText, footerText, freeTextContent,
+    pdfPassword, signatureText, imageScale,
   ]);
 
   const handleDownload = useCallback(() => {
-    if (!resultBytes || !tool) return;
+    if (!tool) return;
     const origName = files[0]?.name?.replace(/\.[^.]+$/, "") || "output";
+    if (resultText !== null && (slug === "pdf-to-text")) {
+      downloadText(resultText, `${origName}-pdfx.txt`);
+      return;
+    }
+    if (resultHtml !== null && slug === "pdf-to-html") {
+      downloadHtml(resultHtml, `${origName}-pdfx.html`);
+      return;
+    }
+    if (!resultBytes) return;
+    if (slug === "pdf-to-jpg" || slug === "pdf-to-png") {
+      downloadBlob(resultBytes, `${origName}-pdfx-images.zip`, "application/zip");
+      return;
+    }
     downloadBlob(resultBytes, `${origName}-pdfx.${tool.outputExt || "pdf"}`);
-  }, [resultBytes, files, tool]);
+  }, [resultBytes, resultText, resultHtml, files, tool, slug]);
 
   if (!tool) {
     return (
@@ -422,6 +491,49 @@ export default function ToolPage() {
                       <SelectItem value="top-center">Top Center</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              )}
+
+              {slug === "protect-pdf" && (
+                <div>
+                  <Label className="text-sm font-medium mb-1.5 block">Password</Label>
+                  <Input
+                    type="password"
+                    value={pdfPassword}
+                    onChange={(e) => setPdfPassword(e.target.value)}
+                    placeholder="Enter a strong password"
+                    data-testid="input-pdf-password"
+                  />
+                </div>
+              )}
+
+              {slug === "sign-pdf" && (
+                <div>
+                  <Label className="text-sm font-medium mb-1.5 block">Signature text</Label>
+                  <Input
+                    value={signatureText}
+                    onChange={(e) => setSignatureText(e.target.value)}
+                    placeholder="Your Name"
+                    data-testid="input-signature-text"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1.5">Will be placed in the bottom-right of the last page.</p>
+                </div>
+              )}
+
+              {(slug === "pdf-to-jpg" || slug === "pdf-to-png") && (
+                <div>
+                  <Label className="text-sm font-medium mb-1.5 block">Quality / Scale</Label>
+                  <Select value={imageScale} onValueChange={(v) => setImageScale(v as any)} data-testid="select-image-scale">
+                    <SelectTrigger data-testid="select-image-scale-trigger">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Standard (72 DPI)</SelectItem>
+                      <SelectItem value="2">High (150 DPI)</SelectItem>
+                      <SelectItem value="3">Ultra (300 DPI)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1.5">Output: ZIP file containing one image per page.</p>
                 </div>
               )}
 
