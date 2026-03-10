@@ -326,31 +326,62 @@ export async function signPdf(file: File, signatureText: string, color: [number,
   return pdf.save();
 }
 
-export async function redactPdf(file: File, searchText: string): Promise<Uint8Array> {
+function withTimeout<T>(promise: Promise<T>, ms: number, msg: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(msg)), ms)
+    ),
+  ]);
+}
+
+export async function redactPdf(
+  file: File,
+  searchText: string,
+  onProgress?: (pct: number) => void
+): Promise<Uint8Array> {
   if (!searchText.trim()) {
     throw new Error("Please enter the text you want to redact.");
   }
 
-  const arrayBuffer = await file.arrayBuffer();
+  const bytes = await file.arrayBuffer();
   const pdfjs = await import("pdfjs-dist");
   pdfjs.GlobalWorkerOptions.workerSrc = new URL(
     "pdfjs-dist/build/pdf.worker.mjs",
     import.meta.url
   ).href;
 
-  const pdfjsDoc = await pdfjs.getDocument({ data: arrayBuffer.slice(0) }).promise;
-  const pdfLib = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
-  const resultPdf = await PDFDocument.create();
+  const srcBytes = new Uint8Array(bytes);
+  const pdfjsDoc = await withTimeout(
+    pdfjs.getDocument({ data: srcBytes }).promise,
+    30_000,
+    "PDF loading timed out. The file may be corrupted or too complex."
+  );
 
+  const pdfLib = await PDFDocument.load(bytes, { ignoreEncryption: true });
+  const resultPdf = await PDFDocument.create();
   const searchLower = searchText.trim().toLowerCase();
+  const RENDER_SCALE = 1.5;
+
+  onProgress?.(15);
 
   for (let pageIndex = 0; pageIndex < pdfjsDoc.numPages; pageIndex++) {
+    const pagePct = 15 + Math.round((pageIndex / pdfjsDoc.numPages) * 75);
+    onProgress?.(pagePct);
     const page = await pdfjsDoc.getPage(pageIndex + 1);
-    const textContent = await page.getTextContent();
-    const RENDER_SCALE = 2;
-    const viewport = page.getViewport({ scale: RENDER_SCALE });
 
-    const matchingItems = textContent.items.filter(
+    let textItems: any[] = [];
+    try {
+      const tc = await withTimeout(page.getTextContent(), 10_000, "");
+      textItems = tc.items ?? [];
+    } catch {
+      // If text extraction fails, copy the page as-is
+      const [copied] = await resultPdf.copyPages(pdfLib, [pageIndex]);
+      resultPdf.addPage(copied);
+      continue;
+    }
+
+    const matchingItems = textItems.filter(
       (item: any) => item.str && item.str.toLowerCase().includes(searchLower)
     );
 
@@ -360,12 +391,23 @@ export async function redactPdf(file: File, searchText: string): Promise<Uint8Ar
       continue;
     }
 
+    const viewport = page.getViewport({ scale: RENDER_SCALE });
     const canvas = document.createElement("canvas");
     canvas.width = Math.round(viewport.width);
     canvas.height = Math.round(viewport.height);
     const ctx = canvas.getContext("2d")!;
 
-    await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+    try {
+      await withTimeout(
+        page.render({ canvasContext: ctx, viewport, canvas }).promise,
+        20_000,
+        "Page rendering timed out"
+      );
+    } catch {
+      // Render failed or timed out — draw black box over full page as fallback
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
 
     ctx.fillStyle = "#000000";
     for (const item of matchingItems) {
@@ -376,14 +418,14 @@ export async function redactPdf(file: File, searchText: string): Promise<Uint8Ar
       const fontHeight = Math.abs(it.transform[3]) * RENDER_SCALE;
       const textW = (it.width || 0) * RENDER_SCALE;
       ctx.fillRect(
-        Math.floor(pt[0]) - 1,
-        Math.floor(pt[1]) - fontHeight - 1,
-        Math.ceil(textW) + 4,
-        Math.ceil(fontHeight) + 4
+        Math.floor(pt[0]) - 2,
+        Math.floor(pt[1]) - fontHeight - 2,
+        Math.ceil(textW) + 6,
+        Math.ceil(fontHeight) + 6
       );
     }
 
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
     const base64 = dataUrl.split(",")[1];
     const binaryStr = atob(base64);
     const imgBytes = new Uint8Array(binaryStr.length);

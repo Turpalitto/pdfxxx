@@ -156,13 +156,13 @@ export default function ToolPage() {
     try {
       let result: Uint8Array | null = null;
       const simulateProgress = (start: number, end: number) => {
-        const steps = 5;
+        const steps = 8;
         const step = (end - start) / steps;
         for (let i = 1; i <= steps; i++) {
-          setTimeout(() => setProgress(start + step * i), i * 100);
+          setTimeout(() => setProgress(start + Math.round(step * i)), i * 200);
         }
       };
-      simulateProgress(10, 80);
+      if (slug !== "redact-pdf") simulateProgress(10, 85);
 
       switch (slug) {
         case "merge-pdf":
@@ -234,7 +234,7 @@ export default function ToolPage() {
           result = await signPdf(files[0], signatureText);
           break;
         case "redact-pdf":
-          result = await redactPdf(files[0], redactSearchText);
+          result = await redactPdf(files[0], redactSearchText, setProgress);
           break;
         case "word-to-pdf":
           result = await wordToPdf(files[0]);
@@ -285,7 +285,7 @@ export default function ToolPage() {
     pagesToDelete, pagesToExtract, compressionLevel,
     watermarkText, watermarkOpacity, pageNumPosition,
     headerText, footerText, freeTextContent,
-    pdfPassword, signatureText, redactSearchText, imageScale, lang, t,
+    pdfPassword, signatureText, redactSearchText, imageScale, lang, t, setProgress,
   ]);
 
   const handleDownload = useCallback(() => {
@@ -610,7 +610,14 @@ export default function ToolPage() {
                       className="flex items-center gap-3"
                     >
                       <ProgressRing progress={progress} size={48} />
-                      <span className="text-sm text-muted-foreground">{t.tool.processing}</span>
+                      <div>
+                        <span className="text-sm text-muted-foreground block">{t.tool.processing}</span>
+                        {slug === "redact-pdf" && (
+                          <span className="text-xs text-slate-500">
+                            {lang === "ru" ? "Для многостраничных PDF это может занять минуту…" : "Multi-page PDFs may take a minute…"}
+                          </span>
+                        )}
+                      </div>
                     </motion.div>
                   ) : state === "done" ? (
                     <motion.div
