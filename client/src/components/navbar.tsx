@@ -1,15 +1,14 @@
 import { Link, useLocation } from "wouter";
-import { Sun, Moon, Menu, X, FileText, ChevronDown, Globe } from "lucide-react";
+import { Menu, X, FileText, ChevronDown, Globe, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useTheme } from "@/lib/theme";
 import { useLang } from "@/lib/lang-context";
 import { LANGUAGES, type LangCode } from "@/lib/i18n";
 import { useState, useRef, useEffect } from "react";
 import { categories } from "@/lib/tools";
+import { getCategoryLabel } from "@/lib/tools";
 import { cn } from "@/lib/utils";
 
 export function Navbar() {
-  const { theme, toggleTheme } = useTheme();
   const { lang, setLang, t } = useLang();
   const [menuOpen, setMenuOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
@@ -30,21 +29,34 @@ export function Navbar() {
   const currentLang = LANGUAGES.find((l) => l.code === lang) || LANGUAGES[0];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/75 backdrop-blur-2xl">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+    <header
+      className="sticky top-0 z-50 w-full"
+      style={{
+        background: "rgba(13,15,30,0.82)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+        borderBottom: "1px solid rgba(255,255,255,0.07)",
+      }}
+    >
+      <div className="max-w-7xl mx-auto px-5 sm:px-8 h-[58px] flex items-center justify-between gap-4">
+        {/* Logo */}
         <Link href="/" className="flex items-center gap-2 shrink-0 group">
-          <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center shadow-md shadow-primary/40 group-hover:shadow-primary/60 transition-shadow">
-            <FileText className="w-3.5 h-3.5 text-primary-foreground" />
+          <div
+            className="w-7 h-7 rounded-lg flex items-center justify-center shadow-lg transition-shadow group-hover:shadow-primary/50"
+            style={{ background: "linear-gradient(135deg, #4f8ef7, #6c5ce7)", boxShadow: "0 2px 10px rgba(108,92,231,0.4)" }}
+          >
+            <FileText className="w-3.5 h-3.5 text-white" />
           </div>
-          <span className="font-bold text-base tracking-tight">
-            PDF<span className="text-primary">X</span>
+          <span className="font-bold text-base tracking-tight text-foreground">
+            PDF<span style={{ color: "#6c5ce7" }}>X</span>
           </span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-0.5">
+        {/* Desktop nav */}
+        <nav className="hidden md:flex items-center gap-1">
           <div ref={toolsRef} className="relative">
             <button
-              className="flex items-center gap-1 px-3 py-1.5 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors"
+              className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
               data-testid="nav-tools"
               onClick={() => setToolsOpen((v) => !v)}
             >
@@ -52,41 +64,57 @@ export function Navbar() {
               <ChevronDown className={cn("w-3 h-3 opacity-60 transition-transform", toolsOpen && "rotate-180")} />
             </button>
             {toolsOpen && (
-              <div className="absolute top-full left-0 mt-1.5 w-52 rounded-md border border-border bg-popover/95 backdrop-blur-xl shadow-xl z-50">
-                <div className="p-1">
+              <div
+                className="absolute top-full left-0 mt-2 w-56 rounded-xl z-50 overflow-hidden"
+                style={{ background: "rgba(15,17,35,0.97)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 20px 60px rgba(0,0,0,0.6)" }}
+              >
+                <div className="p-1.5">
                   {categories.map((cat) => (
                     <Link
                       key={cat.id}
                       href={`/?category=${cat.id}`}
-                      className="block px-3 py-2 text-sm rounded-sm text-popover-foreground hover:bg-accent/70 transition-colors"
+                      className="flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg text-foreground/80 hover:text-foreground hover:bg-white/6 transition-colors"
                       onClick={() => setToolsOpen(false)}
+                      data-testid={`nav-category-${cat.id}`}
                     >
-                      {cat.label}
+                      {getCategoryLabel(cat.id, lang)}
                     </Link>
                   ))}
                 </div>
               </div>
             )}
           </div>
+
           <Link
             href="/pricing"
             className={cn(
-              "px-3 py-1.5 rounded-md text-sm transition-colors",
+              "px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors",
               location === "/pricing"
-                ? "text-foreground font-medium"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
+                ? "text-foreground bg-white/6"
+                : "text-muted-foreground hover:text-foreground hover:bg-white/5"
             )}
             data-testid="nav-pricing"
           >
-            {t.nav.pricing}
+            {lang === "ru" ? "Возможности" : lang === "de" ? "Preise" : lang === "fr" ? "Tarifs" : lang === "es" ? "Precios" : lang === "zh" ? "价格" : lang === "ja" ? "料金" : "Features"}
+          </Link>
+
+          <Link
+            href="/#ai-section"
+            className="px-3.5 py-1.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors flex items-center gap-1.5"
+            data-testid="nav-ai"
+          >
+            <Sparkles className="w-3 h-3" style={{ color: "#a78bfa" }} />
+            AI
           </Link>
         </nav>
 
-        <div className="flex items-center gap-1.5">
+        {/* Right side */}
+        <div className="flex items-center gap-2">
+          {/* Language selector */}
           <div ref={langRef} className="relative">
             <button
               onClick={() => setLangOpen((v) => !v)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
               aria-label="Change language"
               data-testid="button-lang-toggle"
             >
@@ -95,17 +123,21 @@ export function Navbar() {
               <ChevronDown className={cn("w-3 h-3 opacity-60 transition-transform", langOpen && "rotate-180")} />
             </button>
             {langOpen && (
-              <div className="absolute top-full right-0 mt-1.5 w-52 max-h-72 overflow-y-auto rounded-md border border-border bg-popover/95 backdrop-blur-xl shadow-xl z-50">
-                <div className="p-1">
+              <div
+                className="absolute top-full right-0 mt-2 w-52 max-h-72 overflow-y-auto rounded-xl z-50"
+                style={{ background: "rgba(15,17,35,0.97)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 20px 60px rgba(0,0,0,0.6)" }}
+              >
+                <div className="p-1.5">
                   {LANGUAGES.map((l) => (
                     <button
                       key={l.code}
                       className={cn(
-                        "w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-sm text-left transition-colors",
+                        "w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg text-left transition-colors",
                         lang === l.code
-                          ? "bg-primary/10 text-primary font-medium"
-                          : "text-popover-foreground hover:bg-accent/70"
+                          ? "text-white font-medium"
+                          : "text-foreground/70 hover:text-foreground hover:bg-white/6"
                       )}
+                      style={lang === l.code ? { background: "rgba(108,92,231,0.2)" } : undefined}
                       onClick={() => {
                         setLang(l.code as LangCode);
                         setLangOpen(false);
@@ -121,30 +153,21 @@ export function Navbar() {
             )}
           </div>
 
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={toggleTheme}
-            aria-label="Toggle theme"
-            data-testid="button-theme-toggle"
-          >
-            {theme === "dark" ? (
-              <Sun className="w-4 h-4" />
-            ) : (
-              <Moon className="w-4 h-4" />
-            )}
-          </Button>
-
-          <Button
-            variant="default"
-            size="sm"
-            className="hidden sm:flex shadow-md shadow-primary/25 text-xs"
+          {/* Pro button */}
+          <Link
+            href="/pricing"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 hover:-translate-y-px"
+            style={{
+              background: "linear-gradient(135deg, #6c5ce7 0%, #8b5cf6 50%, #a855f7 100%)",
+              boxShadow: "0 2px 16px rgba(108,92,231,0.45)",
+            }}
             data-testid="button-get-pro"
-            asChild
           >
-            <Link href="/pricing">{t.nav.getPro}</Link>
-          </Button>
+            <Sparkles className="w-3.5 h-3.5" />
+            {lang === "ru" ? "Купить Pro" : lang === "de" ? "Pro kaufen" : lang === "fr" ? "Acheter Pro" : lang === "es" ? "Comprar Pro" : lang === "zh" ? "购买Pro" : lang === "ja" ? "Proを購入" : "Get Pro"}
+          </Link>
 
+          {/* Mobile menu button */}
           <Button
             size="icon"
             variant="ghost"
@@ -158,36 +181,43 @@ export function Navbar() {
         </div>
       </div>
 
+      {/* Mobile menu */}
       {menuOpen && (
-        <div className="md:hidden border-t border-border/40 bg-background/95 backdrop-blur-2xl px-4 py-3">
+        <div
+          className="md:hidden px-5 py-3"
+          style={{ background: "rgba(13,15,30,0.97)", borderTop: "1px solid rgba(255,255,255,0.07)" }}
+        >
           <nav className="flex flex-col gap-0.5">
             {categories.map((cat) => (
               <Link
                 key={cat.id}
                 href={`/?category=${cat.id}`}
-                className="px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors"
+                className="px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
                 onClick={() => setMenuOpen(false)}
               >
-                {cat.label}
+                {getCategoryLabel(cat.id, lang)}
               </Link>
             ))}
             <Link
               href="/pricing"
-              className="px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors"
+              className="px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
               onClick={() => setMenuOpen(false)}
             >
-              {t.nav.pricing}
+              {lang === "ru" ? "Возможности" : "Features"}
             </Link>
-            <div className="border-t border-border/40 mt-2 pt-2">
-              <p className="px-3 py-1 text-xs text-muted-foreground font-medium uppercase tracking-wider">Language</p>
-              <div className="grid grid-cols-2 gap-0.5 mt-1">
+            <div className="border-t mt-2 pt-2" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+              <p className="px-3 py-1 text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">
+                {lang === "ru" ? "Язык" : "Language"}
+              </p>
+              <div className="grid grid-cols-2 gap-0.5">
                 {LANGUAGES.map((l) => (
                   <button
                     key={l.code}
                     className={cn(
-                      "flex items-center gap-2 px-3 py-2 text-xs rounded-md text-left transition-colors",
-                      lang === l.code ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
+                      "flex items-center gap-2 px-3 py-2 text-xs rounded-lg text-left transition-colors",
+                      lang === l.code ? "text-white font-medium" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
                     )}
+                    style={lang === l.code ? { background: "rgba(108,92,231,0.2)" } : undefined}
                     onClick={() => { setLang(l.code as LangCode); setMenuOpen(false); }}
                   >
                     <span>{l.flag}</span>

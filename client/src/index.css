@@ -91,50 +91,50 @@
   --button-outline: rgba(255,255,255, .10);
   --badge-outline: rgba(255,255,255, .05);
   --opaque-button-border-intensity: 9;
-  --elevate-1: rgba(255,255,255, .04);
-  --elevate-2: rgba(255,255,255, .09);
-  --background: 222 47% 11%;
-  --foreground: 210 40% 98%;
-  --border: 215 25% 20%;
-  --card: 222 47% 13%;
-  --card-foreground: 210 40% 98%;
-  --card-border: 215 25% 16%;
-  --sidebar: 222 47% 15%;
-  --sidebar-foreground: 210 40% 98%;
-  --sidebar-border: 215 25% 18%;
+  --elevate-1: rgba(255,255,255, .03);
+  --elevate-2: rgba(255,255,255, .07);
+  --background: 230 40% 7%;
+  --foreground: 210 40% 96%;
+  --border: 228 28% 17%;
+  --card: 228 38% 10%;
+  --card-foreground: 210 40% 96%;
+  --card-border: 228 28% 14%;
+  --sidebar: 228 38% 12%;
+  --sidebar-foreground: 210 40% 96%;
+  --sidebar-border: 228 28% 16%;
   --sidebar-primary: 217 91% 60%;
   --sidebar-primary-foreground: 210 40% 98%;
-  --sidebar-accent: 222 47% 20%;
-  --sidebar-accent-foreground: 210 40% 98%;
+  --sidebar-accent: 228 38% 16%;
+  --sidebar-accent-foreground: 210 40% 96%;
   --sidebar-ring: 217 91% 60%;
-  --popover: 222 47% 18%;
-  --popover-foreground: 210 40% 98%;
-  --popover-border: 215 25% 22%;
+  --popover: 228 38% 11%;
+  --popover-foreground: 210 40% 96%;
+  --popover-border: 228 28% 18%;
   --primary: 217 91% 60%;
   --primary-foreground: 210 40% 98%;
-  --secondary: 222 47% 22%;
-  --secondary-foreground: 210 40% 98%;
-  --muted: 222 47% 20%;
-  --muted-foreground: 217 32% 72%;
-  --accent: 222 47% 19%;
-  --accent-foreground: 210 40% 98%;
+  --secondary: 228 38% 16%;
+  --secondary-foreground: 210 40% 96%;
+  --muted: 228 38% 15%;
+  --muted-foreground: 220 20% 65%;
+  --accent: 228 38% 14%;
+  --accent-foreground: 210 40% 96%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 210 40% 98%;
-  --input: 217 32% 45%;
+  --input: 228 28% 30%;
   --ring: 217 91% 60%;
   --chart-1: 217 91% 65%;
   --chart-2: 271 81% 70%;
   --chart-3: 197 71% 60%;
   --chart-4: 43 74% 65%;
   --chart-5: 27 87% 67%;
-  --shadow-2xs: 0px 2px 0px 0px hsl(222 47% 11% / 0.05);
-  --shadow-xs: 0px 2px 0px 0px hsl(222 47% 11% / 0.08);
-  --shadow-sm: 0px 2px 0px 0px hsl(222 47% 11% / 0.05), 0px 1px 2px -1px hsl(222 47% 11% / 0.10);
-  --shadow: 0px 2px 0px 0px hsl(222 47% 11% / 0.05), 0px 1px 2px -1px hsl(222 47% 11% / 0.10);
-  --shadow-md: 0px 2px 0px 0px hsl(222 47% 11% / 0.05), 0px 2px 4px -1px hsl(222 47% 11% / 0.12);
-  --shadow-lg: 0px 2px 0px 0px hsl(222 47% 11% / 0.05), 0px 4px 6px -1px hsl(222 47% 11% / 0.15);
-  --shadow-xl: 0px 2px 0px 0px hsl(222 47% 11% / 0.05), 0px 8px 10px -1px hsl(222 47% 11% / 0.20);
-  --shadow-2xl: 0px 2px 0px 0px hsl(222 47% 11% / 0.25);
+  --shadow-2xs: 0px 2px 0px 0px hsl(230 40% 5% / 0.1);
+  --shadow-xs: 0px 2px 0px 0px hsl(230 40% 5% / 0.15);
+  --shadow-sm: 0px 2px 0px 0px hsl(230 40% 5% / 0.1), 0px 1px 2px -1px hsl(230 40% 5% / 0.2);
+  --shadow: 0px 2px 0px 0px hsl(230 40% 5% / 0.1), 0px 1px 2px -1px hsl(230 40% 5% / 0.2);
+  --shadow-md: 0px 2px 0px 0px hsl(230 40% 5% / 0.1), 0px 2px 4px -1px hsl(230 40% 5% / 0.25);
+  --shadow-lg: 0px 2px 0px 0px hsl(230 40% 5% / 0.1), 0px 4px 6px -1px hsl(230 40% 5% / 0.3);
+  --shadow-xl: 0px 2px 0px 0px hsl(230 40% 5% / 0.1), 0px 8px 10px -1px hsl(230 40% 5% / 0.35);
+  --shadow-2xl: 0px 2px 0px 0px hsl(230 40% 5% / 0.4);
 
 /* Fallback for older browsers */
   --sidebar-primary-border: hsl(var(--sidebar-primary));
@@ -312,4 +312,64 @@
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
     inset: -1px;
   }
+}
+
+/* ── RTL support (Arabic and other RTL languages) ─────────────────────── */
+[dir="rtl"] {
+  font-family: "Noto Sans Arabic", "Inter", system-ui, sans-serif;
+}
+
+[dir="rtl"] .flex-row,
+[dir="rtl"] .flex {
+  --tw-space-direction: -1;
+}
+
+[dir="rtl"] .gap-2,
+[dir="rtl"] .gap-3,
+[dir="rtl"] .gap-4 {
+  direction: rtl;
+}
+
+[dir="rtl"] nav,
+[dir="rtl"] header {
+  direction: rtl;
+}
+
+[dir="rtl"] .text-left {
+  text-align: right;
+}
+
+[dir="rtl"] .text-right {
+  text-align: left;
+}
+
+[dir="rtl"] .mr-1 { margin-right: 0; margin-left: 0.25rem; }
+[dir="rtl"] .mr-2 { margin-right: 0; margin-left: 0.5rem; }
+[dir="rtl"] .mr-3 { margin-right: 0; margin-left: 0.75rem; }
+[dir="rtl"] .mr-4 { margin-right: 0; margin-left: 1rem; }
+[dir="rtl"] .ml-1 { margin-left: 0; margin-right: 0.25rem; }
+[dir="rtl"] .ml-2 { margin-left: 0; margin-right: 0.5rem; }
+[dir="rtl"] .ml-3 { margin-left: 0; margin-right: 0.75rem; }
+[dir="rtl"] .ml-4 { margin-left: 0; margin-right: 1rem; }
+[dir="rtl"] .ml-auto { margin-left: 0; margin-right: auto; }
+[dir="rtl"] .mr-auto { margin-right: 0; margin-left: auto; }
+
+[dir="rtl"] .pl-3 { padding-left: 0; padding-right: 0.75rem; }
+[dir="rtl"] .pr-3 { padding-right: 0; padding-left: 0.75rem; }
+[dir="rtl"] .pl-4 { padding-left: 0; padding-right: 1rem; }
+[dir="rtl"] .pr-4 { padding-right: 0; padding-left: 1rem; }
+
+[dir="rtl"] .rounded-l-full { border-radius: 0 9999px 9999px 0; }
+[dir="rtl"] .rounded-r-full { border-radius: 9999px 0 0 9999px; }
+
+[dir="rtl"] .border-l { border-left: none; border-right: 1px solid; }
+[dir="rtl"] .border-r { border-right: none; border-left: 1px solid; }
+
+[dir="rtl"] input[type="text"],
+[dir="rtl"] input[type="number"],
+[dir="rtl"] input[type="email"],
+[dir="rtl"] textarea,
+[dir="rtl"] select {
+  text-align: right;
+  direction: rtl;
 }

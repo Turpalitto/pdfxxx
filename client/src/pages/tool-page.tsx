@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { useRoute, Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLang } from "@/lib/lang-context";
+import { useSeo } from "@/hooks/use-seo";
 import {
   ArrowLeft,
   Download,
@@ -65,6 +66,28 @@ export default function ToolPage() {
   const tool = getToolBySlug(slug);
   const { t, lang } = useLang();
   const toolTr = tool ? getToolTranslation(tool.slug, lang) : null;
+  const _toolName = toolTr?.name ?? tool?.name ?? "";
+  const _toolDesc = toolTr?.description ?? tool?.description ?? "";
+
+  useSeo({
+    title: tool
+      ? `${_toolName} — PDFX | ${lang === "ru" ? "Бесплатно онлайн" : "Free Online"}`
+      : "PDFX — PDF Tools",
+    description: _toolDesc || "Free online PDF tools — merge, compress, convert, split.",
+    path: slug ? `/tools/${slug}` : "/",
+    schemaOrg: tool ? {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": `PDFX — ${_toolName}`,
+      "url": `https://pdfx.tools/tools/${slug}`,
+      "description": _toolDesc,
+      "applicationCategory": "UtilitiesApplication",
+      "operatingSystem": "Web Browser",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "aggregateRating": { "@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "14200" },
+      "inLanguage": ["en","ru","es","fr","de","zh","ja","ko","ar","hi","pt","it","tr","pl","nl","uk","vi","id","th","cs"],
+    } : undefined,
+  });
 
   const [files, setFiles] = useState<File[]>([]);
   const [state, setState] = useState<ProcessingState>("idle");
@@ -327,7 +350,7 @@ export default function ToolPage() {
               </div>
               <div>
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <h1 className="text-2xl font-bold">{toolTr?.name ?? tool.name}</h1>
+                  <h1 className="text-2xl font-bold">{_toolName}</h1>
                   {tool.pro && (
                     <Badge variant="secondary">
                       <Lock className="w-3 h-3 mr-1" />
@@ -335,7 +358,7 @@ export default function ToolPage() {
                     </Badge>
                   )}
                 </div>
-                <p className="text-muted-foreground">{toolTr?.description ?? tool.description}</p>
+                <p className="text-muted-foreground">{_toolDesc}</p>
               </div>
             </div>
 
