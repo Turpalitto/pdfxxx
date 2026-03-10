@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { useRoute, Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLang } from "@/lib/lang-context";
 import {
   ArrowLeft,
   Download,
@@ -48,6 +49,7 @@ export default function ToolPage() {
   const [, params] = useRoute("/tools/:slug");
   const slug = params?.slug || "";
   const tool = getToolBySlug(slug);
+  const { t } = useLang();
 
   const [files, setFiles] = useState<File[]>([]);
   const [state, setState] = useState<ProcessingState>("idle");
@@ -235,7 +237,7 @@ export default function ToolPage() {
           <Button variant="ghost" size="sm" asChild className="text-muted-foreground">
             <Link href="/">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              All Tools
+              {t.tool.backToAll}
             </Link>
           </Button>
         </div>
@@ -455,7 +457,7 @@ export default function ToolPage() {
                       className="flex items-center gap-3"
                     >
                       <ProgressRing progress={progress} size={48} />
-                      <span className="text-sm text-muted-foreground">Processing...</span>
+                      <span className="text-sm text-muted-foreground">{t.tool.processing}</span>
                     </motion.div>
                   ) : state === "done" ? (
                     <motion.div
@@ -470,7 +472,7 @@ export default function ToolPage() {
                         data-testid="button-download"
                       >
                         <Download className="w-4 h-4" />
-                        Download {tool.outputExt?.toUpperCase() || "PDF"}
+                        {t.tool.download} {tool.outputExt?.toUpperCase() || "PDF"}
                         {resultSize && (
                           <span className="text-xs opacity-70">({formatBytes(resultSize)})</span>
                         )}
@@ -482,7 +484,7 @@ export default function ToolPage() {
                         data-testid="button-reset"
                       >
                         <RefreshCw className="w-4 h-4" />
-                        Process Another
+                        {t.tool.processAnother}
                       </Button>
                       {files[0] && (
                         <div className="flex items-center gap-1.5 text-sm text-emerald-400">
@@ -535,11 +537,10 @@ export default function ToolPage() {
                 <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
                   <CheckCircle className="w-3 h-3 text-emerald-400" />
                 </div>
-                <span className="text-sm font-medium">Privacy Guarantee</span>
+                <span className="text-sm font-medium">{t.tool.privacy}</span>
               </div>
               <p className="text-sm text-muted-foreground">
-                Your files are processed entirely in your browser. Nothing is uploaded to our servers.
-                Files are automatically cleared when you close this tab.
+                {t.tool.privacyDesc}
               </p>
             </div>
           </div>
@@ -547,14 +548,14 @@ export default function ToolPage() {
           <div className="space-y-5">
             <div>
               <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">
-                How to use
+                {t.tool.howToUse}
               </h3>
               <div className="rounded-md border border-card-border bg-card p-4 space-y-4">
                 {[
-                  { step: 1, text: `Upload your ${tool.accept?.includes(".pdf") ? "PDF file" : "file"}` },
-                  { step: 2, text: "Adjust any options if needed" },
-                  { step: 3, text: `Click "${tool.name}" to process` },
-                  { step: 4, text: "Download your result instantly" },
+                  { step: 1, text: t.tool.step1 },
+                  { step: 2, text: t.tool.step2 },
+                  { step: 3, text: t.tool.step3 },
+                  { step: 4, text: t.tool.step4 },
                 ].map(({ step, text }) => (
                   <div key={step} className="flex items-start gap-3">
                     <div className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
@@ -569,11 +570,11 @@ export default function ToolPage() {
             {relatedTools.length > 0 && (
               <div>
                 <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">
-                  Related Tools
+                  {t.tool.related}
                 </h3>
                 <div className="grid grid-cols-2 gap-2">
-                  {relatedTools.map((t) => (
-                    <ToolCard key={t.slug} tool={t} />
+                  {relatedTools.map((rel) => (
+                    <ToolCard key={rel.slug} tool={rel} />
                   ))}
                 </div>
               </div>
@@ -582,13 +583,13 @@ export default function ToolPage() {
             <div className="rounded-md border border-primary/20 bg-gradient-to-br from-primary/5 to-violet-500/5 p-5">
               <div className="flex items-center gap-2 mb-2">
                 <Lock className="w-4 h-4 text-primary" />
-                <span className="text-sm font-semibold">Go Pro</span>
+                <span className="text-sm font-semibold">{t.tool.goPro}</span>
               </div>
               <p className="text-sm text-muted-foreground mb-3">
-                Unlimited files, 500MB limit, AI tools, and no ads.
+                {t.tool.goProDesc}
               </p>
               <Button size="sm" className="w-full" asChild>
-                <Link href="/pricing">View Plans</Link>
+                <Link href="/pricing">{t.tool.viewPlans}</Link>
               </Button>
             </div>
           </div>

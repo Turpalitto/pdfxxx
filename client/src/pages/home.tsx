@@ -10,157 +10,157 @@ import {
   Star,
   ChevronDown,
   ChevronUp,
+  Lock,
+  Cpu,
+  WifiOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ToolCard } from "@/components/tool-card";
 import { tools, categories } from "@/lib/tools";
+import { useLang } from "@/lib/lang-context";
 import { cn } from "@/lib/utils";
-
-const faqs = [
-  {
-    q: "Are my files safe when using PDFX?",
-    a: "Absolutely. All PDF processing happens directly in your browser using your device's computing power. Your files never leave your device or get uploaded to any server.",
-  },
-  {
-    q: "Is PDFX really free?",
-    a: "Yes! All basic tools are completely free with no watermarks on your output files. The free tier has usage limits of 3 operations per hour and 25MB per file.",
-  },
-  {
-    q: "What's the file size limit?",
-    a: "Free users can process files up to 25MB each, with up to 3 files per batch. Pro users enjoy 500MB limits and unlimited batch processing.",
-  },
-  {
-    q: "Can I use PDFX on mobile?",
-    a: "Yes! PDFX is fully responsive and works on any device — phone, tablet, or desktop. The interface adapts to your screen size for the best experience.",
-  },
-  {
-    q: "What languages does OCR support?",
-    a: "Our OCR engine supports English, Russian, Spanish, French, German, Chinese, Arabic, and more. You can select your language from the OCR tool settings.",
-  },
-];
-
-const stats = [
-  { value: "2M+", label: "Files Processed" },
-  { value: "180+", label: "Countries" },
-  { value: "28", label: "PDF Tools" },
-  { value: "100%", label: "Free to Start" },
-];
 
 export default function Home() {
   const [location] = useLocation();
   const searchParams = new URLSearchParams(location.split("?")[1] || "");
   const activeCategory = searchParams.get("category") || "all";
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const { t } = useLang();
 
   const filteredTools =
     activeCategory === "all"
       ? tools
-      : tools.filter((t) => t.category === activeCategory);
+      : tools.filter((tool) => tool.category === activeCategory);
+
+  const faqs = [
+    { q: t.faq.q1, a: t.faq.a1 },
+    { q: t.faq.q2, a: t.faq.a2 },
+    { q: t.faq.q3, a: t.faq.a3 },
+    { q: t.faq.q4, a: t.faq.a4 },
+    { q: t.faq.q5, a: t.faq.a5 },
+  ];
+
+  const stats = [
+    { value: "2M+", label: t.stats.filesProcessed },
+    { value: "180+", label: t.stats.countries },
+    { value: "28", label: t.stats.pdfTools },
+    { value: "100%", label: t.stats.freeToStart },
+  ];
 
   return (
     <div className="min-h-screen">
-      <section className="relative overflow-hidden py-20 md:py-32 px-4 sm:px-6">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-violet-500/5 pointer-events-none" />
-        <div
-          className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none"
-          aria-hidden="true"
-        />
-        <div
-          className="absolute bottom-0 left-0 w-80 h-80 bg-violet-500/8 rounded-full blur-3xl pointer-events-none"
-          aria-hidden="true"
-        />
+      <section className="relative overflow-hidden pt-20 pb-24 md:pt-28 md:pb-32 px-4 sm:px-6">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(59,130,246,0.15),transparent)]" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-primary/5 rounded-full blur-3xl" />
+          <div className="absolute top-20 right-10 w-64 h-64 bg-violet-500/8 rounded-full blur-3xl" />
+          <div className="absolute top-40 left-10 w-48 h-48 bg-cyan-500/6 rounded-full blur-3xl" />
+          <div
+            className="absolute inset-0 opacity-[0.02] dark:opacity-[0.04]"
+            style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")" }}
+          />
+        </div>
 
         <div className="relative max-w-4xl mx-auto text-center">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 0.45 }}
+            className="mb-6"
           >
-            <Badge variant="secondary" className="mb-6 text-xs px-3 py-1">
-              <Zap className="w-3 h-3 mr-1" />
-              All Processing Happens In Your Browser
+            <Badge
+              variant="secondary"
+              className="text-xs px-3 py-1.5 gap-1.5 border border-primary/20 bg-primary/8"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
+              {t.hero.badge}
             </Badge>
           </motion.div>
 
           <motion.h1
-            className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight mb-6 leading-tight"
+            className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight mb-6 leading-[1.05]"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            All PDF Tools.{" "}
-            <span className="bg-gradient-to-r from-primary to-violet-500 bg-clip-text text-transparent">
-              Free.
+            <span className="block">{t.hero.headline1}</span>
+            <span className="block bg-gradient-to-r from-primary via-blue-400 to-violet-500 bg-clip-text text-transparent">
+              {t.hero.headline2}
             </span>
-            <br />
-            No Watermarks.
+            <span className="block">{t.hero.headline3}</span>
           </motion.h1>
 
           <motion.p
-            className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8"
-            initial={{ opacity: 0, y: 20 }}
+            className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto mb-8 leading-relaxed"
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            28 powerful PDF tools. Merge, split, compress, convert, and protect your PDFs — 
-            all processed locally in your browser. Your files never touch our servers.
+            {t.hero.sub}
           </motion.p>
 
           <motion.div
-            className="flex flex-wrap items-center justify-center gap-3"
-            initial={{ opacity: 0, y: 20 }}
+            className="flex flex-wrap items-center justify-center gap-3 mb-12"
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
           >
-            <Button size="lg" className="shadow-lg shadow-primary/25 gap-2" asChild>
+            <Button
+              size="lg"
+              className="shadow-xl shadow-primary/30 gap-2 text-sm px-6 h-11"
+              asChild
+            >
               <Link href="/tools/merge-pdf">
-                Start for Free
+                {t.hero.startFree}
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </Button>
-            <Button size="lg" variant="outline" asChild>
-              <Link href="/pricing">View Pro Plans</Link>
+            <Button size="lg" variant="outline" className="text-sm px-6 h-11" asChild>
+              <Link href="/pricing">{t.hero.viewPro}</Link>
             </Button>
           </motion.div>
 
           <motion.div
-            className="mt-12 flex flex-wrap items-center justify-center gap-6"
+            className="flex flex-wrap items-center justify-center gap-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.5 }}
           >
             {[
-              { icon: Shield, text: "No file uploads" },
-              { icon: Zap, text: "Instant processing" },
-              { icon: Globe, text: "Works offline" },
+              { icon: Lock, text: t.hero.feat1 },
+              { icon: Zap, text: t.hero.feat2 },
+              { icon: WifiOff, text: t.hero.feat3 },
             ].map(({ icon: Icon, text }) => (
               <div key={text} className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Icon className="w-4 h-4 text-primary" />
-                <span>{text}</span>
+                <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Icon className="w-3 h-3 text-primary" />
+                </div>
+                {text}
               </div>
             ))}
           </motion.div>
         </div>
       </section>
 
-      <section className="py-10 border-y border-border/50 bg-muted/20">
+      <section className="py-8 border-y border-border/30">
         <div className="max-w-5xl mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {stats.map((stat, i) => (
               <motion.div
                 key={stat.label}
                 initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.1 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.08 }}
               >
                 <div
-                  className="text-2xl md:text-3xl font-bold text-primary mb-1"
+                  className="text-3xl md:text-4xl font-black bg-gradient-to-r from-primary to-violet-400 bg-clip-text text-transparent mb-1"
                   data-testid={`stat-value-${i}`}
                 >
                   {stat.value}
                 </div>
-                <div className="text-sm text-muted-foreground">{stat.label}</div>
+                <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{stat.label}</div>
               </motion.div>
             ))}
           </div>
@@ -169,37 +169,38 @@ export default function Home() {
 
       <section className="py-16 px-4 sm:px-6">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-10">
-            <h2 className="text-2xl md:text-3xl font-bold mb-3">
-              Every PDF Tool You'll Ever Need
-            </h2>
-            <p className="text-muted-foreground">
-              28 tools across 7 categories. Free to use, no sign-up required.
-            </p>
-          </div>
+          <motion.div
+            className="text-center mb-10"
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+          >
+            <h2 className="text-2xl md:text-3xl font-bold mb-2">{t.tools.title}</h2>
+            <p className="text-sm text-muted-foreground">{t.tools.sub}</p>
+          </motion.div>
 
           <div className="flex flex-wrap gap-2 justify-center mb-8">
             <Link
               href="/"
               className={cn(
-                "px-4 py-1.5 rounded-full text-sm font-medium border transition-all duration-150",
+                "px-4 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150",
                 activeCategory === "all"
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                  ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/25"
+                  : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
               )}
               data-testid="filter-all"
             >
-              All Tools
+              {t.tools.allTools}
             </Link>
             {categories.map((cat) => (
               <Link
                 key={cat.id}
                 href={`/?category=${cat.id}`}
                 className={cn(
-                  "px-4 py-1.5 rounded-full text-sm font-medium border transition-all duration-150",
+                  "px-4 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150",
                   activeCategory === cat.id
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                    ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/25"
+                    : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
                 )}
                 data-testid={`filter-${cat.id}`}
               >
@@ -215,9 +216,10 @@ export default function Home() {
             {filteredTools.map((tool, i) => (
               <motion.div
                 key={tool.slug}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.02 }}
+                initial={{ opacity: 0, scale: 0.96 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.015 }}
                 layout
               >
                 <ToolCard tool={tool} />
@@ -227,61 +229,90 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="py-16 px-4 sm:px-6 bg-muted/20 border-y border-border/50">
+      <section className="py-16 px-4 sm:px-6 border-y border-border/30">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-10">
-            <h2 className="text-2xl md:text-3xl font-bold mb-3">Why Choose PDFX?</h2>
-            <p className="text-muted-foreground">Built with privacy and performance as the top priority.</p>
-          </div>
+          <motion.div
+            className="text-center mb-10"
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+          >
+            <h2 className="text-2xl md:text-3xl font-bold mb-2">{t.why.title}</h2>
+            <p className="text-sm text-muted-foreground">{t.why.sub}</p>
+          </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-3 gap-5">
             {[
               {
                 icon: Shield,
-                title: "100% Private",
-                description:
-                  "All PDF processing happens in your browser using WebAssembly. No file uploads, no server storage — your documents stay on your device.",
-                color: "text-emerald-400",
-                bg: "bg-emerald-500/10",
+                title: t.why.privateTitle,
+                description: t.why.privateDesc,
+                gradient: "from-emerald-500/10 to-emerald-500/5",
+                iconColor: "text-emerald-400",
+                iconBg: "bg-emerald-500/15",
+                glow: "shadow-emerald-500/10",
               },
               {
-                icon: Zap,
-                title: "Lightning Fast",
-                description:
-                  "Client-side processing means zero upload/download wait times. Large files process instantly because they never leave your device.",
-                color: "text-yellow-400",
-                bg: "bg-yellow-500/10",
+                icon: Cpu,
+                title: t.why.fastTitle,
+                description: t.why.fastDesc,
+                gradient: "from-yellow-500/10 to-yellow-500/5",
+                iconColor: "text-yellow-400",
+                iconBg: "bg-yellow-500/15",
+                glow: "shadow-yellow-500/10",
               },
               {
-                icon: Globe,
-                title: "Works Offline",
-                description:
-                  "Once loaded, PDFX tools continue to work without an internet connection. Process confidential documents anywhere, anytime.",
-                color: "text-blue-400",
-                bg: "bg-blue-500/10",
+                icon: WifiOff,
+                title: t.why.offlineTitle,
+                description: t.why.offlineDesc,
+                gradient: "from-blue-500/10 to-blue-500/5",
+                iconColor: "text-blue-400",
+                iconBg: "bg-blue-500/15",
+                glow: "shadow-blue-500/10",
               },
-            ].map((feature) => (
-              <div key={feature.title} className="flex flex-col gap-3 p-6 rounded-md border border-card-border bg-card">
-                <div className={cn("w-10 h-10 rounded-md flex items-center justify-center", feature.bg)}>
-                  <feature.icon className={cn("w-5 h-5", feature.color)} />
+            ].map((feature, i) => (
+              <motion.div
+                key={feature.title}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+                className={cn(
+                  "flex flex-col gap-4 p-6 rounded-md border border-card-border bg-gradient-to-br shadow-xl",
+                  feature.gradient, feature.glow
+                )}
+              >
+                <div className={cn("w-10 h-10 rounded-md flex items-center justify-center", feature.iconBg)}>
+                  <feature.icon className={cn("w-5 h-5", feature.iconColor)} />
                 </div>
-                <h3 className="font-semibold">{feature.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{feature.description}</p>
-              </div>
+                <div>
+                  <h3 className="font-bold text-base mb-2">{feature.title}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{feature.description}</p>
+                </div>
+              </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="py-16 px-4 sm:px-6 bg-muted/10">
+      <section className="py-16 px-4 sm:px-6 bg-gradient-to-b from-transparent to-muted/10">
         <div className="max-w-2xl mx-auto">
-          <div className="text-center mb-10">
-            <h2 className="text-2xl md:text-3xl font-bold mb-3">Frequently Asked Questions</h2>
-          </div>
+          <motion.div
+            className="text-center mb-10"
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+          >
+            <h2 className="text-2xl md:text-3xl font-bold mb-2">{t.faq.title}</h2>
+          </motion.div>
           <div className="flex flex-col gap-2">
             {faqs.map((faq, i) => (
-              <div
+              <motion.div
                 key={i}
+                initial={{ opacity: 0, y: 8 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.06 }}
                 className="rounded-md border border-border bg-card overflow-hidden"
                 data-testid={`faq-item-${i}`}
               >
@@ -290,7 +321,7 @@ export default function Home() {
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
                   data-testid={`faq-toggle-${i}`}
                 >
-                  <span className="font-medium text-sm">{faq.q}</span>
+                  <span className="font-semibold text-sm">{faq.q}</span>
                   {openFaq === i ? (
                     <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
                   ) : (
@@ -298,11 +329,11 @@ export default function Home() {
                   )}
                 </button>
                 {openFaq === i && (
-                  <div className="px-5 pb-4 text-sm text-muted-foreground border-t border-border/50 pt-3">
+                  <div className="px-5 pb-4 text-sm text-muted-foreground border-t border-border/50 pt-3 leading-relaxed">
                     {faq.a}
                   </div>
                 )}
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
@@ -310,28 +341,32 @@ export default function Home() {
 
       <section className="py-16 px-4 sm:px-6">
         <div className="max-w-3xl mx-auto">
-          <div className="relative overflow-hidden rounded-md border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-violet-500/10 p-10 text-center">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-violet-500/5 pointer-events-none" />
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="relative overflow-hidden rounded-md border border-primary/20 p-10 text-center"
+            style={{
+              background: "radial-gradient(ellipse at center, rgba(59,130,246,0.12) 0%, transparent 70%)",
+            }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-transparent to-violet-500/8 pointer-events-none" />
             <div className="relative">
-              <div className="flex justify-center gap-0.5 mb-4">
+              <div className="flex justify-center gap-0.5 mb-5">
                 {[...Array(5)].map((_, i) => (
                   <Star key={i} className="w-5 h-5 text-yellow-400 fill-yellow-400" />
                 ))}
               </div>
-              <h2 className="text-2xl md:text-3xl font-bold mb-3">
-                Ready for unlimited PDF power?
-              </h2>
-              <p className="text-muted-foreground mb-6">
-                Go Pro for $4.99/month and unlock unlimited operations, AI tools, 500MB files, and no ads.
-              </p>
-              <Button size="lg" className="shadow-xl shadow-primary/30 gap-2" asChild>
+              <h2 className="text-2xl md:text-3xl font-bold mb-3">{t.cta.title}</h2>
+              <p className="text-muted-foreground mb-7 max-w-md mx-auto">{t.cta.sub}</p>
+              <Button size="lg" className="shadow-xl shadow-primary/30 gap-2 px-8" asChild>
                 <Link href="/pricing">
-                  See Pro Plans
+                  {t.cta.btn}
                   <ArrowRight className="w-4 h-4" />
                 </Link>
               </Button>
             </div>
-          </div>
+          </motion.div>
         </div>
       </section>
     </div>
