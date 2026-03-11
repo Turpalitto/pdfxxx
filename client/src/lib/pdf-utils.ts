@@ -389,6 +389,63 @@ function withTimeout<T>(promise: Promise<T>, ms: number, msg: string): Promise<T
   ]);
 }
 
+function normalizeSearchValue(value: string): string {
+  return value
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function collectMatchingTextItemIndexes(textItems: any[], searchText: string): Set<number> {
+  const matches = new Set<number>();
+  const normalizedSearch = normalizeSearchValue(searchText);
+  if (!normalizedSearch) return matches;
+
+  for (let i = 0; i < textItems.length; i++) {
+    const raw = typeof textItems[i]?.str === "string" ? textItems[i].str : "";
+    if (normalizeSearchValue(raw).includes(normalizedSearch)) {
+      matches.add(i);
+    }
+  }
+  if (matches.size > 0) return matches;
+
+  const streamChars: string[] = [];
+  const streamToItemIndex: number[] = [];
+  let prevWasSpace = true;
+
+  for (let i = 0; i < textItems.length; i++) {
+    const raw = typeof textItems[i]?.str === "string" ? textItems[i].str : "";
+    const normalized = raw.normalize("NFKC").toLowerCase();
+    for (const ch of normalized) {
+      const isSpace = /\s/.test(ch);
+      if (isSpace) {
+        if (!prevWasSpace) {
+          streamChars.push(" ");
+          streamToItemIndex.push(i);
+          prevWasSpace = true;
+        }
+      } else {
+        streamChars.push(ch);
+        streamToItemIndex.push(i);
+        prevWasSpace = false;
+      }
+    }
+  }
+
+  const stream = streamChars.join("");
+  let start = stream.indexOf(normalizedSearch);
+  while (start !== -1) {
+    const end = start + normalizedSearch.length;
+    for (let idx = start; idx < end && idx < streamToItemIndex.length; idx++) {
+      matches.add(streamToItemIndex[idx]);
+    }
+    start = stream.indexOf(normalizedSearch, start + 1);
+  }
+
+  return matches;
+}
+
 export async function redactPdf(
   file: File,
   searchText: string,
@@ -407,22 +464,32 @@ export async function redactPdf(
     import.meta.url
   ).href;
 
+  onProgress?.(10);
+
   const srcBytes = new Uint8Array(pdfJsBytes);
+  const loadingTask = pdfjs.getDocument({ data: srcBytes });
+  loadingTask.onProgress = (progressData: any) => {
+    const loaded = typeof progressData?.loaded === "number" ? progressData.loaded : 0;
+    const total = typeof progressData?.total === "number" ? progressData.total : 0;
+    if (total > 0) {
+      const loadPct = Math.min(20, 10 + Math.round((loaded / total) * 10));
+      onProgress?.(loadPct);
+    }
+  };
   const pdfjsDoc = await withTimeout(
-    pdfjs.getDocument({ data: srcBytes }).promise,
+    loadingTask.promise,
     30_000,
     "PDF loading timed out. The file may be corrupted or too complex."
   );
 
   const pdfLib = await PDFDocument.load(pdfLibBytes, { ignoreEncryption: true });
   const resultPdf = await PDFDocument.create();
-  const searchLower = searchText.trim().toLowerCase();
   const RENDER_SCALE = 1.5;
 
-  onProgress?.(15);
+  onProgress?.(20);
 
   for (let pageIndex = 0; pageIndex < pdfjsDoc.numPages; pageIndex++) {
-    const pagePct = 15 + Math.round((pageIndex / pdfjsDoc.numPages) * 75);
+    const pagePct = 20 + Math.round((pageIndex / pdfjsDoc.numPages) * 70);
     onProgress?.(pagePct);
     const page = await pdfjsDoc.getPage(pageIndex + 1);
 
@@ -437,11 +504,9 @@ export async function redactPdf(
       continue;
     }
 
-    const matchingItems = textItems.filter(
-      (item: any) => item.str && item.str.toLowerCase().includes(searchLower)
-    );
+    const matchingItemIndexes = collectMatchingTextItemIndexes(textItems, searchText);
 
-    if (matchingItems.length === 0) {
+    if (matchingItemIndexes.size === 0) {
       const [copied] = await resultPdf.copyPages(pdfLib, [pageIndex]);
       resultPdf.addPage(copied);
       continue;
@@ -451,7 +516,10 @@ export async function redactPdf(
     const canvas = document.createElement("canvas");
     canvas.width = Math.round(viewport.width);
     canvas.height = Math.round(viewport.height);
-    const ctx = canvas.getContext("2d")!;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      throw new Error("Canvas rendering is not available in this browser.");
+    }
 
     try {
       await withTimeout(
@@ -466,20 +534,23 @@ export async function redactPdf(
     }
 
     ctx.fillStyle = "#000000";
-    for (const item of matchingItems) {
-      const it = item as any;
-      if (!it.transform) continue;
+    matchingItemIndexes.forEach((itemIndex) => {
+      const it = textItems[itemIndex] as any;
+      if (!it.transform) return;
       const [, , , , tx, ty] = it.transform;
       const pt = viewport.convertToViewportPoint(tx, ty);
-      const fontHeight = Math.abs(it.transform[3]) * RENDER_SCALE;
-      const textW = (it.width || 0) * RENDER_SCALE;
+      const itemHeight = Math.max(
+        8,
+        Math.abs((it.height || it.transform[3] || 0) * RENDER_SCALE)
+      );
+      const itemWidth = Math.max(8, (it.width || 0) * RENDER_SCALE);
       ctx.fillRect(
         Math.floor(pt[0]) - 2,
-        Math.floor(pt[1]) - fontHeight - 2,
-        Math.ceil(textW) + 6,
-        Math.ceil(fontHeight) + 6
+        Math.floor(pt[1]) - itemHeight - 2,
+        Math.ceil(itemWidth) + 6,
+        Math.ceil(itemHeight) + 6
       );
-    }
+    });
 
     const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
     const base64 = dataUrl.split(",")[1];
@@ -494,6 +565,7 @@ export async function redactPdf(
     newPage.drawImage(img, { x: 0, y: 0, width, height });
   }
 
+  onProgress?.(98);
   return resultPdf.save();
 }
 
