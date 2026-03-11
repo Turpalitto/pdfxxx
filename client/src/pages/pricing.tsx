@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { useLang } from "@/lib/lang-context";
 import { cn } from "@/lib/utils";
+import { DEFAULT_MAX_FILE_SIZE_MB } from "@/lib/upload-limits";
 
 function Check({ variant = "green" }: { variant?: "green" | "purple" | "gold" }) {
   const colors: Record<string, { bg: string; color: string }> = {
@@ -47,6 +48,7 @@ export default function Pricing() {
   const teamAnnual = Math.round(teamMonthly * 0.75);
 
   const isRu = lang === "ru";
+  const freeFileLimitMb = DEFAULT_MAX_FILE_SIZE_MB;
   const T = {
     badge: isRu ? "Более 2 000 000 файлов обработано" : "Over 2,000,000 files processed",
     title: isRu ? "Выберите идеальный план" : "Choose your perfect plan",
@@ -65,8 +67,8 @@ export default function Pricing() {
       cta: isRu ? "Начать бесплатно" : "Start for free",
       featuresTitle: isRu ? "Что включено" : "What's included",
       features: isRu
-        ? ["28 PDF инструментов", "Файлы до 25 МБ", "5 файлов в день", "Обработка в браузере", "Без водяных знаков", "3 AI-запроса в день"]
-        : ["28 PDF tools", "Files up to 25 MB", "5 files per day", "In-browser processing", "No watermarks", "3 AI requests/day"],
+        ? ["28 PDF инструментов", `Файлы до ${freeFileLimitMb} МБ`, "5 файлов в день", "Обработка в браузере", "Без водяных знаков", "3 AI-запроса в день"]
+        : ["28 PDF tools", `Files up to ${freeFileLimitMb} MB`, "5 files per day", "In-browser processing", "No watermarks", "3 AI requests/day"],
     },
     pro: {
       name: "Pro",
@@ -120,7 +122,7 @@ export default function Pricing() {
       rows: isRu
         ? [
             { cat: "core", label: "PDF инструменты", vals: ["28", "28", "28"] },
-            { cat: "core", label: "Макс. размер файла", vals: ["25 МБ", "Безлимит", "Безлимит"] },
+            { cat: "core", label: "Макс. размер файла", vals: [`${freeFileLimitMb} МБ`, "Безлимит", "Безлимит"] },
             { cat: "core", label: "Файлов в день", vals: ["5", "Безлимит", "Безлимит"] },
             { cat: "core", label: "Пакетная обработка", vals: [null, "До 50", "До 50"] },
             { cat: "core", label: "Водяные знаки", vals: ["Нет", "Нет", "Нет"] },
@@ -137,7 +139,7 @@ export default function Pricing() {
           ]
         : [
             { cat: "core", label: "PDF tools", vals: ["28", "28", "28"] },
-            { cat: "core", label: "Max file size", vals: ["25 MB", "Unlimited", "Unlimited"] },
+            { cat: "core", label: "Max file size", vals: [`${freeFileLimitMb} MB`, "Unlimited", "Unlimited"] },
             { cat: "core", label: "Files per day", vals: ["5", "Unlimited", "Unlimited"] },
             { cat: "core", label: "Batch processing", vals: [null, "Up to 50", "Up to 50"] },
             { cat: "core", label: "Watermarks", vals: ["None", "None", "None"] },
@@ -171,7 +173,7 @@ export default function Pricing() {
             },
             {
               q: "Есть ли ограничения у бесплатного плана?",
-              a: "Бесплатный план включает все 28 инструментов без водяных знаков. Ограничения: 5 файлов в день, до 25 МБ на файл, 3 AI-запроса в день. Для безлимитной работы — план Pro.",
+              a: `Бесплатный план включает все 28 инструментов без водяных знаков. Ограничения: 5 файлов в день, до ${freeFileLimitMb} МБ на файл, 3 AI-запроса в день. Для безлимитной работы — план Pro.`,
             },
             {
               q: "Как оплатить? Принимаете ли карты РФ?",
@@ -193,7 +195,7 @@ export default function Pricing() {
             },
             {
               q: "What are the free plan limits?",
-              a: "The free plan includes all 28 tools without watermarks. Limits: 5 files per day, up to 25 MB per file, 3 AI requests per day. For unlimited work — Pro plan.",
+              a: `The free plan includes all 28 tools without watermarks. Limits: 5 files per day, up to ${freeFileLimitMb} MB per file, 3 AI requests per day. For unlimited work — Pro plan.`,
             },
             {
               q: "What payment methods are accepted?",

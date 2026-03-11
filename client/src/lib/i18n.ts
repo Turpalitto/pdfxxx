@@ -1,3 +1,5 @@
+import { DEFAULT_MAX_FILE_SIZE_MB } from "@/lib/upload-limits";
+
 export const LANGUAGES = [
   { code: "en", name: "English", nativeName: "English", flag: "🇺🇸" },
   { code: "ru", name: "Russian", nativeName: "Русский", flag: "🇷🇺" },
@@ -187,6 +189,8 @@ export interface Translations {
   };
 }
 
+const FREE_PLAN_FILE_SIZE_MB = DEFAULT_MAX_FILE_SIZE_MB;
+
 const en: Translations = {
   nav: { tools: "Tools", pricing: "Pricing", getPro: "Get Pro" },
   hero: {
@@ -216,12 +220,12 @@ const en: Translations = {
   faq: {
     title: "Frequently Asked Questions",
     q1: "Are my files safe when using PDFX?", a1: "Absolutely. All PDF processing happens directly in your browser using your device's computing power. Your files never leave your device or get uploaded to any server.",
-    q2: "Is PDFX really free?", a2: "Yes! All basic tools are completely free with no watermarks on your output files. The free tier has usage limits of 3 operations per hour and 25MB per file.",
-    q3: "What's the file size limit?", a3: "Free users can process files up to 25MB each, with up to 3 files per batch. Pro users enjoy 500MB limits and unlimited batch processing.",
+    q2: "Is PDFX really free?", a2: `Yes! All basic tools are completely free with no watermarks on your output files. The free tier has usage limits of 3 operations per hour and ${FREE_PLAN_FILE_SIZE_MB}MB per file.`,
+    q3: "What's the file size limit?", a3: `Free users can process files up to ${FREE_PLAN_FILE_SIZE_MB}MB each, with up to 3 files per batch. Pro users enjoy ${FREE_PLAN_FILE_SIZE_MB}MB limits and unlimited batch processing.`,
     q4: "Can I use PDFX on mobile?", a4: "Yes! PDFX is fully responsive and works on any device — phone, tablet, or desktop. The interface adapts to your screen size for the best experience.",
     q5: "What languages does OCR support?", a5: "Our OCR engine supports English, Russian, Spanish, French, German, Chinese, Arabic, and more. You can select your language from the OCR tool settings.",
   },
-  cta: { title: "Ready for unlimited PDF power?", sub: "Go Pro for $4.99/month and unlock unlimited operations, AI tools, 500MB files, and no ads.", btn: "See Pro Plans" },
+  cta: { title: "Ready for unlimited PDF power?", sub: `Go Pro for $4.99/month and unlock unlimited operations, AI tools, ${FREE_PLAN_FILE_SIZE_MB}MB files, and no ads.`, btn: "See Pro Plans" },
   footer: {
     desc: "The most complete PDF toolkit online. Process files locally — your data never leaves your device.",
     pdfTools: "PDF Tools", moreTools: "More Tools", company: "Company",
@@ -242,7 +246,7 @@ const en: Translations = {
     download: "Download",
     processAnother: "Process Another",
     goPro: "Go Pro",
-    goProDesc: "Unlimited files, 500MB limit, AI tools, and no ads.",
+    goProDesc: `Unlimited files, ${FREE_PLAN_FILE_SIZE_MB}MB limit, AI tools, and no ads.`,
     viewPlans: "View Plans",
     dropPdf: "Drop your PDF here",
     multipleFiles: "Multiple files supported",
@@ -344,12 +348,12 @@ const ru: Translations = {
   faq: {
     title: "Часто задаваемые вопросы",
     q1: "Безопасны ли мои файлы при использовании PDFX?", a1: "Абсолютно. Вся обработка PDF происходит прямо в вашем браузере. Ваши файлы никогда не покидают устройство и не загружаются на сервер.",
-    q2: "PDFX действительно бесплатный?", a2: "Да! Все базовые инструменты полностью бесплатны без водяных знаков. Бесплатный тариф ограничен 3 операциями в час и 25 МБ на файл.",
-    q3: "Какой максимальный размер файла?", a3: "Бесплатные пользователи могут обрабатывать файлы до 25 МБ, до 3 файлов в пакете. Pro пользователи получают лимит 500 МБ и неограниченную пакетную обработку.",
+    q2: "PDFX действительно бесплатный?", a2: `Да! Все базовые инструменты полностью бесплатны без водяных знаков. Бесплатный тариф ограничен 3 операциями в час и ${FREE_PLAN_FILE_SIZE_MB} МБ на файл.`,
+    q3: "Какой максимальный размер файла?", a3: `Бесплатные пользователи могут обрабатывать файлы до ${FREE_PLAN_FILE_SIZE_MB} МБ, до 3 файлов в пакете. Pro пользователи получают лимит ${FREE_PLAN_FILE_SIZE_MB} МБ и неограниченную пакетную обработку.`,
     q4: "Работает ли PDFX на мобильном?", a4: "Да! PDFX полностью адаптивен и работает на любом устройстве — телефоне, планшете или компьютере.",
     q5: "Какие языки поддерживает OCR?", a5: "Наш OCR поддерживает русский, английский, испанский, французский, немецкий, китайский, арабский и многие другие языки.",
   },
-  cta: { title: "Готовы к неограниченным возможностям PDF?", sub: "Перейдите на Pro за $4.99/месяц и получите безлимитные операции, ИИ инструменты, файлы до 500 МБ и отсутствие рекламы.", btn: "Смотреть Pro тарифы" },
+  cta: { title: "Готовы к неограниченным возможностям PDF?", sub: `Перейдите на Pro за $4.99/месяц и получите безлимитные операции, ИИ инструменты, файлы до ${FREE_PLAN_FILE_SIZE_MB} МБ и отсутствие рекламы.`, btn: "Смотреть Pro тарифы" },
   footer: {
     desc: "Самый полный онлайн PDF инструментарий. Обработка файлов локально — ваши данные никогда не покидают устройство.",
     pdfTools: "PDF Инструменты", moreTools: "Ещё инструменты", company: "Компания",
@@ -370,7 +374,7 @@ const ru: Translations = {
     download: "Скачать",
     processAnother: "Обработать ещё",
     goPro: "Перейти на Pro",
-    goProDesc: "Неограниченные файлы, лимит 500 МБ, ИИ инструменты и отсутствие рекламы.",
+    goProDesc: `Неограниченные файлы, лимит ${FREE_PLAN_FILE_SIZE_MB} МБ, ИИ инструменты и отсутствие рекламы.`,
     viewPlans: "Смотреть тарифы",
     dropPdf: "Перетащите PDF сюда",
     multipleFiles: "Несколько файлов поддерживается",
