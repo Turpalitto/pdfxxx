@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useLang } from "@/lib/lang-context";
 import { useSeo } from "@/hooks/use-seo";
 import { cn } from "@/lib/utils";
+import { DEFAULT_MAX_FILE_SIZE_MB, mbToBytes } from "@/lib/upload-limits";
 
 type ToolType = "select" | "text" | "draw" | "image" | "sign" | "rect" | "circle" | "line" | "highlight" | "eraser";
 type DrawColor = "#1a1a1a" | "#e53e3e" | "#3182ce" | "#38a169" | "#d69e2e";
@@ -21,6 +22,7 @@ interface PageDims { width: number; height: number }
 
 const DISPLAY_SCALE = 1.5;
 const THUMB_SCALE = 0.15;
+const MAX_EDIT_PDF_FILE_SIZE_MB = DEFAULT_MAX_FILE_SIZE_MB;
 
 async function loadPdfJs() {
   const pdfjs = await import("pdfjs-dist");
@@ -95,7 +97,7 @@ export default function EditPdfPage() {
     title: isRu ? "Редактировать PDF" : "Edit PDF",
     upload: isRu ? "Перетащите PDF сюда или" : "Drop PDF here or",
     choose: isRu ? "Выберите файл" : "Choose file",
-    limit: isRu ? "Макс. 25 МБ" : "Max 25 MB",
+    limit: isRu ? `Макс. ${MAX_EDIT_PDF_FILE_SIZE_MB} МБ` : `Max ${MAX_EDIT_PDF_FILE_SIZE_MB} MB`,
     save: isRu ? "Скачать PDF" : "Download PDF",
     saving: isRu ? "Сохранение…" : "Saving…",
     undo: isRu ? "Отменить" : "Undo",
@@ -235,8 +237,12 @@ export default function EditPdfPage() {
   }, [renderCurrentPage]);
 
   const handleFile = useCallback(async (f: File) => {
-    if (f.size > 25 * 1024 * 1024) {
-      setError(isRu ? "Файл превышает лимит 25 МБ" : "File exceeds 25 MB limit");
+    if (f.size > mbToBytes(MAX_EDIT_PDF_FILE_SIZE_MB)) {
+      setError(
+        isRu
+          ? `Файл превышает лимит ${MAX_EDIT_PDF_FILE_SIZE_MB} МБ`
+          : `File exceeds ${MAX_EDIT_PDF_FILE_SIZE_MB} MB limit`
+      );
       return;
     }
     if (!f.name.toLowerCase().endsWith(".pdf")) {

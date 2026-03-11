@@ -28,6 +28,7 @@ import { ProgressRing } from "@/components/progress-ring";
 import { ToolCard } from "@/components/tool-card";
 import { getToolBySlug, tools, categoryColors } from "@/lib/tools";
 import { getToolTranslation } from "@/lib/tool-translations";
+import { DEFAULT_MAX_FILE_SIZE_MB } from "@/lib/upload-limits";
 import {
   mergePdfs,
   splitPdf,
@@ -69,6 +70,7 @@ export default function ToolPage() {
   const toolTr = tool ? getToolTranslation(tool.slug, lang) : null;
   const _toolName = toolTr?.name ?? tool?.name ?? "";
   const _toolDesc = toolTr?.description ?? tool?.description ?? "";
+  const maxSizeMb = tool?.maxFilesMb ?? DEFAULT_MAX_FILE_SIZE_MB;
 
   useSeo({
     title: tool
@@ -378,11 +380,12 @@ export default function ToolPage() {
               <FileUpload
                 accept={tool.accept}
                 multiple={tool.multiple}
+                maxSizeMb={maxSizeMb}
                 onFiles={handleFiles}
                 files={files}
                 onRemoveFile={removeFile}
                 label={tool.accept?.includes(".pdf") ? t.tool.dropPdf : t.tool.chooseFile}
-                description={`${tool.multiple ? t.tool.multipleFiles : t.tool.singleFile} • ${t.tool.maxSize} 25MB`}
+                description={`${tool.multiple ? t.tool.multipleFiles : t.tool.singleFile} • ${t.tool.maxSize} ${maxSizeMb}MB`}
               />
 
               {slug === "text-to-pdf" && files.length === 0 && (

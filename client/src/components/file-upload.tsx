@@ -3,6 +3,7 @@ import { Upload, File, X, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatBytes } from "@/lib/pdf-utils";
+import { DEFAULT_MAX_FILE_SIZE_MB, mbToBytes } from "@/lib/upload-limits";
 
 interface FileUploadProps {
   accept?: string;
@@ -18,7 +19,7 @@ interface FileUploadProps {
 export function FileUpload({
   accept = ".pdf",
   multiple = false,
-  maxSizeMb = 25,
+  maxSizeMb = DEFAULT_MAX_FILE_SIZE_MB,
   onFiles,
   files = [],
   onRemoveFile,
@@ -47,7 +48,7 @@ export function FileUpload({
           if (a.startsWith(".")) return f.name.toLowerCase().endsWith(a);
           return f.type.startsWith(a.replace("*", ""));
         });
-        return matches && f.size <= maxSizeMb * 1024 * 1024;
+        return matches && f.size <= mbToBytes(maxSizeMb);
       });
       onFiles(arr);
     },
