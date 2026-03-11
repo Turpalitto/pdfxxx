@@ -179,7 +179,7 @@ export default function EditPdfPage() {
       fc.renderAll();
     }
     pushHistory();
-  }, [activeTool, currentPage, pushHistory]);
+  }, [currentPage, pushHistory]);
 
   const saveCurrent = useCallback(() => {
     if (!fabricRef.current) return;
@@ -187,13 +187,31 @@ export default function EditPdfPage() {
     pageStatesRef.current.set(currentPage, json);
   }, [currentPage]);
 
+  const updateZoom = useCallback((updater: number | ((prev: number) => number)) => {
+    saveCurrent();
+    setZoom((prev) => typeof updater === "function" ? (updater as (prev: number) => number)(prev) : updater);
+  }, [saveCurrent]);
+
+  const openPdfPicker = useCallback((e?: React.SyntheticEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    fileInputRef.current?.click();
+  }, []);
+
   useEffect(() => {
     if (loadingState !== "ready") return;
     const timer = setTimeout(() => {
       initFabric();
     }, 50);
     return () => clearTimeout(timer);
-  }, [currentPage, loadingState, initFabric]);
+  }, [currentPage, loadingState, zoom, initFabric]);
+
+  useEffect(() => {
+    return () => {
+      fabricRef.current?.dispose?.();
+      signFabricRef.current?.dispose?.();
+    };
+  }, []);
 
   useEffect(() => {
     if (!fabricRef.current) return;
@@ -221,6 +239,7 @@ export default function EditPdfPage() {
     }
     fc.renderAll();
   }, [activeTool, drawColor, brushSize]);
+
 
   const renderCurrentPage = useCallback(async () => {
     if (!pdfjsDoc || !pdfCanvasRef.current || renderingRef.current) return;
@@ -327,6 +346,7 @@ export default function EditPdfPage() {
         fontFamily: "Arial",
         editable: true,
       });
+      obj.set("text", isRu ? "Текст" : "Text");
       fabricRef.current.add(obj);
       fabricRef.current.setActiveObject(obj);
       (obj as any).enterEditing?.();
@@ -355,7 +375,7 @@ export default function EditPdfPage() {
       fabricRef.current.add(obj);
     }
     fabricRef.current.renderAll();
-  }, [activeTool, fontSize, fontColor, drawColor, zoom]);
+  }, [activeTool, fontSize, fontColor, drawColor, zoom, isRu]);
 
   const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const img = e.target.files?.[0];
@@ -394,6 +414,41 @@ export default function EditPdfPage() {
       fabricRef.current.renderAll();
     });
   }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA") return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+        return;
+      }
+
+      if (
+        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "z")
+      ) {
+        e.preventDefault();
+        handleRedo();
+        return;
+      }
+
+      if ((e.key === "Delete" || e.key === "Backspace") && fabricRef.current) {
+        const activeObjects = fabricRef.current.getActiveObjects?.() || [];
+        if (activeObjects.length > 0) {
+          e.preventDefault();
+          activeObjects.forEach((obj: any) => fabricRef.current.remove(obj));
+          fabricRef.current.discardActiveObject();
+          fabricRef.current.renderAll();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleRedo, handleUndo]);
 
   const openSignModal = useCallback(async () => {
     setSignModalOpen(true);
@@ -565,7 +620,7 @@ export default function EditPdfPage() {
                 onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                 onDragLeave={() => setIsDragging(false)}
                 onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
+                onClick={openPdfPicker}
                 data-testid="dropzone-edit-pdf"
               >
                 <div className="p-16 text-center">
@@ -576,7 +631,11 @@ export default function EditPdfPage() {
                     <Upload className="size-8 text-white" />
                   </div>
                   <p className="text-white font-medium mb-1">{t.upload}</p>
-                  <button className="text-blue-400 hover:text-blue-300 font-semibold transition-colors">
+                  <button
+                    type="button"
+                    onClick={openPdfPicker}
+                    className="text-blue-400 hover:text-blue-300 font-semibold transition-colors"
+                  >
                     {t.choose}
                   </button>
                   <p className="text-slate-500 text-sm mt-2">{t.limit} · PDF</p>
@@ -766,7 +825,7 @@ export default function EditPdfPage() {
             {/* Zoom */}
             <div className="flex items-center gap-1">
               <button
-                onClick={() => setZoom(z => Math.max(0.5, +(z - 0.25).toFixed(2)))}
+                onClick={() => updateZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))}
                 data-testid="button-zoom-out"
                 className="flex size-9 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all"
               >
@@ -774,14 +833,14 @@ export default function EditPdfPage() {
               </button>
               <span className="text-slate-300 text-xs w-12 text-center font-mono">{Math.round(zoom * 100)}%</span>
               <button
-                onClick={() => setZoom(z => Math.min(3, +(z + 0.25).toFixed(2)))}
+                onClick={() => updateZoom((z) => Math.min(3, +(z + 0.25).toFixed(2)))}
                 data-testid="button-zoom-in"
                 className="flex size-9 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all"
               >
                 <ZoomIn className="size-4" />
               </button>
               <button
-                onClick={() => setZoom(1)}
+                onClick={() => updateZoom(1)}
                 className="flex size-9 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all"
               >
                 <Maximize2 className="size-3.5" />
