@@ -249,12 +249,14 @@ export default function EditPdfPage() {
 
     try {
       const bytes = await f.arrayBuffer();
-      pageOrigBytesRef.current = bytes;
+      const bytesForPdfLib = bytes.slice(0);
+      const bytesForPdfJs = bytes.slice(0);
+      pageOrigBytesRef.current = bytesForPdfLib;
       pageStatesRef.current.clear();
 
       const pdfjs = await loadPdfJs();
       setLoadProgress(30);
-      const doc = await pdfjs.getDocument({ data: new Uint8Array(bytes) }).promise;
+      const doc = await pdfjs.getDocument({ data: new Uint8Array(bytesForPdfJs) }).promise;
       const count = doc.numPages;
       setLoadProgress(50);
 
@@ -422,7 +424,23 @@ export default function EditPdfPage() {
   }, []);
 
   const handleSave = useCallback(async () => {
-    if (!pageOrigBytesRef.current || !pdfjsDoc) return;
+    if (!pageOrigBytesRef.current) {
+      setError(
+        isRu
+          ? "Не удалось подготовить исходный PDF. Перезагрузите файл и попробуйте снова."
+          : "Failed to prepare source PDF. Please re-upload and try again."
+      );
+      return;
+    }
+    if (!pdfjsDoc || pageCount < 1) {
+      setError(
+        isRu
+          ? "PDF еще загружается. Попробуйте снова через секунду."
+          : "PDF is still loading. Try again in a moment."
+      );
+      return;
+    }
+    setError(null);
     setIsSaving(true);
     saveCurrent();
 
@@ -468,13 +486,13 @@ export default function EditPdfPage() {
       a.href = url;
       a.download = (file?.name?.replace(/\.pdf$/i, "") || "document") + "-edited.pdf";
       a.click();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err: any) {
       setError(err?.message || "Save failed");
     } finally {
       setIsSaving(false);
     }
-  }, [pageCount, currentPage, pageDims, file, pdfjsDoc, saveCurrent]);
+  }, [pageCount, currentPage, pageDims, file, pdfjsDoc, saveCurrent, isRu]);
 
   const toolButtons: { id: ToolType; icon: any; label: string }[] = [
     { id: "select", icon: MousePointer2, label: t.tools.select },
@@ -800,6 +818,12 @@ export default function EditPdfPage() {
               {isSaving ? t.saving : t.save}
             </Button>
           </div>
+
+          {error && (
+            <div className="mx-3 mt-2 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+              {error}
+            </div>
+          )}
 
           {/* Canvas area */}
           <div className="flex-1 overflow-auto" style={{ background: "#1a1f2e" }}>

@@ -42,7 +42,6 @@ import {
   addHeaderFooter,
   repairPdf,
   flattenPdf,
-  protectPdf,
   unlockPdf,
   signPdf,
   redactPdf,
@@ -55,6 +54,8 @@ import {
   downloadText,
   downloadHtml,
   formatBytes,
+  getPdfPageCount,
+  parsePageSelection,
 } from "@/lib/pdf-utils";
 import { cn } from "@/lib/utils";
 
@@ -108,7 +109,6 @@ export default function ToolPage() {
   const [headerText, setHeaderText] = useState("");
   const [footerText, setFooterText] = useState("");
   const [freeTextContent, setFreeTextContent] = useState("");
-  const [pdfPassword, setPdfPassword] = useState("");
   const [signatureText, setSignatureText] = useState("");
   const [redactSearchText, setRedactSearchText] = useState("");
   const [resultText, setResultText] = useState<string | null>(null);
@@ -149,6 +149,16 @@ export default function ToolPage() {
       return;
     }
 
+    if (slug === "protect-pdf") {
+      setState("error");
+      setError(
+        lang === "ru"
+          ? "PDF-шифрование в браузере не поддерживается. Используйте Adobe Acrobat, LibreOffice или 7-Zip."
+          : "Browser-side PDF encryption is not supported. Use Adobe Acrobat, LibreOffice, or 7-Zip."
+      );
+      return;
+    }
+
     setState("processing");
     setProgress(10);
     setError(null);
@@ -179,24 +189,22 @@ export default function ToolPage() {
           result = await rotatePdf(files[0], parseInt(rotation) as 90 | 180 | 270);
           break;
         case "delete-pages": {
-          const indices = pagesToDelete
-            .split(",")
-            .map((s) => parseInt(s.trim()) - 1)
-            .filter((n) => !isNaN(n) && n >= 0);
+          const pageCount = await getPdfPageCount(files[0]);
+          const indices = parsePageSelection(pagesToDelete, pageCount, { allowDuplicates: false });
           result = await deletePages(files[0], indices);
           break;
         }
         case "extract-pages":
         case "reorder-pages": {
-          const indices = pagesToExtract
-            .split(",")
-            .map((s) => parseInt(s.trim()) - 1)
-            .filter((n) => !isNaN(n) && n >= 0);
+          const pageCount = await getPdfPageCount(files[0]);
+          const indices = parsePageSelection(pagesToExtract, pageCount, {
+            allowDuplicates: slug === "reorder-pages",
+          });
           result = await extractPages(files[0], indices);
           break;
         }
         case "compress-pdf":
-          result = await compressPdf(files[0]);
+          result = await compressPdf(files[0], compressionLevel);
           break;
         case "watermark-pdf":
           result = await addWatermark(files[0], watermarkText, watermarkOpacity[0]);
@@ -225,8 +233,11 @@ export default function ToolPage() {
           result = await flattenPdf(files[0]);
           break;
         case "protect-pdf":
-          result = await protectPdf(files[0], pdfPassword);
-          break;
+          throw new Error(
+            lang === "ru"
+              ? "PDF-шифрование в браузере не поддерживается. Используйте Adobe Acrobat, LibreOffice или 7-Zip."
+              : "Browser-side PDF encryption is not supported. Use Adobe Acrobat, LibreOffice, or 7-Zip."
+          );
         case "unlock-pdf":
           result = await unlockPdf(files[0]);
           break;
@@ -285,7 +296,7 @@ export default function ToolPage() {
     pagesToDelete, pagesToExtract, compressionLevel,
     watermarkText, watermarkOpacity, pageNumPosition,
     headerText, footerText, freeTextContent,
-    pdfPassword, signatureText, redactSearchText, imageScale, lang, t, setProgress,
+    signatureText, redactSearchText, imageScale, lang, t, setProgress,
   ]);
 
   const handleDownload = useCallback(() => {
@@ -435,7 +446,7 @@ export default function ToolPage() {
                   <Input
                     value={pagesToDelete}
                     onChange={(e) => setPagesToDelete(e.target.value)}
-                    placeholder="1, 3, 5"
+                    placeholder="1, 3, 5-8"
                     data-testid="input-pages-delete"
                   />
                 </div>
@@ -449,7 +460,7 @@ export default function ToolPage() {
                   <Input
                     value={pagesToExtract}
                     onChange={(e) => setPagesToExtract(e.target.value)}
-                    placeholder="1, 2, 3"
+                    placeholder="1, 2, 5-7"
                     data-testid="input-pages-extract"
                   />
                 </div>
@@ -679,7 +690,7 @@ export default function ToolPage() {
                     <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                       <Button
                         onClick={process}
-                        disabled={files.length === 0 && slug !== "text-to-pdf"}
+                        disabled={slug === "protect-pdf" || (files.length === 0 && slug !== "text-to-pdf")}
                         className="gap-2 shadow-lg shadow-primary/20"
                         data-testid="button-process"
                       >

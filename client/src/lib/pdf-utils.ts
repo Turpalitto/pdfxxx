@@ -22,6 +22,44 @@ function needsUnicode(text: string) {
   return /[^\x00-\x7F]/.test(text);
 }
 
+function dataUrlToBytes(dataUrl: string): Uint8Array {
+  const base64 = dataUrl.split(",")[1];
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+async function loadImageElement(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Failed to decode image."));
+    img.src = src;
+  });
+}
+
+async function rasterizeImageToPngBytes(file: File): Promise<Uint8Array> {
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const img = await loadImageElement(objectUrl);
+    const width = img.naturalWidth || img.width;
+    const height = img.naturalHeight || img.height;
+    if (!width || !height) {
+      throw new Error("Image has invalid dimensions.");
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Could not create image canvas.");
+    ctx.drawImage(img, 0, 0, width, height);
+    return dataUrlToBytes(canvas.toDataURL("image/png"));
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 export async function mergePdfs(files: File[]): Promise<Uint8Array> {
   const mergedPdf = await PDFDocument.create();
   for (const file of files) {
@@ -153,12 +191,24 @@ export async function addPageNumbers(
   return pdf.save();
 }
 
-export async function compressPdf(file: File): Promise<Uint8Array> {
+export async function compressPdf(
+  file: File,
+  level: "low" | "medium" | "high" = "medium"
+): Promise<Uint8Array> {
   const bytes = await file.arrayBuffer();
   const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
-  const saved = await pdf.save({ useObjectStreams: true });
-  if (saved.byteLength >= bytes.byteLength) return new Uint8Array(bytes);
-  return saved;
+  const firstPass = await pdf.save({ useObjectStreams: level !== "low" });
+
+  if (level === "high") {
+    const secondPdf = await PDFDocument.load(firstPass, { ignoreEncryption: true });
+    const secondPass = await secondPdf.save({ useObjectStreams: true });
+    const best = secondPass.byteLength < firstPass.byteLength ? secondPass : firstPass;
+    if (best.byteLength >= bytes.byteLength) return new Uint8Array(bytes);
+    return best;
+  }
+
+  if (firstPass.byteLength >= bytes.byteLength) return new Uint8Array(bytes);
+  return firstPass;
 }
 
 export async function imagesToPdf(files: File[]): Promise<Uint8Array> {
@@ -168,8 +218,12 @@ export async function imagesToPdf(files: File[]): Promise<Uint8Array> {
     let image;
     if (file.type === "image/jpeg" || file.type === "image/jpg") {
       image = await pdf.embedJpg(bytes);
-    } else {
+    } else if (file.type === "image/png") {
       image = await pdf.embedPng(bytes);
+    } else {
+      // WEBP and other browser-supported formats are rasterised to PNG.
+      const pngBytes = await rasterizeImageToPngBytes(file);
+      image = await pdf.embedPng(pngBytes);
     }
     const page = pdf.addPage([image.width, image.height]);
     page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
@@ -345,20 +399,22 @@ export async function redactPdf(
   }
 
   const bytes = await file.arrayBuffer();
+  const pdfJsBytes = bytes.slice(0);
+  const pdfLibBytes = bytes.slice(0);
   const pdfjs = await import("pdfjs-dist");
   pdfjs.GlobalWorkerOptions.workerSrc = new URL(
     "pdfjs-dist/build/pdf.worker.mjs",
     import.meta.url
   ).href;
 
-  const srcBytes = new Uint8Array(bytes);
+  const srcBytes = new Uint8Array(pdfJsBytes);
   const pdfjsDoc = await withTimeout(
     pdfjs.getDocument({ data: srcBytes }).promise,
     30_000,
     "PDF loading timed out. The file may be corrupted or too complex."
   );
 
-  const pdfLib = await PDFDocument.load(bytes, { ignoreEncryption: true });
+  const pdfLib = await PDFDocument.load(pdfLibBytes, { ignoreEncryption: true });
   const resultPdf = await PDFDocument.create();
   const searchLower = searchText.trim().toLowerCase();
   const RENDER_SCALE = 1.5;
@@ -582,6 +638,58 @@ export function formatBytes(bytes: number): string {
   const sizes = ["B", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
+
+export function parsePageSelection(
+  selection: string,
+  pageCount: number,
+  options?: { allowDuplicates?: boolean }
+): number[] {
+  const allowDuplicates = options?.allowDuplicates ?? false;
+  const trimmed = selection.trim();
+  if (!trimmed) {
+    throw new Error("Please specify at least one page.");
+  }
+
+  const tokens = trimmed.split(",").map((s) => s.trim()).filter(Boolean);
+  const result: number[] = [];
+  const seen = new Set<number>();
+
+  const pushPage = (pageNumber1Based: number) => {
+    if (!Number.isInteger(pageNumber1Based) || pageNumber1Based < 1 || pageNumber1Based > pageCount) {
+      throw new Error(`Page ${pageNumber1Based} is out of range. Valid range is 1-${pageCount}.`);
+    }
+    const idx = pageNumber1Based - 1;
+    if (allowDuplicates || !seen.has(idx)) {
+      result.push(idx);
+      seen.add(idx);
+    }
+  };
+
+  for (const token of tokens) {
+    const rangeMatch = token.match(/^(\d+)\s*-\s*(\d+)$/);
+    if (rangeMatch) {
+      const start = parseInt(rangeMatch[1], 10);
+      const end = parseInt(rangeMatch[2], 10);
+      const step = start <= end ? 1 : -1;
+      for (let p = start; step > 0 ? p <= end : p >= end; p += step) {
+        pushPage(p);
+      }
+      continue;
+    }
+
+    if (/^\d+$/.test(token)) {
+      pushPage(parseInt(token, 10));
+      continue;
+    }
+
+    throw new Error(`Invalid page token "${token}". Use format like "1,3,5-8".`);
+  }
+
+  if (result.length === 0) {
+    throw new Error("No valid pages were selected.");
+  }
+  return result;
 }
 
 export async function getPdfPageCount(file: File): Promise<number> {

@@ -15,7 +15,7 @@ const TOOL_SLUGS = [
   "protect-pdf","unlock-pdf","sign-pdf","watermark-pdf","redact-pdf",
   "compress-pdf","repair-pdf","flatten-pdf",
   "ocr-pdf","photo-to-pdf",
-  "pdf-page-numbers","pdf-header-footer",
+  "pdf-page-numbers","pdf-header-footer","edit-pdf",
 ];
 
 const STATIC_PAGES = [
