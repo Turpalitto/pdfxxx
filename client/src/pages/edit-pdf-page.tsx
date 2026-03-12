@@ -92,6 +92,7 @@ export default function EditPdfPage() {
   const signCanvasRef = useRef<HTMLCanvasElement>(null);
   const signFabricRef = useRef<any>(null);
   const renderingRef = useRef(false);
+  const activeToolRef = useRef<ToolType>("select");
 
   const t = {
     title: isRu ? "Редактировать PDF" : "Edit PDF",
@@ -166,7 +167,7 @@ export default function EditPdfPage() {
     fc.on("object:modified", pushHistory);
     fc.on("object:removed", pushHistory);
     fc.on("mouse:down", (opt: any) => {
-      if (activeTool === "eraser" && opt.target) {
+      if (activeToolRef.current === "eraser" && opt.target) {
         fc.remove(opt.target);
         fc.discardActiveObject();
         fc.renderAll();
@@ -212,6 +213,10 @@ export default function EditPdfPage() {
       signFabricRef.current?.dispose?.();
     };
   }, []);
+
+  useEffect(() => {
+    activeToolRef.current = activeTool;
+  }, [activeTool]);
 
   useEffect(() => {
     if (!fabricRef.current) return;
@@ -385,6 +390,7 @@ export default function EditPdfPage() {
     const el = new window.Image();
     el.onload = async () => {
       const fi = await FabricImage.fromURL(url);
+      URL.revokeObjectURL(url);
       const maxW = pdfCanvasRef.current!.width * 0.4;
       if (fi.width! > maxW) fi.scaleToWidth(maxW);
       fi.set({ left: 50, top: 50 });
@@ -392,6 +398,7 @@ export default function EditPdfPage() {
       fabricRef.current.setActiveObject(fi);
       fabricRef.current.renderAll();
     };
+    el.onerror = () => URL.revokeObjectURL(url);
     el.src = url;
     e.target.value = "";
   }, []);
