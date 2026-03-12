@@ -769,3 +769,194 @@ export async function getPdfPageCount(file: File): Promise<number> {
   const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
   return pdf.getPageCount();
 }
+
+// ─── Split improvements ───────────────────────────────────────────────────────
+
+export async function splitPdfEveryN(file: File, n: number): Promise<Uint8Array[]> {
+  if (!Number.isInteger(n) || n < 1) throw new Error("N must be a positive integer.");
+  const bytes = await file.arrayBuffer();
+  const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
+  const total = src.getPageCount();
+  const results: Uint8Array[] = [];
+  for (let start = 0; start < total; start += n) {
+    const end = Math.min(start + n, total);
+    const part = await PDFDocument.create();
+    const indices = Array.from({ length: end - start }, (_, i) => start + i);
+    const copied = await part.copyPages(src, indices);
+    copied.forEach(p => part.addPage(p));
+    results.push(await part.save());
+  }
+  return results;
+}
+
+export async function splitPdfAllPages(file: File): Promise<Uint8Array[]> {
+  const bytes = await file.arrayBuffer();
+  const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
+  const results: Uint8Array[] = [];
+  for (let i = 0; i < src.getPageCount(); i++) {
+    const part = await PDFDocument.create();
+    const [copied] = await part.copyPages(src, [i]);
+    part.addPage(copied);
+    results.push(await part.save());
+  }
+  return results;
+}
+
+export async function splitResultsToZip(
+  parts: Uint8Array[],
+  baseName: string
+): Promise<Uint8Array> {
+  const JSZip = (await import("jszip")).default;
+  const zip = new JSZip();
+  const padLen = String(parts.length).length;
+  parts.forEach((bytes, i) => {
+    const num = String(i + 1).padStart(padLen, "0");
+    zip.file(`${baseName}-part${num}.pdf`, bytes);
+  });
+  return zip.generateAsync({ type: "uint8array" });
+}
+
+// ─── PDF → DOCX ───────────────────────────────────────────────────────────────
+
+export async function pdfToDocx(file: File): Promise<Uint8Array> {
+  const raw = await pdfToText(file);
+  const text = raw.replace(/--- Page \d+ ---\n?/g, "");
+  const JSZip = (await import("jszip")).default;
+  const zip = new JSZip();
+
+  const esc = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  const paras = text
+    .split(/\n{2,}/)
+    .map(b => b.trim())
+    .filter(Boolean)
+    .map(block => {
+      const runs = block
+        .split("\n")
+        .map(line => `<w:r><w:t xml:space="preserve">${esc(line)}</w:t></w:r>`)
+        .join("<w:r><w:br/></w:r>");
+      return `<w:p>${runs}</w:p>`;
+    })
+    .join("\n    ") || "<w:p><w:r><w:t/></w:r></w:p>";
+
+  zip.file(
+    "[Content_Types].xml",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`
+  );
+
+  zip.file(
+    "_rels/.rels",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`
+  );
+
+  zip.file(
+    "word/document.xml",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    ${paras}
+    <w:sectPr>
+      <w:pgSz w:w="12240" w:h="15840"/>
+      <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`
+  );
+
+  zip.file(
+    "word/_rels/document.xml.rels",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`
+  );
+
+  return zip.generateAsync({ type: "uint8array" });
+}
+
+// ─── OCR PDF ──────────────────────────────────────────────────────────────────
+
+export async function ocrPdf(
+  file: File,
+  lang = "eng+rus",
+  onProgress?: (pct: number) => void
+): Promise<Uint8Array> {
+  const bytes = await file.arrayBuffer();
+  const pdfjs = await import("pdfjs-dist");
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+    "pdfjs-dist/build/pdf.worker.mjs",
+    import.meta.url
+  ).href;
+
+  onProgress?.(5);
+
+  const pdfjsDoc = await withTimeout(
+    pdfjs.getDocument({ data: new Uint8Array(bytes.slice(0)) }).promise,
+    30_000,
+    "PDF loading timed out."
+  );
+  const pdfLib = await PDFDocument.load(bytes.slice(0), { ignoreEncryption: true });
+
+  onProgress?.(15);
+
+  const { createWorker } = await import("tesseract.js");
+  const worker = await createWorker(lang, 1, { logger: () => {} });
+
+  onProgress?.(25);
+
+  const resultPdf = await PDFDocument.create();
+  const SCALE = 2;
+
+  for (let pageNum = 1; pageNum <= pdfjsDoc.numPages; pageNum++) {
+    onProgress?.(25 + Math.round(((pageNum - 1) / pdfjsDoc.numPages) * 70));
+
+    const page = await pdfjsDoc.getPage(pageNum);
+    const viewport = page.getViewport({ scale: SCALE });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(viewport.width);
+    canvas.height = Math.round(viewport.height);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas 2D context unavailable.");
+    await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+
+    const { data } = await (worker.recognize(canvas) as Promise<any>);
+
+    const [copied] = await resultPdf.copyPages(pdfLib, [pageNum - 1]);
+    const newPage = resultPdf.addPage(copied);
+    const { height: pdfH } = newPage.getSize();
+
+    const stdFont = await resultPdf.embedFont(StandardFonts.Helvetica);
+
+    for (const word of (data as any).words) {
+      if (!word.text.trim() || word.confidence < 30) continue;
+      const { x0, y0, y1 } = word.bbox;
+      const wordH = (y1 - y0) / SCALE;
+      const pdfX = x0 / SCALE;
+      const pdfY = pdfH - y1 / SCALE;
+      const fontSize = Math.max(4, wordH * 0.85);
+      try {
+        newPage.drawText(word.text, {
+          x: pdfX,
+          y: pdfY,
+          size: fontSize,
+          font: stdFont,
+          opacity: 0,
+          color: rgb(0, 0, 0),
+        });
+      } catch {
+        // skip words with characters the font cannot encode
+      }
+    }
+  }
+
+  await worker.terminate();
+  onProgress?.(98);
+  return resultPdf.save();
+}
