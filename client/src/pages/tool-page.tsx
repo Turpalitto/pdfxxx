@@ -39,6 +39,7 @@ import {
   rotatePdf,
   deletePages,
   extractPages,
+  reorderPages,
   compressPdf,
   addWatermark,
   addPageNumbers,
@@ -230,7 +231,9 @@ export default function ToolPage() {
           const indices = parsePageSelection(pagesToExtract, pageCount, {
             allowDuplicates: slug === "reorder-pages",
           });
-          result = await extractPages(files[0], indices);
+          result = slug === "reorder-pages"
+            ? await reorderPages(files[0], indices)
+            : await extractPages(files[0], indices);
           break;
         }
         case "compress-pdf":

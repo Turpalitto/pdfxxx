@@ -446,7 +446,7 @@ function collectMatchingTextItemIndexes(textItems: any[], searchText: string): S
   return matches;
 }
 
-export async function redactPdf(
+async function redactPdfLegacy(
   file: File,
   searchText: string,
   onProgress?: (pct: number) => void
@@ -489,19 +489,20 @@ export async function redactPdf(
   onProgress?.(20);
 
   for (let pageIndex = 0; pageIndex < pdfjsDoc.numPages; pageIndex++) {
+    const pageNumber = pageIndex + 1;
     const pagePct = 20 + Math.round((pageIndex / pdfjsDoc.numPages) * 70);
     onProgress?.(pagePct);
-    const page = await pdfjsDoc.getPage(pageIndex + 1);
+    const page = await pdfjsDoc.getPage(pageNumber);
 
     let textItems: any[] = [];
     try {
       const tc = await withTimeout(page.getTextContent(), 10_000, "");
       textItems = tc.items ?? [];
     } catch {
-      // If text extraction fails, copy the page as-is
-      const [copied] = await resultPdf.copyPages(pdfLib, [pageIndex]);
-      resultPdf.addPage(copied);
-      continue;
+      throw new Error(
+        `Unable to inspect page ${pageNumber} for the target text. ` +
+        "Redaction was aborted to avoid generating an unsafe file."
+      );
     }
 
     const matchingItemIndexes = collectMatchingTextItemIndexes(textItems, searchText);
@@ -558,6 +559,132 @@ export async function redactPdf(
     const imgBytes = new Uint8Array(binaryStr.length);
     for (let j = 0; j < binaryStr.length; j++) imgBytes[j] = binaryStr.charCodeAt(j);
 
+    const img = await resultPdf.embedJpg(imgBytes);
+    const origPage = pdfLib.getPage(pageIndex);
+    const { width, height } = origPage.getSize();
+    const newPage = resultPdf.addPage([width, height]);
+    newPage.drawImage(img, { x: 0, y: 0, width, height });
+  }
+
+  onProgress?.(98);
+  return resultPdf.save();
+}
+
+export async function redactPdf(
+  file: File,
+  searchText: string,
+  onProgress?: (pct: number) => void
+): Promise<Uint8Array> {
+  if (!searchText.trim()) {
+    throw new Error("Please enter the text you want to redact.");
+  }
+
+  const bytes = await file.arrayBuffer();
+  const pdfJsBytes = bytes.slice(0);
+  const pdfLibBytes = bytes.slice(0);
+  const pdfjs = await import("pdfjs-dist");
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+    "pdfjs-dist/build/pdf.worker.mjs",
+    import.meta.url
+  ).href;
+
+  onProgress?.(10);
+
+  const srcBytes = new Uint8Array(pdfJsBytes);
+  const loadingTask = pdfjs.getDocument({ data: srcBytes });
+  loadingTask.onProgress = (progressData: any) => {
+    const loaded = typeof progressData?.loaded === "number" ? progressData.loaded : 0;
+    const total = typeof progressData?.total === "number" ? progressData.total : 0;
+    if (total > 0) {
+      const loadPct = Math.min(20, 10 + Math.round((loaded / total) * 10));
+      onProgress?.(loadPct);
+    }
+  };
+  const pdfjsDoc = await withTimeout(
+    loadingTask.promise,
+    30_000,
+    "PDF loading timed out. The file may be corrupted or too complex."
+  );
+
+  const pdfLib = await PDFDocument.load(pdfLibBytes, { ignoreEncryption: true });
+  const resultPdf = await PDFDocument.create();
+  const renderScale = 1.5;
+
+  onProgress?.(20);
+
+  for (let pageIndex = 0; pageIndex < pdfjsDoc.numPages; pageIndex++) {
+    const pageNumber = pageIndex + 1;
+    const pagePct = 20 + Math.round((pageIndex / pdfjsDoc.numPages) * 70);
+    onProgress?.(pagePct);
+
+    const page = await pdfjsDoc.getPage(pageNumber);
+
+    let textItems: any[] = [];
+    try {
+      const tc = await withTimeout(page.getTextContent(), 10_000, "");
+      textItems = tc.items ?? [];
+    } catch {
+      throw new Error(
+        `Unable to inspect page ${pageNumber} for the target text. ` +
+        "Redaction was aborted to avoid generating an unsafe file."
+      );
+    }
+
+    const matchingItemIndexes = collectMatchingTextItemIndexes(textItems, searchText);
+    if (matchingItemIndexes.size === 0) {
+      const [copied] = await resultPdf.copyPages(pdfLib, [pageIndex]);
+      resultPdf.addPage(copied);
+      continue;
+    }
+
+    const viewport = page.getViewport({ scale: renderScale });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(viewport.width);
+    canvas.height = Math.round(viewport.height);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      throw new Error("Canvas rendering is not available in this browser.");
+    }
+
+    try {
+      await withTimeout(
+        page.render({ canvasContext: ctx, viewport, canvas }).promise,
+        20_000,
+        "Page rendering timed out"
+      );
+    } catch (err: any) {
+      throw new Error(
+        `Unable to render page ${pageNumber} for redaction. ` +
+        `${err?.message || "Redaction was aborted."}`
+      );
+    }
+
+    ctx.fillStyle = "#000000";
+    for (const itemIndex of Array.from(matchingItemIndexes)) {
+      const item = textItems[itemIndex] as any;
+      if (!item?.transform) {
+        throw new Error(
+          `Unable to determine text bounds on page ${pageNumber}. ` +
+          "Redaction was aborted to avoid leaving visible text behind."
+        );
+      }
+
+      const [, , , , tx, ty] = item.transform;
+      const pt = viewport.convertToViewportPoint(tx, ty);
+      const itemHeight = Math.max(
+        8,
+        Math.abs((item.height || item.transform[3] || 0) * renderScale)
+      );
+      const itemWidth = Math.max(8, (item.width || 0) * renderScale);
+      ctx.fillRect(
+        Math.floor(pt[0]) - 2,
+        Math.floor(pt[1]) - itemHeight - 2,
+        Math.ceil(itemWidth) + 6,
+        Math.ceil(itemHeight) + 6
+      );
+    }
+
+    const imgBytes = dataUrlToBytes(canvas.toDataURL("image/jpeg", 0.9));
     const img = await resultPdf.embedJpg(imgBytes);
     const origPage = pdfLib.getPage(pageIndex);
     const { width, height } = origPage.getSize();
@@ -884,6 +1011,92 @@ export async function pdfToDocx(file: File): Promise<Uint8Array> {
 // ─── OCR PDF ──────────────────────────────────────────────────────────────────
 
 export async function ocrPdf(
+  file: File,
+  lang = "eng+rus",
+  onProgress?: (pct: number) => void
+): Promise<Uint8Array> {
+  const bytes = await file.arrayBuffer();
+  const pdfjs = await import("pdfjs-dist");
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+    "pdfjs-dist/build/pdf.worker.mjs",
+    import.meta.url
+  ).href;
+
+  onProgress?.(5);
+
+  const pdfjsDoc = await withTimeout(
+    pdfjs.getDocument({ data: new Uint8Array(bytes.slice(0)) }).promise,
+    30_000,
+    "PDF loading timed out."
+  );
+  const pdfLib = await PDFDocument.load(bytes.slice(0), { ignoreEncryption: true });
+
+  onProgress?.(15);
+
+  const { createWorker } = await import("tesseract.js");
+  const worker = await createWorker(lang, 1, { logger: () => {} });
+
+  onProgress?.(25);
+
+  const resultPdf = await PDFDocument.create();
+  const scale = 2;
+  const stdFont = await resultPdf.embedFont(StandardFonts.Helvetica);
+  let unicodeFontPromise: Promise<any> | null = null;
+  const getWordFont = async (text: string) => {
+    if (!needsUnicode(text)) return stdFont;
+    unicodeFontPromise ??= embedUnicodeFont(resultPdf);
+    return unicodeFontPromise;
+  };
+
+  try {
+    for (let pageNum = 1; pageNum <= pdfjsDoc.numPages; pageNum++) {
+      onProgress?.(25 + Math.round(((pageNum - 1) / pdfjsDoc.numPages) * 70));
+
+      const page = await pdfjsDoc.getPage(pageNum);
+      const viewport = page.getViewport({ scale });
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(viewport.width);
+      canvas.height = Math.round(viewport.height);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas 2D context unavailable.");
+      await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+
+      const { data } = await (worker.recognize(canvas) as Promise<any>);
+
+      const [copied] = await resultPdf.copyPages(pdfLib, [pageNum - 1]);
+      const newPage = resultPdf.addPage(copied);
+      const { height: pdfH } = newPage.getSize();
+
+      for (const word of (data as any).words) {
+        if (!word.text.trim() || word.confidence < 30) continue;
+        const { x0, y0, y1 } = word.bbox;
+        const wordH = (y1 - y0) / scale;
+        const pdfX = x0 / scale;
+        const pdfY = pdfH - y1 / scale;
+        const fontSize = Math.max(4, wordH * 0.85);
+        try {
+          newPage.drawText(word.text, {
+            x: pdfX,
+            y: pdfY,
+            size: fontSize,
+            font: await getWordFont(word.text),
+            opacity: 0,
+            color: rgb(0, 0, 0),
+          });
+        } catch {
+          // Skip only words that still cannot be encoded by the chosen font.
+        }
+      }
+    }
+  } finally {
+    await worker.terminate();
+  }
+
+  onProgress?.(98);
+  return resultPdf.save();
+}
+
+async function ocrPdfLegacy(
   file: File,
   lang = "eng+rus",
   onProgress?: (pct: number) => void

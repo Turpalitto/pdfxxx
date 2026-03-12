@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Link } from "wouter";
-import { PDFDocument, rgb } from "pdf-lib";
+import { Link, useLocation } from "wouter";
+import { PDFDocument } from "pdf-lib";
 import {
   MousePointer2, Type, Pencil, Image as ImageIcon, PenLine,
   Square, Circle, Minus, Highlighter, Eraser, Undo2, Redo2,
   ZoomIn, ZoomOut, Maximize2, Download, ArrowLeft, ChevronLeft, ChevronRight,
-  Upload, Loader2, ArrowRight,
+  Upload, Loader2, ArrowRight, Copy, Trash2, ChevronsUp, ChevronsDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -16,9 +16,36 @@ import { cn } from "@/lib/utils";
 import { DEFAULT_MAX_FILE_SIZE_MB, mbToBytes } from "@/lib/upload-limits";
 
 type ToolType = "select" | "text" | "draw" | "image" | "sign" | "rect" | "circle" | "line" | "highlight" | "eraser";
-type DrawColor = "#1a1a1a" | "#e53e3e" | "#3182ce" | "#38a169" | "#d69e2e";
+type DrawColor = "#1a1a1a" | "#e53e3e" | "#3182ce" | "#38a169" | "#facc15";
 
 interface PageDims { width: number; height: number }
+interface TextSegmentMetric {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+  centerY: number;
+  height: number;
+  text: string;
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: "normal" | "bold";
+  fontStyle: "normal" | "italic";
+}
+
+interface TextLineMetric {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+  centerY: number;
+  height: number;
+  segments: TextSegmentMetric[];
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: "normal" | "bold";
+  fontStyle: "normal" | "italic";
+}
 
 const DISPLAY_SCALE = 1.5;
 const THUMB_SCALE = 0.15;
@@ -51,7 +78,292 @@ function dataUrlToBytes(dataUrl: string): Uint8Array {
   return bytes;
 }
 
+function hexToRgba(hex: string, alpha: number) {
+  const sanitized = hex.replace("#", "");
+  const normalized = sanitized.length === 3
+    ? sanitized.split("").map((char) => char + char).join("")
+    : sanitized;
+  const value = parseInt(normalized, 16);
+  const r = (value >> 16) & 255;
+  const g = (value >> 8) & 255;
+  const b = value & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function normalizePdfFontFamily(fontFamily?: string, fontName?: string) {
+  const source = `${fontFamily ?? ""} ${fontName ?? ""}`.toLowerCase();
+  if (source.includes("mono") || source.includes("courier")) return "Courier New";
+  if (source.includes("helvetica") || source.includes("arial") || source.includes("sans")) return "Arial";
+  if (source.includes("times") || source.includes("georgia") || source.includes("serif")) return "Times New Roman";
+  return "Times New Roman";
+}
+
+function getFontTraits(fontName?: string, fontFamily?: string) {
+  const source = `${fontName ?? ""} ${fontFamily ?? ""}`.toLowerCase();
+  return {
+    fontWeight: (source.includes("bold") ? "bold" : "normal") as "normal" | "bold",
+    fontStyle: (
+      source.includes("italic") || source.includes("oblique")
+        ? "italic"
+        : "normal"
+    ) as "normal" | "italic",
+  };
+}
+
+function splitTextIntoSegments(
+  text: string,
+  left: number,
+  width: number,
+  top: number,
+  bottom: number,
+  style: {
+    fontFamily: string;
+    fontSize: number;
+    fontWeight: "normal" | "bold";
+    fontStyle: "normal" | "italic";
+  }
+): TextSegmentMetric[] {
+  const matches: Array<{ index: number; value: string }> = [];
+  const pattern = /\S+/g;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(text)) !== null) {
+    matches.push({ index: match.index, value: match[0] });
+  }
+  const baseHeight = Math.max(bottom - top, 1);
+
+  if (matches.length <= 1 || text.length <= 1 || width <= 1) {
+    const normalizedText = text.trim();
+    if (!normalizedText) return [];
+    return [{
+      top,
+      bottom,
+      left,
+      right: left + width,
+      centerY: (top + bottom) / 2,
+      height: baseHeight,
+      text: normalizedText,
+      fontFamily: style.fontFamily,
+      fontSize: style.fontSize,
+      fontWeight: style.fontWeight,
+      fontStyle: style.fontStyle,
+    }];
+  }
+
+  return matches.map((match) => {
+    const startIndex = match.index;
+    const endIndex = startIndex + match.value.length;
+    const segmentLeft = left + (width * startIndex) / text.length;
+    const segmentRight = left + (width * endIndex) / text.length;
+    return {
+      top,
+      bottom,
+      left: segmentLeft,
+      right: segmentRight,
+      centerY: (top + bottom) / 2,
+      height: baseHeight,
+      text: match.value,
+      fontFamily: style.fontFamily,
+      fontSize: style.fontSize,
+      fontWeight: style.fontWeight,
+      fontStyle: style.fontStyle,
+    };
+  });
+}
+
+async function extractTextLines(page: any, scale: number): Promise<TextLineMetric[]> {
+  try {
+    const textContent = await page.getTextContent();
+    const styles = textContent.styles ?? {};
+    const viewport = page.getViewport({ scale });
+    const lines: TextLineMetric[] = [];
+
+    for (const item of textContent.items ?? []) {
+      if (!item?.transform || typeof item.str !== "string" || !item.str.trim()) continue;
+
+      const [, , , , tx, ty] = item.transform;
+      const [x, y] = viewport.convertToViewportPoint(tx, ty);
+      const width = Math.max(1, (item.width || 0) * scale);
+      const height = Math.max(10, Math.abs((item.height || item.transform[3] || 0) * scale));
+      const top = y - height;
+      const bottom = y;
+      const centerY = (top + bottom) / 2;
+      const tolerance = Math.max(6, height * 0.55);
+      const styleRef = styles[item.fontName] ?? {};
+      const { fontWeight, fontStyle } = getFontTraits(item.fontName, styleRef.fontFamily);
+      const fontSize = Math.max(10, height * 0.92);
+      const fontFamily = normalizePdfFontFamily(styleRef.fontFamily, item.fontName);
+      const segments = splitTextIntoSegments(item.str, x, width, top, bottom, {
+        fontFamily,
+        fontSize,
+        fontWeight,
+        fontStyle,
+      });
+
+      const existing = lines.find((line) => Math.abs(line.centerY - centerY) <= tolerance);
+      if (existing) {
+        existing.top = Math.min(existing.top, top);
+        existing.bottom = Math.max(existing.bottom, bottom);
+        existing.left = Math.min(existing.left, x);
+        existing.right = Math.max(existing.right, x + width);
+        existing.segments.push(...segments);
+        existing.height = existing.bottom - existing.top;
+        existing.centerY = (existing.top + existing.bottom) / 2;
+        if (width >= (existing.right - existing.left) * 0.4) {
+          existing.fontFamily = fontFamily;
+          existing.fontSize = fontSize;
+          existing.fontWeight = fontWeight;
+          existing.fontStyle = fontStyle;
+        }
+      } else {
+        lines.push({
+          top,
+          bottom,
+          left: x,
+          right: x + width,
+          centerY,
+          height: bottom - top,
+          segments,
+          fontFamily,
+          fontSize,
+          fontWeight,
+          fontStyle,
+        });
+      }
+    }
+
+    return lines
+      .map((line) => ({
+        ...line,
+        segments: line.segments.sort((a, b) => a.left - b.left),
+      }))
+      .sort((a, b) => a.top - b.top);
+  } catch {
+    return [];
+  }
+}
+
+function findNearestTextLine(lines: TextLineMetric[], x: number, y: number, maxScore = 40): TextLineMetric | null {
+  let best: TextLineMetric | null = null;
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  for (const line of lines) {
+    const verticalDistance = Math.abs(line.centerY - y);
+    const horizontalOverflow =
+      x < line.left ? line.left - x :
+      x > line.right ? x - line.right :
+      0;
+    const score = verticalDistance + horizontalOverflow * 0.2;
+    if (score < bestScore) {
+      best = line;
+      bestScore = score;
+    }
+  }
+
+  return bestScore <= maxScore ? best : null;
+}
+
+function findNearestTextSegment(line: TextLineMetric, x: number): TextSegmentMetric | null {
+  if (!line.segments.length) return null;
+
+  let best: TextSegmentMetric | null = null;
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  for (const segment of line.segments) {
+    const distance =
+      x < segment.left ? segment.left - x :
+      x > segment.right ? x - segment.right :
+      0;
+    const score = distance + Math.abs(((segment.left + segment.right) / 2) - x) * 0.05;
+    if (score < bestScore) {
+      best = segment;
+      bestScore = score;
+    }
+  }
+
+  return best;
+}
+
+function clampHighlightX(line: TextLineMetric, x: number, paddingX = 2) {
+  return clamp(x, line.left - paddingX, line.right + paddingX);
+}
+
+function resolveHighlightEndLine(
+  lines: TextLineMetric[],
+  startLine: TextLineMetric | null,
+  pointer: { x: number; y: number }
+) {
+  if (!startLine) {
+    return findNearestTextLine(lines, pointer.x, pointer.y, 32);
+  }
+
+  const verticalDistance = Math.abs(pointer.y - startLine.centerY);
+  const sameLineThreshold = Math.max(14, startLine.height * 0.7);
+  if (verticalDistance <= sameLineThreshold) {
+    return startLine;
+  }
+
+  return findNearestTextLine(lines, pointer.x, pointer.y, Math.max(28, startLine.height * 1.6));
+}
+
+function buildHighlightRectMetrics(
+  lines: TextLineMetric[],
+  startPoint: { x: number; y: number },
+  endPoint: { x: number; y: number },
+  startLine: TextLineMetric,
+  endLine: TextLineMetric,
+  paddingX = 4,
+  paddingY = 3
+) {
+  const startIndex = lines.findIndex((line) => line === startLine);
+  const endIndex = lines.findIndex((line) => line === endLine);
+
+  if (startIndex === -1 || endIndex === -1) return [];
+
+  const startComesFirst =
+    startIndex < endIndex ||
+    (startIndex === endIndex && startPoint.x <= endPoint.x);
+
+  const firstIndex = startComesFirst ? startIndex : endIndex;
+  const lastIndex = startComesFirst ? endIndex : startIndex;
+  const firstPoint = startComesFirst ? startPoint : endPoint;
+  const lastPoint = startComesFirst ? endPoint : startPoint;
+  const firstLine = lines[firstIndex];
+  const lastLine = lines[lastIndex];
+
+  const rects: Array<{ left: number; top: number; width: number; height: number }> = [];
+  for (let index = firstIndex; index <= lastIndex; index++) {
+    const line = lines[index];
+    const top = line.top - paddingY;
+    const height = line.height + paddingY * 2;
+    let left = line.left - paddingX;
+    let right = line.right + paddingX;
+
+    if (firstIndex === lastIndex) {
+      left = clampHighlightX(line, Math.min(firstPoint.x, lastPoint.x), paddingX);
+      right = clampHighlightX(line, Math.max(firstPoint.x, lastPoint.x), paddingX);
+    } else if (index === firstIndex) {
+      left = clampHighlightX(firstLine, firstPoint.x, paddingX);
+    } else if (index === lastIndex) {
+      right = clampHighlightX(lastLine, lastPoint.x, paddingX);
+    }
+
+    rects.push({
+      left,
+      top,
+      width: Math.max(right - left, 12),
+      height: Math.max(height, 12),
+    });
+  }
+
+  return rects;
+}
+
 export default function EditPdfPage() {
+  const [, setLocation] = useLocation();
   const { lang } = useLang();
   const isRu = lang === "ru";
 
@@ -77,9 +389,12 @@ export default function EditPdfPage() {
   const [brushSize, setBrushSize] = useState(3);
   const [fontSize, setFontSize] = useState(16);
   const [fontColor, setFontColor] = useState("#1a1a1a");
+  const [highlightOpacity, setHighlightOpacity] = useState(0.28);
   const [signModalOpen, setSignModalOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [hasSelection, setHasSelection] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -88,11 +403,25 @@ export default function EditPdfPage() {
   const historyRef = useRef<string[]>([]);
   const historyIndexRef = useRef(-1);
   const pageStatesRef = useRef<Map<number, string>>(new Map());
+  const pageTextLinesRef = useRef<Map<number, TextLineMetric[]>>(new Map());
   const pageOrigBytesRef = useRef<ArrayBuffer | null>(null);
   const signCanvasRef = useRef<HTMLCanvasElement>(null);
   const signFabricRef = useRef<any>(null);
-  const renderingRef = useRef(false);
+  const handleSaveRef = useRef<(() => Promise<void>) | null>(null);
   const activeToolRef = useRef<ToolType>("select");
+  const drawColorRef = useRef<DrawColor>("#1a1a1a");
+  const brushSizeRef = useRef(3);
+  const fontSizeRef = useRef(16);
+  const fontColorRef = useRef("#1a1a1a");
+  const highlightOpacityRef = useRef(0.28);
+  const suppressHistoryRef = useRef(false);
+  const renderQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const renderVersionRef = useRef(0);
+  const initVersionRef = useRef(0);
+  const draftObjectRef = useRef<any>(null);
+  const draftStartRef = useRef<{ x: number; y: number } | null>(null);
+  const draftLineRef = useRef<TextLineMetric | null>(null);
+  const [, setHistoryVersion] = useState(0);
 
   const t = {
     title: isRu ? "Редактировать PDF" : "Edit PDF",
@@ -135,7 +464,7 @@ export default function EditPdfPage() {
   };
 
   const pushHistory = useCallback(() => {
-    if (!fabricRef.current) return;
+    if (!fabricRef.current || suppressHistoryRef.current) return;
     const json = JSON.stringify(fabricRef.current.toJSON());
     const hist = historyRef.current;
     const idx = historyIndexRef.current;
@@ -144,43 +473,377 @@ export default function EditPdfPage() {
     if (newHist.length > 50) newHist.shift();
     historyRef.current = newHist;
     historyIndexRef.current = newHist.length - 1;
+    setHistoryVersion((prev) => prev + 1);
   }, []);
 
-  const initFabric = useCallback(async () => {
-    if (!fabricElRef.current || !pdfCanvasRef.current) return;
-    const { Canvas: FabricCanvas, PencilBrush } = await import("fabric");
+  const getCanvasSize = useCallback((pageNumber: number) => {
+    const dim = pageDims[pageNumber - 1] || { width: 595, height: 842 };
+    return {
+      width: Math.round(dim.width * DISPLAY_SCALE),
+      height: Math.round(dim.height * DISPLAY_SCALE),
+    };
+  }, [pageDims]);
+
+  const applyCanvasCssSize = useCallback((width: number, height: number) => {
+    const renderedWidth = Math.round(width * zoom);
+    const renderedHeight = Math.round(height * zoom);
+
+    if (pdfCanvasRef.current) {
+      pdfCanvasRef.current.style.width = `${renderedWidth}px`;
+      pdfCanvasRef.current.style.height = `${renderedHeight}px`;
+    }
+
+    if (fabricRef.current) {
+      fabricRef.current.setDimensions({ width: renderedWidth, height: renderedHeight }, { cssOnly: true });
+      fabricRef.current.calcOffset?.();
+      fabricRef.current.requestRenderAll?.();
+    } else if (fabricElRef.current) {
+      fabricElRef.current.style.width = `${renderedWidth}px`;
+      fabricElRef.current.style.height = `${renderedHeight}px`;
+    }
+  }, [zoom]);
+
+  const loadCanvasState = useCallback(async (canvas: any, state: string) => {
+    suppressHistoryRef.current = true;
+    try {
+      await canvas.loadFromJSON(JSON.parse(state));
+      canvas.renderAll();
+    } finally {
+      suppressHistoryRef.current = false;
+    }
+  }, []);
+
+  const initFabric = useCallback(async (pageNumber: number) => {
+    if (!fabricElRef.current) return;
+    const version = ++initVersionRef.current;
+    const {
+      Canvas: FabricCanvas,
+      PencilBrush,
+      IText,
+      Rect,
+      Ellipse,
+      Line,
+      Group,
+    } = await import("fabric");
+    if (version !== initVersionRef.current) return;
+    const { width, height } = getCanvasSize(pageNumber);
     if (fabricRef.current) {
       fabricRef.current.dispose();
     }
     const fc = new FabricCanvas(fabricElRef.current, {
       selection: true,
       backgroundColor: "",
-      width: pdfCanvasRef.current.width,
-      height: pdfCanvasRef.current.height,
+      width,
+      height,
     });
     (fc as any)._pdfxPencilBrush = new PencilBrush(fc);
     fabricRef.current = fc;
+    applyCanvasCssSize(width, height);
     historyRef.current = [];
     historyIndexRef.current = -1;
+    setHasSelection(false);
+    setHistoryVersion((prev) => prev + 1);
 
     fc.on("object:added", pushHistory);
     fc.on("object:modified", pushHistory);
     fc.on("object:removed", pushHistory);
+    fc.on("object:added", () => {
+      if (!suppressHistoryRef.current) setHasUnsavedChanges(true);
+    });
+    fc.on("object:modified", () => {
+      if (!suppressHistoryRef.current) setHasUnsavedChanges(true);
+    });
+    fc.on("object:removed", () => {
+      if (!suppressHistoryRef.current) {
+        setHasUnsavedChanges(true);
+        setHasSelection(false);
+      }
+    });
+    fc.on("selection:created", () => setHasSelection(true));
+    fc.on("selection:updated", () => setHasSelection(true));
+    fc.on("selection:cleared", () => setHasSelection(false));
     fc.on("mouse:down", (opt: any) => {
       if (activeToolRef.current === "eraser" && opt.target) {
         fc.remove(opt.target);
         fc.discardActiveObject();
         fc.renderAll();
+        return;
+      }
+
+      if (activeToolRef.current === "draw" || activeToolRef.current === "select") {
+        return;
+      }
+
+      const pointer = opt.scenePoint ?? fc.getScenePoint?.(opt.e);
+      if (!pointer) return;
+      const currentLines = pageTextLinesRef.current.get(pageNumber) || [];
+
+      if (activeToolRef.current === "text") {
+        const obj = new IText(isRu ? "Текст" : "Text", {
+          left: (() => {
+            const line = findNearestTextLine(currentLines, pointer.x, pointer.y, 34);
+            return line ? clamp(pointer.x, line.left, line.right) : pointer.x;
+          })(),
+          top: (() => {
+            const line = findNearestTextLine(currentLines, pointer.x, pointer.y, 34);
+            return line ? line.top + 1 : pointer.y;
+          })(),
+          fontSize: findNearestTextLine(currentLines, pointer.x, pointer.y, 34)?.fontSize ?? fontSizeRef.current,
+          fill: fontColorRef.current,
+          fontFamily: findNearestTextLine(currentLines, pointer.x, pointer.y, 34)?.fontFamily ?? "Arial",
+          fontWeight: findNearestTextLine(currentLines, pointer.x, pointer.y, 34)?.fontWeight ?? "normal",
+          fontStyle: findNearestTextLine(currentLines, pointer.x, pointer.y, 34)?.fontStyle ?? "normal",
+          editable: true,
+          lineHeight: 1,
+        });
+        fc.add(obj);
+        fc.setActiveObject(obj);
+        fc.renderAll();
+        window.setTimeout(() => {
+          (obj as any).enterEditing?.();
+          (obj as any).selectAll?.();
+          (obj as any).hiddenTextarea?.focus?.();
+        }, 0);
+        return;
+      }
+
+      if (opt.target) {
+        return;
+      }
+
+      const snappedLine = activeToolRef.current === "highlight"
+        ? findNearestTextLine(currentLines, pointer.x, pointer.y, 28)
+        : null;
+
+      draftStartRef.current = snappedLine
+        ? { x: pointer.x, y: snappedLine.centerY }
+        : pointer;
+      draftLineRef.current = snappedLine;
+      suppressHistoryRef.current = true;
+
+      if (activeToolRef.current === "rect") {
+        const obj = new Rect({
+          left: pointer.x,
+          top: pointer.y,
+          width: 1,
+          height: 1,
+          fill: "transparent",
+          stroke: drawColorRef.current,
+          strokeWidth: Math.max(1, brushSizeRef.current),
+          selectable: false,
+          evented: false,
+        });
+        draftObjectRef.current = obj;
+        fc.add(obj);
+      } else if (activeToolRef.current === "highlight") {
+        const paddingY = 3;
+        const highlightColor = hexToRgba(drawColorRef.current, highlightOpacityRef.current);
+        const highlightRects = snappedLine
+          ? buildHighlightRectMetrics(
+              currentLines,
+              draftStartRef.current ?? pointer,
+              pointer,
+              snappedLine,
+              snappedLine
+            )
+          : [];
+
+        const obj = highlightRects.length > 1
+          ? new Group(
+              highlightRects.map((rect) => new Rect({
+                ...rect,
+                fill: highlightColor,
+                stroke: "transparent",
+                strokeWidth: 0,
+                selectable: false,
+                evented: false,
+              })),
+              {
+                selectable: false,
+                evented: false,
+                objectCaching: false,
+                subTargetCheck: false,
+              }
+            )
+          : new Rect({
+              left: highlightRects[0]?.left ?? pointer.x,
+              top: highlightRects[0]?.top ?? (snappedLine ? snappedLine.top - paddingY : pointer.y),
+              width: highlightRects[0]?.width ?? 1,
+              height: highlightRects[0]?.height ?? (
+                snappedLine
+                  ? snappedLine.height + paddingY * 2
+                  : Math.max(18, brushSizeRef.current * 4)
+              ),
+              fill: highlightColor,
+              stroke: "transparent",
+              strokeWidth: 0,
+              selectable: false,
+              evented: false,
+              objectCaching: false,
+            });
+        draftObjectRef.current = obj;
+        fc.add(obj);
+      } else if (activeToolRef.current === "circle") {
+        const obj = new Ellipse({
+          left: pointer.x,
+          top: pointer.y,
+          rx: 1,
+          ry: 1,
+          originX: "left",
+          originY: "top",
+          fill: "transparent",
+          stroke: drawColorRef.current,
+          strokeWidth: Math.max(1, brushSizeRef.current),
+          selectable: false,
+          evented: false,
+        });
+        draftObjectRef.current = obj;
+        fc.add(obj);
+      } else if (activeToolRef.current === "line") {
+        const obj = new Line([pointer.x, pointer.y, pointer.x, pointer.y], {
+          stroke: drawColorRef.current,
+          strokeWidth: Math.max(1, brushSizeRef.current),
+          selectable: false,
+          evented: false,
+        });
+        draftObjectRef.current = obj;
+        fc.add(obj);
       }
     });
+    fc.on("mouse:move", (opt: any) => {
+      if (!draftStartRef.current || !draftObjectRef.current) return;
+      const pointer = opt.scenePoint ?? fc.getScenePoint?.(opt.e);
+      if (!pointer) return;
+      const start = draftStartRef.current;
+      const left = Math.min(start.x, pointer.x);
+      const top = Math.min(start.y, pointer.y);
+      const width = Math.max(Math.abs(pointer.x - start.x), 1);
+      const height = Math.max(Math.abs(pointer.y - start.y), 1);
 
-    const stored = pageStatesRef.current.get(currentPage);
-    if (stored) {
-      await fc.loadFromJSON(JSON.parse(stored));
+      if (activeToolRef.current === "rect") {
+        draftObjectRef.current.set({ left, top, width, height });
+      } else if (activeToolRef.current === "highlight") {
+        const currentLines = pageTextLinesRef.current.get(pageNumber) || [];
+        const endLine = resolveHighlightEndLine(currentLines, draftLineRef.current, pointer);
+
+        if (draftLineRef.current || endLine) {
+          const startLine = draftLineRef.current ?? endLine!;
+          const finishLine = endLine ?? draftLineRef.current ?? startLine;
+          const rects = buildHighlightRectMetrics(
+            currentLines,
+            start,
+            pointer,
+            startLine,
+            finishLine
+          );
+
+          if (rects.length > 0) {
+            const highlightColor = hexToRgba(drawColorRef.current, highlightOpacityRef.current);
+            const nextDraft = rects.length > 1
+              ? new Group(
+                  rects.map((rect) => new Rect({
+                    ...rect,
+                    fill: highlightColor,
+                    stroke: "transparent",
+                    strokeWidth: 0,
+                    selectable: false,
+                    evented: false,
+                  })),
+                  {
+                    selectable: false,
+                    evented: false,
+                    objectCaching: false,
+                    subTargetCheck: false,
+                  }
+                )
+              : new Rect({
+                  ...rects[0],
+                  fill: highlightColor,
+                  stroke: "transparent",
+                  strokeWidth: 0,
+                  selectable: false,
+                  evented: false,
+                  objectCaching: false,
+                });
+
+            fc.remove(draftObjectRef.current);
+            draftObjectRef.current = nextDraft;
+            fc.add(nextDraft);
+          }
+        } else {
+          draftObjectRef.current.set({
+            left,
+            top,
+            width: Math.max(width, 24),
+            height: Math.max(height, Math.max(18, brushSizeRef.current * 4)),
+          });
+        }
+      } else if (activeToolRef.current === "circle") {
+        draftObjectRef.current.set({ left, top, rx: width / 2, ry: height / 2 });
+      } else if (activeToolRef.current === "line") {
+        draftObjectRef.current.set({ x1: start.x, y1: start.y, x2: pointer.x, y2: pointer.y });
+      }
+
+      draftObjectRef.current.setCoords?.();
       fc.renderAll();
+    });
+    fc.on("mouse:up", () => {
+      const draft = draftObjectRef.current;
+      if (!draft) return;
+
+      suppressHistoryRef.current = false;
+      if (activeToolRef.current === "rect" && draft.width < 8 && draft.height < 8) {
+        draft.set({ width: 120, height: 70 });
+      } else if (
+        activeToolRef.current === "highlight" &&
+        draft.type !== "group" &&
+        draft.width < 10
+      ) {
+        const line = draftLineRef.current;
+        if (line) {
+          const centerX = draftStartRef.current?.x ?? draft.left ?? line.left;
+          const fallbackHalfWidth = Math.max(18, Math.min(34, line.height * 1.35));
+          const left = clampHighlightX(line, centerX - fallbackHalfWidth, 2);
+          const right = clampHighlightX(line, centerX + fallbackHalfWidth, 2);
+          draft.set({
+            left,
+            top: line.top - 3,
+            width: Math.max(right - left, 36),
+            height: line.height + 6,
+          });
+        } else {
+          draft.set({ width: 72 });
+        }
+      } else if (activeToolRef.current === "circle" && draft.rx < 4 && draft.ry < 4) {
+        draft.set({ rx: 42, ry: 42 });
+      } else if (activeToolRef.current === "line") {
+        const dx = Math.abs((draft.x2 ?? 0) - (draft.x1 ?? 0));
+        const dy = Math.abs((draft.y2 ?? 0) - (draft.y1 ?? 0));
+        if (dx < 8 && dy < 8) {
+          draft.set({ x2: (draft.x1 ?? 0) + 140, y2: draft.y1 });
+        }
+      }
+      draft.set({ selectable: true, evented: true });
+      draft.setCoords?.();
+      fc.setActiveObject(draft);
+      fc.renderAll();
+      pushHistory();
+
+      draftObjectRef.current = null;
+      draftStartRef.current = null;
+      draftLineRef.current = null;
+    });
+
+    const stored = pageStatesRef.current.get(pageNumber);
+    if (stored) {
+      await loadCanvasState(fc, stored);
+      if (version !== initVersionRef.current) {
+        fc.dispose();
+        return;
+      }
     }
     pushHistory();
-  }, [currentPage, pushHistory]);
+  }, [applyCanvasCssSize, getCanvasSize, loadCanvasState, pushHistory]);
 
   const saveCurrent = useCallback(() => {
     if (!fabricRef.current) return;
@@ -188,10 +851,26 @@ export default function EditPdfPage() {
     pageStatesRef.current.set(currentPage, json);
   }, [currentPage]);
 
-  const updateZoom = useCallback((updater: number | ((prev: number) => number)) => {
+  const goBack = useCallback(() => {
     saveCurrent();
+    if (hasUnsavedChanges) {
+      const shouldLeave = window.confirm(
+        isRu
+          ? "Есть несохраненные изменения. Выйти из редактора?"
+          : "You have unsaved changes. Leave the editor?"
+      );
+      if (!shouldLeave) return;
+    }
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    setLocation("/");
+  }, [hasUnsavedChanges, isRu, saveCurrent, setLocation]);
+
+  const updateZoom = useCallback((updater: number | ((prev: number) => number)) => {
     setZoom((prev) => typeof updater === "function" ? (updater as (prev: number) => number)(prev) : updater);
-  }, [saveCurrent]);
+  }, []);
 
   const openPdfPicker = useCallback((e?: React.SyntheticEvent) => {
     e?.preventDefault();
@@ -200,12 +879,9 @@ export default function EditPdfPage() {
   }, []);
 
   useEffect(() => {
-    if (loadingState !== "ready") return;
-    const timer = setTimeout(() => {
-      initFabric();
-    }, 50);
-    return () => clearTimeout(timer);
-  }, [currentPage, loadingState, zoom, initFabric]);
+    if (loadingState !== "ready" || pageCount < 1) return;
+    void initFabric(currentPage);
+  }, [currentPage, initFabric, loadingState, pageCount]);
 
   useEffect(() => {
     return () => {
@@ -217,6 +893,26 @@ export default function EditPdfPage() {
   useEffect(() => {
     activeToolRef.current = activeTool;
   }, [activeTool]);
+
+  useEffect(() => {
+    drawColorRef.current = drawColor;
+  }, [drawColor]);
+
+  useEffect(() => {
+    brushSizeRef.current = brushSize;
+  }, [brushSize]);
+
+  useEffect(() => {
+    fontSizeRef.current = fontSize;
+  }, [fontSize]);
+
+  useEffect(() => {
+    fontColorRef.current = fontColor;
+  }, [fontColor]);
+
+  useEffect(() => {
+    highlightOpacityRef.current = highlightOpacity;
+  }, [highlightOpacity]);
 
   useEffect(() => {
     if (!fabricRef.current) return;
@@ -246,21 +942,59 @@ export default function EditPdfPage() {
   }, [activeTool, drawColor, brushSize]);
 
 
+  useEffect(() => {
+    if (loadingState !== "ready" || pageCount < 1) return;
+    const { width, height } = getCanvasSize(currentPage);
+    applyCanvasCssSize(width, height);
+  }, [applyCanvasCssSize, currentPage, getCanvasSize, loadingState, pageCount, zoom]);
+
   const renderCurrentPage = useCallback(async () => {
-    if (!pdfjsDoc || !pdfCanvasRef.current || renderingRef.current) return;
-    renderingRef.current = true;
-    try {
-      await renderPageToCanvas(pdfjsDoc, currentPage, pdfCanvasRef.current, DISPLAY_SCALE * zoom);
-    } finally {
-      renderingRef.current = false;
-    }
-  }, [pdfjsDoc, currentPage, zoom]);
+    if (!pdfjsDoc || !pdfCanvasRef.current) return;
+
+    const canvas = pdfCanvasRef.current;
+    const version = ++renderVersionRef.current;
+    const pageNumber = currentPage;
+    const renderScale = DISPLAY_SCALE * zoom;
+    const { width, height } = getCanvasSize(pageNumber);
+
+    renderQueueRef.current = renderQueueRef.current
+      .catch(() => {})
+      .then(async () => {
+        if (version !== renderVersionRef.current) return;
+        try {
+          await renderPageToCanvas(pdfjsDoc, pageNumber, canvas, renderScale);
+        } catch {
+          if (version === renderVersionRef.current) {
+            setError(isRu ? "Не удалось отрисовать страницу PDF" : "Failed to render PDF page");
+          }
+          return;
+        }
+        if (version !== renderVersionRef.current) return;
+        applyCanvasCssSize(width, height);
+        setError((prev) => (
+          prev === "Failed to render PDF page" || prev === "Не удалось отрисовать страницу PDF"
+            ? null
+            : prev
+        ));
+      });
+
+    return renderQueueRef.current;
+  }, [applyCanvasCssSize, currentPage, getCanvasSize, isRu, pdfjsDoc, zoom]);
 
   useEffect(() => {
-    renderCurrentPage();
-  }, [renderCurrentPage]);
+    if (loadingState !== "ready") return;
+    void renderCurrentPage();
+  }, [loadingState, renderCurrentPage]);
 
   const handleFile = useCallback(async (f: File) => {
+    if (hasUnsavedChanges && file) {
+      const shouldReplace = window.confirm(
+        isRu
+          ? "Есть несохраненные изменения. Заменить текущий PDF?"
+          : "You have unsaved changes. Replace the current PDF?"
+      );
+      if (!shouldReplace) return;
+    }
     if (f.size > mbToBytes(MAX_EDIT_PDF_FILE_SIZE_MB)) {
       setError(
         isRu
@@ -283,6 +1017,7 @@ export default function EditPdfPage() {
       const bytesForPdfJs = bytes.slice(0);
       pageOrigBytesRef.current = bytesForPdfLib;
       pageStatesRef.current.clear();
+      pageTextLinesRef.current.clear();
 
       const pdfjs = await loadPdfJs();
       setLoadProgress(30);
@@ -292,11 +1027,13 @@ export default function EditPdfPage() {
 
       const dims: PageDims[] = [];
       const thumbs: string[] = [];
+      const textLines = new Map<number, TextLineMetric[]>();
       const thumbCanvas = document.createElement("canvas");
       for (let i = 1; i <= count; i++) {
         const page = await doc.getPage(i);
         const vp = page.getViewport({ scale: 1 });
         dims.push({ width: vp.width, height: vp.height });
+        textLines.set(i, await extractTextLines(page, DISPLAY_SCALE));
 
         const tvp = page.getViewport({ scale: THUMB_SCALE });
         thumbCanvas.width = Math.round(tvp.width);
@@ -308,18 +1045,21 @@ export default function EditPdfPage() {
       }
 
       setPdfjsDoc(doc);
+      pageTextLinesRef.current = textLines;
       setPageCount(count);
       setPageDims(dims);
       setThumbnails(thumbs);
       setCurrentPage(1);
       setFile(f);
+      setHasSelection(false);
+      setHasUnsavedChanges(false);
       setLoadProgress(100);
       setLoadingState("ready");
     } catch {
       setError(isRu ? "Не удалось загрузить PDF" : "Failed to load PDF");
       setLoadingState("idle");
     }
-  }, [isRu]);
+  }, [file, hasUnsavedChanges, isRu]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -328,6 +1068,54 @@ export default function EditPdfPage() {
     if (f) handleFile(f);
   }, [handleFile]);
 
+  const deleteSelectedObjects = useCallback(() => {
+    if (!fabricRef.current) return;
+    const activeObjects = fabricRef.current.getActiveObjects?.() || [];
+    if (activeObjects.length === 0) return;
+    activeObjects.forEach((obj: any) => fabricRef.current.remove(obj));
+    fabricRef.current.discardActiveObject();
+    fabricRef.current.renderAll();
+    setHasSelection(false);
+  }, []);
+
+  const duplicateSelection = useCallback(async () => {
+    if (!fabricRef.current) return;
+    const activeObject = fabricRef.current.getActiveObject?.();
+    if (!activeObject?.clone) return;
+    const cloned = await activeObject.clone();
+    cloned.set({
+      left: (activeObject.left ?? 0) + 18,
+      top: (activeObject.top ?? 0) + 18,
+    });
+    cloned.setCoords?.();
+    fabricRef.current.discardActiveObject();
+    fabricRef.current.add(cloned);
+    fabricRef.current.setActiveObject(cloned);
+    fabricRef.current.renderAll();
+    setHasSelection(true);
+  }, []);
+
+  const moveSelectionLayer = useCallback((direction: "front" | "back") => {
+    if (!fabricRef.current) return;
+    const activeObject = fabricRef.current.getActiveObject?.();
+    if (!activeObject) return;
+    if (direction === "front") {
+      fabricRef.current.bringObjectForward?.(activeObject, true);
+    } else {
+      fabricRef.current.sendObjectBackwards?.(activeObject, true);
+    }
+    activeObject.setCoords?.();
+    fabricRef.current.renderAll();
+    setHasUnsavedChanges(true);
+  }, []);
+
+  const discardActiveSelection = useCallback(() => {
+    if (!fabricRef.current) return;
+    fabricRef.current.discardActiveObject();
+    fabricRef.current.renderAll();
+    setHasSelection(false);
+  }, []);
+
   const switchPage = useCallback((p: number) => {
     if (p === currentPage) return;
     saveCurrent();
@@ -335,12 +1123,13 @@ export default function EditPdfPage() {
   }, [currentPage, saveCurrent]);
 
   const handleCanvasClick = useCallback(async (e: React.MouseEvent<HTMLElement>) => {
-    if (!fabricRef.current || !pdfCanvasRef.current) return;
+    if (!fabricRef.current) return;
     if (activeTool === "select" || activeTool === "draw" || activeTool === "eraser") return;
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const x = (e.clientX - rect.left) / zoom;
-    const y = (e.clientY - rect.top) / zoom;
+    const { width, height } = getCanvasSize(currentPage);
+    const x = (e.clientX - rect.left) * (width / rect.width);
+    const y = (e.clientY - rect.top) * (height / rect.height);
 
     const { IText, Rect, Circle: FabricCircle, Line } = await import("fabric");
 
@@ -380,35 +1169,44 @@ export default function EditPdfPage() {
       fabricRef.current.add(obj);
     }
     fabricRef.current.renderAll();
-  }, [activeTool, fontSize, fontColor, drawColor, zoom, isRu]);
+  }, [activeTool, currentPage, drawColor, fontColor, fontSize, getCanvasSize, isRu]);
 
   const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const img = e.target.files?.[0];
     if (!img || !fabricRef.current) return;
     const { FabricImage } = await import("fabric");
+    const { width } = getCanvasSize(currentPage);
     const url = URL.createObjectURL(img);
     const el = new window.Image();
     el.onload = async () => {
       const fi = await FabricImage.fromURL(url);
       URL.revokeObjectURL(url);
-      const maxW = pdfCanvasRef.current!.width * 0.4;
+      const maxW = width * 0.4;
       if (fi.width! > maxW) fi.scaleToWidth(maxW);
       fi.set({ left: 50, top: 50 });
       fabricRef.current.add(fi);
       fabricRef.current.setActiveObject(fi);
       fabricRef.current.renderAll();
+      setActiveTool("select");
     };
     el.onerror = () => URL.revokeObjectURL(url);
     el.src = url;
     e.target.value = "";
-  }, []);
+  }, [currentPage, getCanvasSize]);
 
   const handleUndo = useCallback(() => {
     const idx = historyIndexRef.current;
     if (idx <= 0 || !fabricRef.current) return;
     historyIndexRef.current = idx - 1;
+    setHistoryVersion((prev) => prev + 1);
+    suppressHistoryRef.current = true;
     fabricRef.current.loadFromJSON(JSON.parse(historyRef.current[idx - 1])).then(() => {
+      suppressHistoryRef.current = false;
       fabricRef.current.renderAll();
+      setHistoryVersion((prev) => prev + 1);
+    }).catch(() => {
+      suppressHistoryRef.current = false;
+      setHistoryVersion((prev) => prev + 1);
     });
   }, []);
 
@@ -417,28 +1215,45 @@ export default function EditPdfPage() {
     const hist = historyRef.current;
     if (idx >= hist.length - 1 || !fabricRef.current) return;
     historyIndexRef.current = idx + 1;
+    setHistoryVersion((prev) => prev + 1);
+    suppressHistoryRef.current = true;
     fabricRef.current.loadFromJSON(JSON.parse(hist[idx + 1])).then(() => {
+      suppressHistoryRef.current = false;
       fabricRef.current.renderAll();
+      setHistoryVersion((prev) => prev + 1);
+    }).catch(() => {
+      suppressHistoryRef.current = false;
+      setHistoryVersion((prev) => prev + 1);
     });
   }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA") return;
+      const isTypingTarget = Boolean(
+        target?.closest?.("input, textarea, [contenteditable='true'], [role='textbox']")
+      );
+      const isEditingFabricText = Boolean(fabricRef.current?.getActiveObject?.()?.isEditing);
+      if (isTypingTarget || isEditingFabricText) return;
 
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
+      if ((e.ctrlKey || e.metaKey) && e.code === "KeyZ" && !e.shiftKey) {
         e.preventDefault();
         handleUndo();
         return;
       }
 
       if (
-        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") ||
-        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "z")
+        ((e.ctrlKey || e.metaKey) && e.code === "KeyY") ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === "KeyZ")
       ) {
         e.preventDefault();
         handleRedo();
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.code === "KeyS") {
+        e.preventDefault();
+        void handleSaveRef.current?.();
         return;
       }
 
@@ -446,16 +1261,57 @@ export default function EditPdfPage() {
         const activeObjects = fabricRef.current.getActiveObjects?.() || [];
         if (activeObjects.length > 0) {
           e.preventDefault();
-          activeObjects.forEach((obj: any) => fabricRef.current.remove(obj));
-          fabricRef.current.discardActiveObject();
-          fabricRef.current.renderAll();
+          deleteSelectedObjects();
+          return;
         }
+      }
+
+      if (e.key === "Escape") {
+        if (fabricRef.current?.getActiveObjects?.()?.length) {
+          e.preventDefault();
+          discardActiveSelection();
+          return;
+        }
+        setActiveTool("select");
+        return;
+      }
+
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+
+      const code = e.code;
+      if (code === "KeyV") {
+        setActiveTool("select");
+      } else if (code === "KeyT") {
+        setActiveTool("text");
+      } else if (code === "KeyB") {
+        setActiveTool("draw");
+      } else if (code === "KeyH") {
+        setActiveTool("highlight");
+      } else if (code === "KeyR") {
+        setActiveTool("rect");
+      } else if (code === "KeyC") {
+        setActiveTool("circle");
+      } else if (code === "KeyL") {
+        setActiveTool("line");
+      } else if (code === "KeyE") {
+        setActiveTool("eraser");
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleRedo, handleUndo]);
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, [deleteSelectedObjects, discardActiveSelection, handleRedo, handleUndo]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!hasUnsavedChanges) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   const openSignModal = useCallback(async () => {
     setSignModalOpen(true);
@@ -475,8 +1331,16 @@ export default function EditPdfPage() {
     }, 100);
   }, []);
 
+  const clearSignaturePad = useCallback(() => {
+    if (!signFabricRef.current) return;
+    signFabricRef.current.clear();
+    signFabricRef.current.backgroundColor = "#ffffff";
+    signFabricRef.current.renderAll();
+  }, []);
+
   const confirmSign = useCallback(async () => {
     if (!signFabricRef.current || !fabricRef.current) return;
+    if ((signFabricRef.current.getObjects?.() || []).length === 0) return;
     const dataUrl = signFabricRef.current.toDataURL({ format: "png", quality: 0.9 });
     const { FabricImage } = await import("fabric");
     const el = new window.Image();
@@ -485,7 +1349,9 @@ export default function EditPdfPage() {
       fi.scaleToWidth(200);
       fi.set({ left: 50, top: 50 });
       fabricRef.current.add(fi);
+      fabricRef.current.setActiveObject(fi);
       fabricRef.current.renderAll();
+      setActiveTool("select");
     };
     el.src = dataUrl;
     setSignModalOpen(false);
@@ -554,6 +1420,7 @@ export default function EditPdfPage() {
       a.href = url;
       a.download = (file?.name?.replace(/\.pdf$/i, "") || "document") + "-edited.pdf";
       a.click();
+      setHasUnsavedChanges(false);
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err: any) {
       setError(err?.message || "Save failed");
@@ -561,6 +1428,10 @@ export default function EditPdfPage() {
       setIsSaving(false);
     }
   }, [pageCount, currentPage, pageDims, file, pdfjsDoc, saveCurrent, isRu]);
+
+  useEffect(() => {
+    handleSaveRef.current = handleSave;
+  }, [handleSave]);
 
   const toolButtons: { id: ToolType; icon: any; label: string }[] = [
     { id: "select", icon: MousePointer2, label: t.tools.select },
@@ -575,18 +1446,18 @@ export default function EditPdfPage() {
     { id: "eraser", icon: Eraser, label: t.tools.eraser },
   ];
 
-  const COLORS: DrawColor[] = ["#1a1a1a", "#e53e3e", "#3182ce", "#38a169", "#d69e2e"];
+  const COLORS: DrawColor[] = ["#1a1a1a", "#e53e3e", "#3182ce", "#38a169", "#facc15"];
+  const canUndo = historyIndexRef.current > 0;
+  const canRedo = historyIndexRef.current >= 0 && historyIndexRef.current < historyRef.current.length - 1;
 
   if (loadingState === "idle" || loadingState === "loading") {
     return (
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         <div className="flex items-center gap-3 mb-6">
-          <Link href="/">
-            <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white gap-1">
+            <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white gap-1" onClick={goBack}>
               <ArrowLeft className="size-4" />
               {isRu ? "Все инструменты" : "All tools"}
             </Button>
-          </Link>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -747,6 +1618,16 @@ export default function EditPdfPage() {
             className="flex items-center gap-1 px-3 py-2 flex-wrap"
             style={{ background: "rgba(2,6,23,0.95)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}
           >
+            <button
+              onClick={goBack}
+              className="mr-1 flex size-9 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+              aria-label={isRu ? "Назад" : "Back"}
+            >
+              <ArrowLeft className="size-4" />
+            </button>
+
+            <div className="w-px h-6 mr-1 bg-white/10" />
+
             {/* Tools */}
             {toolButtons.map(({ id, icon: Icon, label }) => (
               <Tooltip key={id}>
@@ -799,15 +1680,104 @@ export default function EditPdfPage() {
               ))}
             </div>
 
+            {(activeTool === "draw" || activeTool === "highlight" || activeTool === "rect" || activeTool === "circle" || activeTool === "line") && (
+              <div className="ml-2 flex items-center gap-2 rounded-lg bg-white/5 px-2 py-1">
+                <span className="text-[10px] uppercase tracking-wide text-slate-400">
+                  {isRu ? "Толщина" : "Size"}
+                </span>
+                <input
+                  type="range"
+                  min={1}
+                  max={activeTool === "highlight" ? 12 : 24}
+                  value={brushSize}
+                  onChange={(e) => setBrushSize(parseInt(e.target.value, 10))}
+                  className="w-20 accent-yellow-400"
+                />
+                <span className="w-5 text-center text-xs text-slate-300">{brushSize}</span>
+              </div>
+            )}
+
+            {activeTool === "text" && (
+              <div className="ml-2 flex items-center gap-2 rounded-lg bg-white/5 px-2 py-1">
+                <span className="text-[10px] uppercase tracking-wide text-slate-400">
+                  {isRu ? "Шрифт" : "Font"}
+                </span>
+                <input
+                  type="range"
+                  min={10}
+                  max={48}
+                  value={fontSize}
+                  onChange={(e) => setFontSize(parseInt(e.target.value, 10))}
+                  className="w-20 accent-blue-400"
+                />
+                <span className="w-7 text-center text-xs text-slate-300">{fontSize}</span>
+              </div>
+            )}
+
+            {activeTool === "highlight" && (
+              <div className="ml-2 flex items-center gap-2 rounded-lg bg-white/5 px-2 py-1">
+                <span className="text-[10px] uppercase tracking-wide text-slate-400">
+                  {isRu ? "Прозр." : "Opacity"}
+                </span>
+                <input
+                  type="range"
+                  min={10}
+                  max={60}
+                  value={Math.round(highlightOpacity * 100)}
+                  onChange={(e) => setHighlightOpacity(parseInt(e.target.value, 10) / 100)}
+                  className="w-20 accent-yellow-400"
+                />
+                <span className="w-8 text-center text-xs text-slate-300">{Math.round(highlightOpacity * 100)}%</span>
+              </div>
+            )}
+
             <div className="w-px h-6 mx-1 bg-white/10" />
+
+            {hasSelection && (
+              <>
+                <div className="flex items-center gap-1 rounded-lg bg-white/5 px-1 py-1">
+                  <button
+                    onClick={duplicateSelection}
+                    className="flex size-9 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all"
+                    aria-label={isRu ? "Дублировать объект" : "Duplicate object"}
+                  >
+                    <Copy className="size-4" />
+                  </button>
+                  <button
+                    onClick={() => moveSelectionLayer("front")}
+                    className="flex size-9 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all"
+                    aria-label={isRu ? "Поднять слой" : "Bring forward"}
+                  >
+                    <ChevronsUp className="size-4" />
+                  </button>
+                  <button
+                    onClick={() => moveSelectionLayer("back")}
+                    className="flex size-9 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all"
+                    aria-label={isRu ? "Опустить слой" : "Send backward"}
+                  >
+                    <ChevronsDown className="size-4" />
+                  </button>
+                  <button
+                    onClick={deleteSelectedObjects}
+                    className="flex size-9 items-center justify-center rounded-lg text-red-300 hover:bg-red-500/10 hover:text-red-200 transition-all"
+                    aria-label={isRu ? "Удалить объект" : "Delete object"}
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
+
+                <div className="w-px h-6 mx-1 bg-white/10" />
+              </>
+            )}
 
             {/* Undo/Redo */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   onClick={handleUndo}
+                  disabled={!canUndo}
                   data-testid="button-undo"
-                  className="flex size-9 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+                  className="flex size-9 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 transition-all"
                 >
                   <Undo2 className="size-4" />
                 </button>
@@ -818,8 +1788,9 @@ export default function EditPdfPage() {
               <TooltipTrigger asChild>
                 <button
                   onClick={handleRedo}
+                  disabled={!canRedo}
                   data-testid="button-redo"
-                  className="flex size-9 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+                  className="flex size-9 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 transition-all"
                 >
                   <Redo2 className="size-4" />
                 </button>
@@ -897,13 +1868,23 @@ export default function EditPdfPage() {
             </div>
           )}
 
+          <div className="mx-3 mt-2 flex flex-wrap items-center gap-3 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-300">
+            <span className={cn("font-medium", hasUnsavedChanges ? "text-amber-300" : "text-emerald-300")}>
+              {hasUnsavedChanges
+                ? (isRu ? "Есть несохраненные изменения" : "Unsaved changes")
+                : (isRu ? "Все изменения сохранены локально" : "All changes are saved locally")}
+            </span>
+            <span className="text-slate-400">
+              {isRu ? "Горячие клавиши:" : "Hotkeys:"} `V` {isRu ? "выбор" : "select"}, `T` {isRu ? "текст" : "text"}, `B` {isRu ? "кисть" : "draw"}, `H` {isRu ? "маркер" : "highlight"}, `R/C/L` {isRu ? "фигуры" : "shapes"}, `Ctrl+S` {isRu ? "сохранить" : "save"}
+            </span>
+          </div>
+
           {/* Canvas area */}
           <div className="flex-1 overflow-auto" style={{ background: "#1a1f2e" }}>
             <div className="flex items-start justify-center min-h-full p-6">
               <div
                 className="relative shadow-2xl"
                 style={{ width: canvasW, height: canvasH, cursor: activeTool === "text" || activeTool === "rect" || activeTool === "circle" || activeTool === "line" || activeTool === "highlight" ? "crosshair" : undefined }}
-                onClick={handleCanvasClick}
               >
                 <canvas
                   ref={pdfCanvasRef}
@@ -953,7 +1934,7 @@ export default function EditPdfPage() {
             <div className="flex gap-3 mt-4">
               <Button
                 variant="ghost"
-                onClick={() => signFabricRef.current?.clear?.()}
+                onClick={clearSignaturePad}
                 className="flex-1 text-slate-400 hover:text-white"
                 data-testid="button-sign-clear"
               >
