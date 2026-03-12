@@ -24,6 +24,7 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileUpload } from "@/components/file-upload";
+import { PageSelector } from "@/components/page-selector";
 import { ProgressRing } from "@/components/progress-ring";
 import { ToolCard } from "@/components/tool-card";
 import { getToolBySlug, tools, categoryColors } from "@/lib/tools";
@@ -32,6 +33,9 @@ import { DEFAULT_MAX_FILE_SIZE_MB } from "@/lib/upload-limits";
 import {
   mergePdfs,
   splitPdf,
+  splitPdfEveryN,
+  splitPdfAllPages,
+  splitResultsToZip,
   rotatePdf,
   deletePages,
   extractPages,
@@ -48,6 +52,8 @@ import {
   redactPdf,
   wordToPdf,
   pdfToText,
+  pdfToDocx,
+  ocrPdf,
   pdfToImages,
   pdfToHtml,
   pdfImagesAsZip,
@@ -101,6 +107,9 @@ export default function ToolPage() {
 
   const [splitStart, setSplitStart] = useState("1");
   const [splitEnd, setSplitEnd] = useState("");
+  const [splitMode, setSplitMode] = useState<"range" | "every-n" | "all">("range");
+  const [splitEveryN, setSplitEveryN] = useState("2");
+  const [splitPartsCount, setSplitPartsCount] = useState<number | null>(null);
   const [rotation, setRotation] = useState<"90" | "180" | "270">("90");
   const [pagesToDelete, setPagesToDelete] = useState("");
   const [pagesToExtract, setPagesToExtract] = useState("");
@@ -113,6 +122,7 @@ export default function ToolPage() {
   const [freeTextContent, setFreeTextContent] = useState("");
   const [signatureText, setSignatureText] = useState("");
   const [redactSearchText, setRedactSearchText] = useState("");
+  const [ocrLang, setOcrLang] = useState("eng+rus");
   const [resultText, setResultText] = useState<string | null>(null);
   const [resultHtml, setResultHtml] = useState<string | null>(null);
   const [imageScale, setImageScale] = useState<"1" | "2" | "3">("2");
@@ -143,6 +153,9 @@ export default function ToolPage() {
     setResultSize(null);
     setResultText(null);
     setResultHtml(null);
+    setSplitPartsCount(null);
+    setPagesToDelete("");
+    setPagesToExtract("");
   }, []);
 
   const process = useCallback(async () => {
@@ -181,16 +194,30 @@ export default function ToolPage() {
           result = await mergePdfs(files);
           break;
         case "split-pdf": {
-          const start = parseInt(splitStart) || 1;
-          const pageCount = parseInt(splitEnd) || 999;
-          const results = await splitPdf(files[0], [{ start, end: pageCount }]);
-          result = results[0];
+          const origName = files[0].name.replace(/\.[^.]+$/, "");
+          if (splitMode === "all") {
+            const parts = await splitPdfAllPages(files[0]);
+            setSplitPartsCount(parts.length);
+            result = await splitResultsToZip(parts, origName);
+          } else if (splitMode === "every-n") {
+            const n = Math.max(1, parseInt(splitEveryN) || 1);
+            const parts = await splitPdfEveryN(files[0], n);
+            setSplitPartsCount(parts.length);
+            result = await splitResultsToZip(parts, origName);
+          } else {
+            const start = parseInt(splitStart) || 1;
+            const pageCount = parseInt(splitEnd) || 999;
+            const results = await splitPdf(files[0], [{ start, end: pageCount }]);
+            setSplitPartsCount(1);
+            result = results[0];
+          }
           break;
         }
         case "rotate-pdf":
           result = await rotatePdf(files[0], parseInt(rotation) as 90 | 180 | 270);
           break;
         case "delete-pages": {
+          if (!pagesToDelete.trim()) throw new Error(lang === "ru" ? "Выберите страницы для удаления." : "Please select pages to delete.");
           const pageCount = await getPdfPageCount(files[0]);
           const indices = parsePageSelection(pagesToDelete, pageCount, { allowDuplicates: false });
           result = await deletePages(files[0], indices);
@@ -198,6 +225,7 @@ export default function ToolPage() {
         }
         case "extract-pages":
         case "reorder-pages": {
+          if (!pagesToExtract.trim()) throw new Error(lang === "ru" ? "Выберите страницы." : "Please select pages.");
           const pageCount = await getPdfPageCount(files[0]);
           const indices = parsePageSelection(pagesToExtract, pageCount, {
             allowDuplicates: slug === "reorder-pages",
@@ -254,8 +282,10 @@ export default function ToolPage() {
           break;
         case "excel-to-pdf":
           throw new Error(t.tool.proOnlyError);
-        case "pdf-to-word":
-          throw new Error(t.tool.proOnlyError);
+        case "pdf-to-word": {
+          result = await pdfToDocx(files[0]);
+          break;
+        }
         case "pdf-to-excel":
           throw new Error(t.tool.proOnlyError);
         case "pdf-to-text": {
@@ -280,7 +310,8 @@ export default function ToolPage() {
           break;
         }
         case "ocr-pdf":
-          throw new Error(t.tool.proOnlyError);
+          result = await ocrPdf(files[0], ocrLang, setProgress);
+          break;
         default:
           throw new Error(t.tool.proOnlyError);
       }
@@ -294,17 +325,17 @@ export default function ToolPage() {
       setState("error");
     }
   }, [
-    tool, files, slug, splitStart, splitEnd, rotation,
-    pagesToDelete, pagesToExtract, compressionLevel,
+    tool, files, slug, splitStart, splitEnd, splitMode, splitEveryN,
+    rotation, pagesToDelete, pagesToExtract, compressionLevel,
     watermarkText, watermarkOpacity, pageNumPosition,
     headerText, footerText, freeTextContent,
-    signatureText, redactSearchText, imageScale, lang, t, setProgress,
+    signatureText, redactSearchText, ocrLang, imageScale, lang, t, setProgress,
   ]);
 
   const handleDownload = useCallback(() => {
     if (!tool) return;
     const origName = files[0]?.name?.replace(/\.[^.]+$/, "") || "output";
-    if (resultText !== null && (slug === "pdf-to-text")) {
+    if (resultText !== null && slug === "pdf-to-text") {
       downloadText(resultText, `${origName}-pdfx.txt`);
       return;
     }
@@ -317,8 +348,20 @@ export default function ToolPage() {
       downloadBlob(resultBytes, `${origName}-pdfx-images.zip`, "application/zip");
       return;
     }
+    if (slug === "split-pdf" && (splitMode === "all" || splitMode === "every-n")) {
+      downloadBlob(resultBytes, `${origName}-split.zip`, "application/zip");
+      return;
+    }
+    if (slug === "pdf-to-word") {
+      downloadBlob(
+        resultBytes,
+        `${origName}-pdfx.docx`,
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      );
+      return;
+    }
     downloadBlob(resultBytes, `${origName}-pdfx.${tool.outputExt || "pdf"}`);
-  }, [resultBytes, resultText, resultHtml, files, tool, slug]);
+  }, [resultBytes, resultText, resultHtml, files, tool, slug, splitMode]);
 
   if (!tool) {
     return (
@@ -402,28 +445,68 @@ export default function ToolPage() {
               )}
 
               {slug === "split-pdf" && (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-3">
                   <div>
-                    <Label className="text-sm font-medium mb-1.5 block">{t.tool.fromPage}</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={splitStart}
-                      onChange={(e) => setSplitStart(e.target.value)}
-                      data-testid="input-split-start"
-                    />
+                    <Label className="text-sm font-medium mb-1.5 block">
+                      {lang === "ru" ? "Режим разбивки" : "Split mode"}
+                    </Label>
+                    <Select value={splitMode} onValueChange={(v) => setSplitMode(v as "range" | "every-n" | "all")}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="range">{lang === "ru" ? "Диапазон страниц" : "Page range"}</SelectItem>
+                        <SelectItem value="every-n">{lang === "ru" ? "Каждые N страниц" : "Every N pages"}</SelectItem>
+                        <SelectItem value="all">{lang === "ru" ? "Каждую страницу отдельно (ZIP)" : "Individual pages (ZIP)"}</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div>
-                    <Label className="text-sm font-medium mb-1.5 block">{t.tool.toPage}</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={splitEnd}
-                      onChange={(e) => setSplitEnd(e.target.value)}
-                      placeholder={t.tool.lastPage}
-                      data-testid="input-split-end"
-                    />
-                  </div>
+                  {splitMode === "range" && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-sm font-medium mb-1.5 block">{t.tool.fromPage}</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={splitStart}
+                          onChange={(e) => setSplitStart(e.target.value)}
+                          data-testid="input-split-start"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium mb-1.5 block">{t.tool.toPage}</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={splitEnd}
+                          onChange={(e) => setSplitEnd(e.target.value)}
+                          placeholder={t.tool.lastPage}
+                          data-testid="input-split-end"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {splitMode === "every-n" && (
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">
+                        {lang === "ru" ? "Страниц в каждой части" : "Pages per part"}
+                      </Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={splitEveryN}
+                        onChange={(e) => setSplitEveryN(e.target.value)}
+                        placeholder="2"
+                      />
+                    </div>
+                  )}
+                  {splitMode === "all" && (
+                    <p className="text-xs text-muted-foreground">
+                      {lang === "ru"
+                        ? "Каждая страница станет отдельным PDF. Все части будут упакованы в ZIP-архив."
+                        : "Each page becomes a separate PDF. All parts will be packaged in a ZIP archive."}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -443,29 +526,51 @@ export default function ToolPage() {
                 </div>
               )}
 
-              {(slug === "delete-pages") && (
-                <div>
-                  <Label className="text-sm font-medium mb-1.5 block">{t.tool.pagesDelete}</Label>
-                  <Input
-                    value={pagesToDelete}
-                    onChange={(e) => setPagesToDelete(e.target.value)}
-                    placeholder="1, 3, 5-8"
-                    data-testid="input-pages-delete"
-                  />
+              {slug === "delete-pages" && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium block">{t.tool.pagesDelete}</Label>
+                  {files.length > 0 ? (
+                    <PageSelector
+                      file={files[0]}
+                      mode="select"
+                      lang={lang}
+                      onSelectionChange={(indices) =>
+                        setPagesToDelete(indices.map(i => i + 1).join(","))
+                      }
+                    />
+                  ) : (
+                    <Input
+                      value={pagesToDelete}
+                      onChange={(e) => setPagesToDelete(e.target.value)}
+                      placeholder="1, 3, 5-8"
+                      data-testid="input-pages-delete"
+                    />
+                  )}
                 </div>
               )}
 
               {(slug === "extract-pages" || slug === "reorder-pages") && (
-                <div>
-                  <Label className="text-sm font-medium mb-1.5 block">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium block">
                     {slug === "reorder-pages" ? t.tool.pagesReorder : t.tool.pagesExtract}
                   </Label>
-                  <Input
-                    value={pagesToExtract}
-                    onChange={(e) => setPagesToExtract(e.target.value)}
-                    placeholder="1, 2, 5-7"
-                    data-testid="input-pages-extract"
-                  />
+                  {files.length > 0 ? (
+                    <PageSelector
+                      file={files[0]}
+                      mode={slug === "reorder-pages" ? "reorder" : "select"}
+                      lang={lang}
+                      onSelectionChange={(indices) =>
+                        setPagesToExtract(indices.map(i => i + 1).join(","))
+                      }
+                    />
+                  ) : (
+                    <Input
+                      value={pagesToExtract}
+                      onChange={(e) => setPagesToExtract(e.target.value)}
+                      placeholder="1, 2, 5-7"
+                      data-testid="input-pages-extract"
+                    />
+                  )}
                 </div>
               )}
 
@@ -573,6 +678,43 @@ export default function ToolPage() {
                 </div>
               )}
 
+              {slug === "ocr-pdf" && (
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-sm font-medium mb-1.5 block">
+                      {lang === "ru" ? "Язык OCR" : "OCR Language"}
+                    </Label>
+                    <Select value={ocrLang} onValueChange={setOcrLang}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="eng">English</SelectItem>
+                        <SelectItem value="rus">Русский (Russian)</SelectItem>
+                        <SelectItem value="eng+rus">English + Русский</SelectItem>
+                        <SelectItem value="deu">Deutsch (German)</SelectItem>
+                        <SelectItem value="fra">Français (French)</SelectItem>
+                        <SelectItem value="spa">Español (Spanish)</SelectItem>
+                        <SelectItem value="chi_sim">中文简体 (Chinese Simplified)</SelectItem>
+                        <SelectItem value="jpn">日本語 (Japanese)</SelectItem>
+                        <SelectItem value="ara">العربية (Arabic)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div
+                    className="flex items-start gap-3 rounded-lg p-3 text-sm"
+                    style={{ background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)" }}
+                  >
+                    <span className="mt-0.5 text-indigo-400">ℹ</span>
+                    <span className="text-slate-300">
+                      {lang === "ru"
+                        ? "OCR делает сканированный PDF доступным для поиска. Языковые данные загружаются при первом использовании. Обработка многостраничных файлов займёт время."
+                        : "OCR makes scanned PDFs searchable. Language data is downloaded on first use. Multi-page PDFs may take a few minutes."}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {(slug === "pdf-to-jpg" || slug === "pdf-to-png") && (
                 <div>
                   <Label className="text-sm font-medium mb-1.5 block">{t.tool.qualityScale}</Label>
@@ -646,7 +788,13 @@ export default function ToolPage() {
                         data-testid="button-download"
                       >
                         <Download className="w-4 h-4" />
-                        {t.tool.download} {tool.outputExt?.toUpperCase() || "PDF"}
+                        {t.tool.download}{" "}
+                        {slug === "pdf-to-word"
+                          ? "DOCX"
+                          : (slug === "split-pdf" && (splitMode === "all" || splitMode === "every-n")) ||
+                            slug === "pdf-to-jpg" || slug === "pdf-to-png"
+                            ? "ZIP"
+                            : tool.outputExt?.toUpperCase() || "PDF"}
                         {resultSize && (
                           <span className="text-xs opacity-70">({formatBytes(resultSize)})</span>
                         )}
@@ -663,16 +811,24 @@ export default function ToolPage() {
                       {files[0] && (
                         <div className="flex items-center gap-1.5 text-sm text-emerald-400">
                           <CheckCircle className="w-4 h-4" />
-                          <span>{t.tool.doneLabel} {resultSize && files[0] && (
-                            <span className="text-muted-foreground">
-                              {formatBytes(files[0].size)} → {formatBytes(resultSize)}
-                              {files[0].size > (resultSize || 0) && (
-                                <span className="text-emerald-400 ml-1">
-                                  (-{Math.round((1 - (resultSize || 0) / files[0].size) * 100)}%)
-                                </span>
-                              )}
-                            </span>
-                          )}</span>
+                          <span>
+                            {t.tool.doneLabel}
+                            {splitPartsCount && splitPartsCount > 1 && (
+                              <span className="text-muted-foreground ml-1">
+                                {lang === "ru" ? `${splitPartsCount} частей в ZIP` : `${splitPartsCount} parts in ZIP`}
+                              </span>
+                            )}
+                            {resultSize && files[0] && !splitPartsCount && (
+                              <span className="text-muted-foreground">
+                                {formatBytes(files[0].size)} → {formatBytes(resultSize)}
+                                {files[0].size > (resultSize || 0) && (
+                                  <span className="text-emerald-400 ml-1">
+                                    (-{Math.round((1 - (resultSize || 0) / files[0].size) * 100)}%)
+                                  </span>
+                                )}
+                              </span>
+                            )}
+                          </span>
                         </div>
                       )}
                     </motion.div>
