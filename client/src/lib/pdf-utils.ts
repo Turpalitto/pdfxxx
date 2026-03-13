@@ -1249,49 +1249,6 @@ ${paragraphs}
 </html>`;
 }
 
-export async function ocrPdf(
-  file: File,
-  language: string = "eng",
-  onProgress?: (pct: number) => void
-): Promise<Uint8Array> {
-  const { createWorker } = await import("tesseract.js");
-  const images = await pdfToImages(file, "png", 2);
-
-  if (images.length === 0) {
-    throw new Error("No pages were found in this PDF.");
-  }
-
-  const worker = await createWorker(language, 1, {
-    logger: (message) => {
-      if (typeof message.progress === "number") {
-        onProgress?.(Math.min(95, Math.max(12, Math.round(message.progress * 90))));
-      }
-    },
-  });
-
-  try {
-    const pagePdfs: Uint8Array[] = [];
-    for (let index = 0; index < images.length; index++) {
-      onProgress?.(Math.max(10, Math.round((index / images.length) * 85)));
-      const result = await worker.recognize(
-        images[index].dataUrl,
-        { pdfTitle: `${stripExtension(file.name)} - page ${index + 1}` },
-        { pdf: true }
-      );
-      const pdfBytes = toUint8Array(result.data.pdf);
-      if (pdfBytes.length === 0) {
-        throw new Error("OCR did not return a searchable PDF page.");
-      }
-      pagePdfs.push(pdfBytes);
-    }
-
-    onProgress?.(98);
-    return pagePdfs.length === 1 ? pagePdfs[0] : mergePdfByteArrays(pagePdfs);
-  } finally {
-    await worker.terminate();
-  }
-}
-
 export async function pdfImagesAsZip(
   images: { dataUrl: string; page: number }[],
   format: "jpg" | "png",
