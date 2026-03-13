@@ -1,7 +1,6 @@
 import { Link } from "wouter";
-import { FileText, Github, Twitter, Linkedin } from "lucide-react";
-import { categories } from "@/lib/tools";
-import { getCategoryLabel } from "@/lib/tools";
+import { FileText, Mail } from "lucide-react";
+import { categories, getCategoryLabel } from "@/lib/tools";
 import { useLang } from "@/lib/lang-context";
 
 export function Footer() {
@@ -36,41 +35,21 @@ export function Footer() {
             </Link>
             <p className="text-sm text-slate-400 leading-relaxed mb-4 max-w-xs">
               {lang === "ru"
-                ? "Все PDF инструменты в одном месте. Бесплатно, безопасно, без водяных знаков."
-                : "All PDF tools in one place. Free, secure, no watermarks."}
+                ? "Онлайн-набор PDF-инструментов для конвертации, организации, защиты и OCR прямо в браузере."
+                : "An online PDF toolkit for conversion, organization, protection, and OCR directly in the browser."}
             </p>
-            <div className="flex gap-2">
-              <a
-                href="#"
-                className="flex size-8 items-center justify-center rounded-lg text-slate-400 hover:text-white transition-colors"
-                style={{ background: "rgba(255,255,255,0.06)" }}
-                aria-label="GitHub"
-              >
-                <Github className="size-4" />
-              </a>
-              <a
-                href="#"
-                className="flex size-8 items-center justify-center rounded-lg text-slate-400 hover:text-white transition-colors"
-                style={{ background: "rgba(255,255,255,0.06)" }}
-                aria-label="Twitter"
-              >
-                <Twitter className="size-4" />
-              </a>
-              <a
-                href="#"
-                className="flex size-8 items-center justify-center rounded-lg text-slate-400 hover:text-white transition-colors"
-                style={{ background: "rgba(255,255,255,0.06)" }}
-                aria-label="LinkedIn"
-              >
-                <Linkedin className="size-4" />
-              </a>
-            </div>
+            <a
+              href="mailto:hello@pdfx.tools"
+              className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-300 hover:text-white transition-colors"
+              style={{ background: "rgba(255,255,255,0.06)" }}
+            >
+              <Mail className="size-4" />
+              hello@pdfx.tools
+            </a>
           </div>
 
           <div>
-            <h3 className="text-white font-semibold mb-4 text-sm">
-              {lang === "ru" ? "Инструменты" : "Tools"}
-            </h3>
+            <h3 className="text-white font-semibold mb-4 text-sm">{t.footer.pdfTools}</h3>
             <ul className="space-y-2.5">
               {categories.slice(0, 4).map((cat) => (
                 <li key={cat.id}>
@@ -86,9 +65,7 @@ export function Footer() {
           </div>
 
           <div>
-            <h3 className="text-white font-semibold mb-4 text-sm">
-              {lang === "ru" ? "Ещё инструменты" : "More tools"}
-            </h3>
+            <h3 className="text-white font-semibold mb-4 text-sm">{t.footer.moreTools}</h3>
             <ul className="space-y-2.5">
               {categories.slice(4).map((cat) => (
                 <li key={cat.id}>
@@ -104,29 +81,27 @@ export function Footer() {
           </div>
 
           <div>
-            <h3 className="text-white font-semibold mb-4 text-sm">
-              {lang === "ru" ? "Компания" : "Company"}
-            </h3>
+            <h3 className="text-white font-semibold mb-4 text-sm">{t.footer.company}</h3>
             <ul className="space-y-2.5">
               <li>
                 <Link href="/pricing" className="text-sm text-slate-400 hover:text-white transition-colors">
-                  {lang === "ru" ? "Цены" : "Pricing"}
+                  {t.footer.pricing}
                 </Link>
               </li>
               <li>
-                <a href="#" className="text-sm text-slate-400 hover:text-white transition-colors">
+                <Link href="/privacy" className="text-sm text-slate-400 hover:text-white transition-colors">
                   {t.footer.privacy}
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-sm text-slate-400 hover:text-white transition-colors">
+                <Link href="/terms" className="text-sm text-slate-400 hover:text-white transition-colors">
                   {t.footer.terms}
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-sm text-slate-400 hover:text-white transition-colors">
+                <Link href="/contact" className="text-sm text-slate-400 hover:text-white transition-colors">
                   {t.footer.contact}
-                </a>
+                </Link>
               </li>
             </ul>
           </div>

@@ -278,7 +278,7 @@ export const tools: Tool[] = [
   {
     slug: "protect-pdf",
     name: "Protect PDF",
-    description: "Add password protection to your PDF files (server-side processing — coming to Pro).",
+    description: "Add AES-256 password protection to your PDF files.",
     icon: Lock,
     emoji: "🔐",
     category: "security",
@@ -428,6 +428,21 @@ export function getToolBySlug(slug: string): Tool | undefined {
 
 export function getToolsByCategory(categoryId: string): Tool[] {
   return tools.filter((t) => t.category === categoryId);
+}
+
+export const ROADMAP_TOOL_SLUGS = new Set<string>();
+
+export function isToolLaunchReady(toolOrSlug: Tool | string): boolean {
+  const slug = typeof toolOrSlug === "string" ? toolOrSlug : toolOrSlug.slug;
+  return !ROADMAP_TOOL_SLUGS.has(slug);
+}
+
+export function getLaunchReadyTools(): Tool[] {
+  return tools.filter((tool) => isToolLaunchReady(tool));
+}
+
+export function getRoadmapTools(): Tool[] {
+  return tools.filter((tool) => !isToolLaunchReady(tool));
 }
 
 export const categoryColors: Record<string, { bg: string; text: string; border: string; gradient: string; glow: string; from: string; to: string }> = {

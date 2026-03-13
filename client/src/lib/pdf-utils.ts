@@ -1,5 +1,6 @@
 import { PDFDocument, rgb, StandardFonts, degrees } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
+import { PDF as SecurePDF } from "@libpdf/core";
 
 let _unicodeFontBytes: ArrayBuffer | null = null;
 
@@ -58,6 +59,201 @@ async function rasterizeImageToPngBytes(file: File): Promise<Uint8Array> {
   } finally {
     URL.revokeObjectURL(objectUrl);
   }
+}
+
+type PdfLayoutItem = {
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+type PdfLayoutLine = {
+  text: string;
+  items: PdfLayoutItem[];
+};
+
+type PdfLayoutPage = {
+  pageNumber: number;
+  lines: PdfLayoutLine[];
+};
+
+function toUint8Array(data: ArrayBuffer | Uint8Array | number[] | null | undefined): Uint8Array {
+  if (!data) return new Uint8Array();
+  if (data instanceof Uint8Array) return data;
+  if (data instanceof ArrayBuffer) return new Uint8Array(data);
+  return new Uint8Array(data);
+}
+
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function stripExtension(filename: string): string {
+  return filename.replace(/\.[^.]+$/, "");
+}
+
+function createOwnerPassword(seed: string): string {
+  const randomBytes = new Uint8Array(12);
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    crypto.getRandomValues(randomBytes);
+  } else {
+    for (let i = 0; i < randomBytes.length; i++) {
+      randomBytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  const randomPart = Array.from(randomBytes, (value) => value.toString(16).padStart(2, "0")).join("");
+  return `${seed}::owner::${randomPart}`;
+}
+
+async function loadPdfJs() {
+  const pdfjs = await import("pdfjs-dist");
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+    "pdfjs-dist/build/pdf.worker.mjs",
+    import.meta.url
+  ).href;
+  return pdfjs;
+}
+
+function lineTextFromItems(items: PdfLayoutItem[]): string {
+  if (items.length === 0) return "";
+  const sorted = [...items].sort((a, b) => a.x - b.x);
+  const parts: string[] = [];
+  let prevEnd = sorted[0].x;
+
+  for (const item of sorted) {
+    const averageCharWidth = item.text.length > 0 ? item.width / item.text.length : 6;
+    const gap = item.x - prevEnd;
+
+    if (parts.length > 0) {
+      if (gap > Math.max(22, averageCharWidth * 4)) {
+        parts.push("\t");
+      } else if (gap > Math.max(6, averageCharWidth * 1.2)) {
+        parts.push(" ");
+      }
+    }
+
+    parts.push(item.text);
+    prevEnd = item.x + Math.max(item.width, averageCharWidth * item.text.length);
+  }
+
+  return parts
+    .join("")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\s+\t/g, "\t")
+    .replace(/\t\s+/g, "\t")
+    .trim();
+}
+
+function cellsFromLine(line: PdfLayoutLine): string[] {
+  if (line.items.length === 0) return [line.text];
+  const sorted = [...line.items].sort((a, b) => a.x - b.x);
+  const cells: string[] = [];
+  let current = sorted[0].text;
+  let prevEnd = sorted[0].x + Math.max(sorted[0].width, sorted[0].text.length * 6);
+
+  for (let i = 1; i < sorted.length; i++) {
+    const item = sorted[i];
+    const prev = sorted[i - 1];
+    const averageCharWidth = prev.text.length > 0 ? prev.width / prev.text.length : 6;
+    const gap = item.x - prevEnd;
+
+    if (gap > Math.max(20, averageCharWidth * 3.5)) {
+      cells.push(current.trim());
+      current = item.text;
+    } else {
+      current += gap > Math.max(5, averageCharWidth * 1.1) ? ` ${item.text}` : item.text;
+    }
+
+    prevEnd = item.x + Math.max(item.width, item.text.length * 6);
+  }
+
+  cells.push(current.trim());
+  return cells.length > 0 ? cells : [line.text];
+}
+
+async function extractPdfLayout(file: File): Promise<PdfLayoutPage[]> {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdfjs = await loadPdfJs();
+  const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+  const pdf = await loadingTask.promise;
+  const pages: PdfLayoutPage[] = [];
+
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+    const page = await pdf.getPage(pageNumber);
+    const content = await page.getTextContent();
+    const items = (content.items || [])
+      .map((item: any) => {
+        const text = typeof item?.str === "string" ? item.str.trim() : "";
+        if (!text) return null;
+        const transform = Array.isArray(item.transform) ? item.transform : [1, 0, 0, 1, 0, 0];
+        return {
+          text,
+          x: Number(transform[4] || 0),
+          y: Number(transform[5] || 0),
+          width: Math.max(Number(item.width || 0), 1),
+          height: Math.max(Math.abs(Number(item.height || transform[3] || 10)), 1),
+        } satisfies PdfLayoutItem;
+      })
+      .filter((item): item is PdfLayoutItem => Boolean(item))
+      .sort((a, b) => (Math.abs(a.y - b.y) <= 2 ? a.x - b.x : b.y - a.y));
+
+    const rows: { y: number; items: PdfLayoutItem[] }[] = [];
+
+    for (const item of items) {
+      const threshold = Math.max(3, item.height * 0.45);
+      const existingRow = rows.find((row) => Math.abs(row.y - item.y) <= threshold);
+      if (existingRow) {
+        existingRow.items.push(item);
+        existingRow.y = (existingRow.y + item.y) / 2;
+      } else {
+        rows.push({ y: item.y, items: [item] });
+      }
+    }
+
+    rows.sort((a, b) => b.y - a.y);
+    const lines = rows
+      .map((row) => {
+        const sortedItems = [...row.items].sort((a, b) => a.x - b.x);
+        return {
+          text: lineTextFromItems(sortedItems),
+          items: sortedItems,
+        } satisfies PdfLayoutLine;
+      })
+      .filter((line) => line.text.length > 0);
+
+    pages.push({ pageNumber, lines });
+  }
+
+  return pages;
+}
+
+async function mergePdfByteArrays(documents: Uint8Array[]): Promise<Uint8Array> {
+  const mergedPdf = await PDFDocument.create();
+  for (const bytes of documents) {
+    const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
+    const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+    copiedPages.forEach((page) => mergedPdf.addPage(page));
+  }
+  return mergedPdf.save();
+}
+
+function truncateToWidth(text: string, font: any, fontSize: number, maxWidth: number): string {
+  if (!text) return "";
+  if (font.widthOfTextAtSize(text, fontSize) <= maxWidth) return text;
+
+  const ellipsis = "…";
+  let trimmed = text;
+  while (trimmed.length > 0 && font.widthOfTextAtSize(`${trimmed}${ellipsis}`, fontSize) > maxWidth) {
+    trimmed = trimmed.slice(0, -1);
+  }
+  return trimmed ? `${trimmed}${ellipsis}` : ellipsis;
 }
 
 export async function mergePdfs(files: File[]): Promise<Uint8Array> {
@@ -335,21 +531,31 @@ export async function flattenPdf(file: File): Promise<Uint8Array> {
   return newPdf.save();
 }
 
-export async function protectPdf(_file: File, _password: string): Promise<Uint8Array> {
-  throw new Error(
-    "PDF password encryption is not supported in the browser version. " +
-    "Please use Adobe Acrobat, LibreOffice, or a desktop PDF tool to add password protection. " +
-    "This feature is planned for the PDFX Pro server-side release."
-  );
+export async function protectPdf(file: File, password: string): Promise<Uint8Array> {
+  const cleanPassword = password.trim();
+  if (cleanPassword.length < 4) {
+    throw new Error("Please enter a password with at least 4 characters.");
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const pdf = await SecurePDF.load(bytes);
+  pdf.setProtection({
+    userPassword: cleanPassword,
+    ownerPassword: createOwnerPassword(cleanPassword),
+    algorithm: "AES-256",
+  });
+  return toUint8Array(await pdf.save());
 }
 
-export async function unlockPdf(file: File): Promise<Uint8Array> {
-  const bytes = await file.arrayBuffer();
-  const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
-  const newPdf = await PDFDocument.create();
-  const copiedPages = await newPdf.copyPages(src, src.getPageIndices());
-  copiedPages.forEach((page) => newPdf.addPage(page));
-  return newPdf.save();
+export async function unlockPdf(file: File, password: string): Promise<Uint8Array> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const credentials = password.trim();
+  const pdf = await SecurePDF.load(bytes, credentials ? { credentials } : undefined);
+  if (pdf.isEncrypted) {
+    pdf.removeProtection();
+    return toUint8Array(await pdf.save());
+  }
+  return bytes;
 }
 
 export async function signPdf(file: File, signatureText: string, color: [number, number, number] = [0.1, 0.2, 0.8]): Promise<Uint8Array> {
@@ -712,6 +918,263 @@ export async function wordToPdf(file: File): Promise<Uint8Array> {
   return textToPdf(text);
 }
 
+export async function pdfToWord(file: File): Promise<Uint8Array> {
+  const pages = await extractPdfLayout(file);
+  const paragraphXml: string[] = [];
+
+  for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
+    const page = pages[pageIndex];
+    if (pageIndex > 0) {
+      paragraphXml.push('<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
+    }
+
+    for (const line of page.lines) {
+      paragraphXml.push(
+        `<w:p><w:r><w:t xml:space="preserve">${escapeXml(line.text)}</w:t></w:r></w:p>`
+      );
+    }
+  }
+
+  if (paragraphXml.length === 0) {
+    throw new Error("No text was found in this PDF. Try OCR PDF for scanned documents.");
+  }
+
+  const JSZip = (await import("jszip")).default;
+  const zip = new JSZip();
+  const now = new Date().toISOString();
+
+  zip.file(
+    "[Content_Types].xml",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+  <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+</Types>`
+  );
+
+  zip.folder("_rels")?.file(
+    ".rels",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>`
+  );
+
+  zip.folder("docProps")?.file(
+    "core.xml",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
+  xmlns:dc="http://purl.org/dc/elements/1.1/"
+  xmlns:dcterms="http://purl.org/dc/terms/"
+  xmlns:dcmitype="http://purl.org/dc/dcmitype/"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <dc:title>${escapeXml(stripExtension(file.name))}</dc:title>
+  <dc:creator>PDFX</dc:creator>
+  <cp:lastModifiedBy>PDFX</cp:lastModifiedBy>
+  <dcterms:created xsi:type="dcterms:W3CDTF">${now}</dcterms:created>
+  <dcterms:modified xsi:type="dcterms:W3CDTF">${now}</dcterms:modified>
+</cp:coreProperties>`
+  );
+
+  zip.folder("docProps")?.file(
+    "app.xml",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"
+  xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
+  <Application>PDFX</Application>
+</Properties>`
+  );
+
+  zip.folder("word")?.file(
+    "document.xml",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:o="urn:schemas-microsoft-com:office:office"
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+  xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"
+  xmlns:v="urn:schemas-microsoft-com:vml"
+  xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing"
+  xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+  xmlns:w10="urn:schemas-microsoft-com:office:word"
+  xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+  xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml"
+  xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup"
+  xmlns:wpi="http://schemas.microsoft.com/office/word/2010/wordprocessingInk"
+  xmlns:wne="http://schemas.microsoft.com/office/2006/wordml"
+  xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
+  mc:Ignorable="w14 wp14">
+  <w:body>
+    ${paragraphXml.join("")}
+    <w:sectPr>
+      <w:pgSz w:w="11906" w:h="16838"/>
+      <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="708" w:footer="708" w:gutter="0"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`
+  );
+
+  zip.folder("word")?.folder("_rels")?.file(
+    "document.xml.rels",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`
+  );
+
+  return zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
+}
+
+export async function pdfToExcel(file: File): Promise<Uint8Array> {
+  const pages = await extractPdfLayout(file);
+  const XLSX = await import("xlsx");
+  const workbook = XLSX.utils.book_new();
+
+  for (const page of pages) {
+    const rows = page.lines.map((line) => {
+      const cells = cellsFromLine(line);
+      return cells.length > 1 ? cells : line.text.split("\t").filter(Boolean).length > 1 ? line.text.split("\t") : [line.text];
+    });
+
+    const sheet = XLSX.utils.aoa_to_sheet(rows.length > 0 ? rows : [[""]]);
+    const columnCount = Math.max(...rows.map((row) => row.length), 1);
+    sheet["!cols"] = Array.from({ length: columnCount }, (_, index) => {
+      const maxLength = Math.max(
+        10,
+        ...rows.map((row) => String(row[index] ?? "").length)
+      );
+      return { wch: Math.min(maxLength + 2, 32) };
+    });
+
+    XLSX.utils.book_append_sheet(workbook, sheet, `Page ${page.pageNumber}`);
+  }
+
+  if (workbook.SheetNames.length === 0) {
+    throw new Error("No text was found in this PDF. Try OCR PDF for scanned documents.");
+  }
+
+  const output = XLSX.write(workbook, {
+    type: "array",
+    bookType: "xlsx",
+    compression: true,
+  });
+  return toUint8Array(output);
+}
+
+export async function excelToPdf(file: File): Promise<Uint8Array> {
+  const XLSX = await import("xlsx");
+  const workbook = XLSX.read(await file.arrayBuffer(), {
+    type: "array",
+    cellDates: true,
+  });
+
+  const sheetData = workbook.SheetNames.map((sheetName) => ({
+    sheetName,
+    rows: (XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
+      header: 1,
+      raw: false,
+      defval: "",
+      blankrows: false,
+    }) as unknown[][]).map((row) => row.map((cell) => String(cell ?? ""))),
+  }));
+
+  const allText = sheetData
+    .flatMap(({ sheetName, rows }) => [sheetName, ...rows.flatMap((row) => row)])
+    .join(" ");
+
+  const pdf = await PDFDocument.create();
+  const baseFont = needsUnicode(allText)
+    ? await embedUnicodeFont(pdf)
+    : await pdf.embedFont(StandardFonts.Helvetica);
+  const titleFont = needsUnicode(allText)
+    ? baseFont
+    : await pdf.embedFont(StandardFonts.HelveticaBold);
+
+  const pageWidth = 842;
+  const pageHeight = 595;
+  const margin = 28;
+  const titleSize = 16;
+  const cellFontSize = 8.5;
+  const rowHeight = 22;
+
+  for (const sheet of sheetData) {
+    const rows = sheet.rows.length > 0 ? sheet.rows : [[""]];
+    const columnCount = Math.max(...rows.map((row) => row.length), 1);
+    const weights = Array.from({ length: columnCount }, (_, colIndex) =>
+      Math.max(
+        8,
+        Math.min(
+          24,
+          ...rows.map((row) => String(row[colIndex] ?? "").length || 0)
+        )
+      )
+    );
+    const totalWeight = weights.reduce((sum, value) => sum + value, 0) || columnCount;
+    const availableWidth = pageWidth - margin * 2;
+    const columnWidths = weights.map((weight) => (availableWidth * weight) / totalWeight);
+
+    let page = pdf.addPage([pageWidth, pageHeight]);
+    let y = pageHeight - margin;
+
+    const drawSheetHeader = (currentPage: typeof page, offsetY: number) => {
+      currentPage.drawText(sheet.sheetName, {
+        x: margin,
+        y: offsetY - titleSize,
+        size: titleSize,
+        font: titleFont,
+        color: rgb(0.08, 0.12, 0.2),
+      });
+      return offsetY - 34;
+    };
+
+    y = drawSheetHeader(page, y);
+
+    for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+      if (y - rowHeight < margin) {
+        page = pdf.addPage([pageWidth, pageHeight]);
+        y = drawSheetHeader(page, pageHeight - margin);
+      }
+
+      let x = margin;
+      const row = rows[rowIndex];
+      const isHeaderRow = rowIndex === 0;
+
+      for (let colIndex = 0; colIndex < columnCount; colIndex++) {
+        const cellWidth = columnWidths[colIndex];
+        const rawCell = String(row[colIndex] ?? "");
+        const cellText = truncateToWidth(rawCell, baseFont, cellFontSize, cellWidth - 8);
+
+        page.drawRectangle({
+          x,
+          y: y - rowHeight,
+          width: cellWidth,
+          height: rowHeight,
+          color: isHeaderRow ? rgb(0.9, 0.95, 1) : rgb(0.98, 0.99, 1),
+          borderColor: rgb(0.8, 0.86, 0.94),
+          borderWidth: 0.6,
+        });
+
+        page.drawText(cellText, {
+          x: x + 4,
+          y: y - rowHeight + 7,
+          size: cellFontSize,
+          font: baseFont,
+          color: rgb(0.12, 0.16, 0.24),
+        });
+
+        x += cellWidth;
+      }
+
+      y -= rowHeight;
+    }
+  }
+
+  return pdf.save();
+}
+
 export async function pdfToText(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
   const pdfjs = await import("pdfjs-dist");
@@ -784,6 +1247,49 @@ export async function pdfToHtml(file: File): Promise<string> {
 ${paragraphs}
 </body>
 </html>`;
+}
+
+export async function ocrPdf(
+  file: File,
+  language: string = "eng",
+  onProgress?: (pct: number) => void
+): Promise<Uint8Array> {
+  const { createWorker } = await import("tesseract.js");
+  const images = await pdfToImages(file, "png", 2);
+
+  if (images.length === 0) {
+    throw new Error("No pages were found in this PDF.");
+  }
+
+  const worker = await createWorker(language, 1, {
+    logger: (message) => {
+      if (typeof message.progress === "number") {
+        onProgress?.(Math.min(95, Math.max(12, Math.round(message.progress * 90))));
+      }
+    },
+  });
+
+  try {
+    const pagePdfs: Uint8Array[] = [];
+    for (let index = 0; index < images.length; index++) {
+      onProgress?.(Math.max(10, Math.round((index / images.length) * 85)));
+      const result = await worker.recognize(
+        images[index].dataUrl,
+        { pdfTitle: `${stripExtension(file.name)} - page ${index + 1}` },
+        { pdf: true }
+      );
+      const pdfBytes = toUint8Array(result.data.pdf);
+      if (pdfBytes.length === 0) {
+        throw new Error("OCR did not return a searchable PDF page.");
+      }
+      pagePdfs.push(pdfBytes);
+    }
+
+    onProgress?.(98);
+    return pagePdfs.length === 1 ? pagePdfs[0] : mergePdfByteArrays(pagePdfs);
+  } finally {
+    await worker.terminate();
+  }
 }
 
 export async function pdfImagesAsZip(

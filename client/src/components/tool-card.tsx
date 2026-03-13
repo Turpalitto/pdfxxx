@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { type Tool, categoryColors } from "@/lib/tools";
+import { type Tool, categoryColors, isToolLaunchReady } from "@/lib/tools";
 import { getToolTranslation } from "@/lib/tool-translations";
 import { useLang } from "@/lib/lang-context";
 
@@ -12,6 +12,7 @@ export function ToolCard({ tool }: ToolCardProps) {
   const colors = categoryColors[tool.color] || categoryColors.blue;
   const { name, description } = getToolTranslation(tool.slug, lang);
   const Icon = tool.icon;
+  const isReady = isToolLaunchReady(tool);
 
   return (
     <Link href={`/tools/${tool.slug}`}>
@@ -48,6 +49,14 @@ export function ToolCard({ tool }: ToolCardProps) {
                 style={{ background: "linear-gradient(135deg, #7c3aed, #ec4899)" }}
               >
                 PRO
+              </div>
+            )}
+            {!isReady && (
+              <div
+                className="absolute -bottom-1.5 -right-1.5 text-[9px] font-bold text-slate-950 px-1.5 py-0.5 rounded-md tracking-wider"
+                style={{ background: "linear-gradient(135deg, #fbbf24, #f97316)" }}
+              >
+                SOON
               </div>
             )}
           </div>
