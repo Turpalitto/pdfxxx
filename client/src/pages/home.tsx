@@ -43,14 +43,14 @@ export default function Home() {
     { value: "2M+", label: lang === "ru" ? "Файлов обработано" : "Files processed", gradient: "from-purple-400 to-pink-400" },
     { value: "180+", label: lang === "ru" ? "Стран" : "Countries", gradient: "from-blue-400 to-cyan-400" },
     { value: "28", label: lang === "ru" ? "PDF инструментов" : "PDF tools", gradient: "from-emerald-400 to-green-400" },
-    { value: "100%", label: lang === "ru" ? "Бесплатно начать" : "Free to start", gradient: "from-yellow-400 to-orange-400" },
+    { value: "100%", label: lang === "ru" ? "Бесплатно" : "Free to start", gradient: "from-yellow-400 to-orange-400" },
   ];
 
   const features = [
-    { icon: FileX, gradient: "from-yellow-500 to-orange-500", title: lang === "ru" ? "Файлы не загружаются" : "Files stay local", desc: lang === "ru" ? "Обработка локально в браузере" : "Processed in your browser" },
-    { icon: Zap, gradient: "from-orange-500 to-red-500", title: lang === "ru" ? "Мгновенная обработка" : "Instant processing", desc: lang === "ru" ? "Быстрее, чем на серверах" : "Faster than server-side" },
-    { icon: Monitor, gradient: "from-cyan-500 to-blue-500", title: lang === "ru" ? "Работает офлайн" : "Works offline", desc: lang === "ru" ? "Нет зависимости от сервера" : "No server required" },
-    { icon: ShieldCheck, gradient: "from-pink-500 to-purple-500", title: lang === "ru" ? "Без регистрации" : "No account needed", desc: lang === "ru" ? "Анонимно и безопасно" : "Anonymous & secure" },
+    { icon: FileX, gradient: "from-yellow-500 to-orange-500", title: lang === "ru" ? "Локальная обработка" : "Files stay local", desc: lang === "ru" ? "В вашем браузере" : "In your browser" },
+    { icon: Zap, gradient: "from-orange-500 to-red-500", title: lang === "ru" ? "Мгновенно" : "Instant", desc: lang === "ru" ? "Быстрее серверов" : "Faster than servers" },
+    { icon: Monitor, gradient: "from-cyan-500 to-blue-500", title: lang === "ru" ? "Офлайн" : "Offline", desc: lang === "ru" ? "Без сервера" : "No server" },
+    { icon: ShieldCheck, gradient: "from-pink-500 to-purple-500", title: lang === "ru" ? "Без регистрации" : "No account", desc: lang === "ru" ? "Анонимно" : "Anonymous" },
   ];
 
   const categoryList = [
@@ -70,7 +70,7 @@ export default function Home() {
         >
           <Sparkles className="size-4 text-emerald-400" />
           <span className="text-sm text-emerald-400">
-            {lang === "ru" ? "Вся обработка происходит в вашем браузере" : "All processing happens in your browser"}
+            {lang === "ru" ? "Обработка в вашем браузере" : "Processing in your browser"}
           </span>
         </motion.div>
 
@@ -120,14 +120,15 @@ export default function Home() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="text-lg text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed"
+          className="text-lg max-w-2xl mx-auto mb-10 leading-relaxed"
+          style={{ color: "#8888a0" }}
           data-testid="text-hero-sub"
         >
           {lang === "ru"
-            ? `${tools.length} мощных PDF инструментов. Объединяйте, разделяйте, сжимайте, конвертируйте и защищайте PDF — всё обрабатывается локально в вашем браузере. Ваши файлы никогда не попадают на наши серверы.`
+            ? `${tools.length} PDF инструментов — объединяйте, сжимайте, конвертируйте. Обработка локально в браузере.`
             : lang === "de"
-            ? `${tools.length} leistungsstarke PDF-Werkzeuge. Zusammenführen, teilen, komprimieren, konvertieren und schützen — alles lokal im Browser.`
-            : `${tools.length} powerful PDF tools. Merge, split, compress, convert and protect PDFs — all processed locally in your browser. Your files never reach our servers.`}
+            ? `${tools.length} PDF-Werkzeuge — zusammenführen, komprimieren, konvertieren. Lokal im Browser.`
+            : `${tools.length} PDF tools — merge, compress, convert. All processed locally in your browser.`}
         </motion.p>
 
         <motion.div
@@ -138,10 +139,11 @@ export default function Home() {
         >
           <Link
             href="/#tools"
-            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl font-semibold text-white text-base transition-all duration-200 hover:opacity-90 hover:-translate-y-px"
+            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl font-semibold text-white text-base hover:opacity-90 hover:-translate-y-px"
             style={{
               background: "linear-gradient(135deg, #7c3aed 0%, #2563eb 100%)",
               boxShadow: "0 8px 32px rgba(124,58,237,0.5)",
+              transition: "transform 0.2s ease, opacity 0.2s ease",
             }}
             data-testid="button-start-free"
           >
@@ -150,8 +152,8 @@ export default function Home() {
           </Link>
           <Link
             href="/pricing"
-            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl font-semibold text-slate-300 hover:text-white text-base border border-slate-700 hover:border-slate-500 transition-all duration-200"
-            style={{ background: "rgba(15,23,42,0.5)" }}
+            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl font-semibold text-slate-300 hover:text-white text-base border border-slate-700 hover:border-slate-500"
+            style={{ background: "rgba(15,23,42,0.5)", transition: "all 0.2s ease" }}
             data-testid="button-view-pro"
           >
             {t.hero.viewPro}
@@ -160,7 +162,7 @@ export default function Home() {
       </section>
 
       {/* ─── STATS ─── */}
-      <section className="container mx-auto px-4 py-12">
+      <section className="container mx-auto px-4 py-16">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
           {stats.map((stat, i) => (
             <motion.div
@@ -169,24 +171,17 @@ export default function Home() {
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.4, delay: i * 0.08 }}
-              className="group relative overflow-hidden rounded-2xl p-6 backdrop-blur-sm transition-all duration-300 hover:border-white/20"
+              className="group relative overflow-hidden rounded-2xl p-6 backdrop-blur-sm hover:border-white/20"
               style={{
                 background: "linear-gradient(135deg, rgba(15,23,42,0.6) 0%, rgba(30,41,59,0.4) 100%)",
                 border: "1px solid rgba(255,255,255,0.08)",
+                transition: "border-color 0.3s ease",
               }}
               data-testid={`stat-${stat.label}`}
             >
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/8 to-purple-500/8 opacity-0 group-hover:opacity-100 transition-opacity" />
               <div className="relative">
-                <div
-                  className="text-4xl font-bold mb-1"
-                  style={{
-                    background: `linear-gradient(90deg, var(--from), var(--to))`,
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    backgroundClip: "text",
-                  }}
-                >
+                <div className="text-4xl font-bold mb-1">
                   <span
                     style={{
                       background: `linear-gradient(90deg, ${stat.gradient.includes("purple") ? "#c084fc" : stat.gradient.includes("blue") ? "#60a5fa" : stat.gradient.includes("emerald") ? "#34d399" : "#fbbf24"}, ${stat.gradient.includes("pink") ? "#f472b6" : stat.gradient.includes("cyan") ? "#22d3ee" : stat.gradient.includes("green") ? "#4ade80" : "#fb923c"})`,
@@ -198,7 +193,7 @@ export default function Home() {
                     {stat.value}
                   </span>
                 </div>
-                <div className="text-xs text-slate-400 tracking-wide uppercase font-medium">
+                <div className="text-xs tracking-wide uppercase font-medium" style={{ color: "#55556a" }}>
                   {stat.label}
                 </div>
               </div>
@@ -208,7 +203,7 @@ export default function Home() {
       </section>
 
       {/* ─── FEATURES ─── */}
-      <section id="features" className="container mx-auto px-4 py-8">
+      <section id="features" className="container mx-auto px-4 py-12">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {features.map((feat, i) => {
             const Icon = feat.icon;
@@ -219,22 +214,31 @@ export default function Home() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: i * 0.08 }}
-                className="group relative overflow-hidden rounded-2xl p-5 backdrop-blur-sm transition-all duration-300 hover:border-white/20"
+                className="group relative overflow-hidden rounded-2xl p-5 backdrop-blur-sm hover:border-white/20"
                 style={{
                   background: "rgba(15,23,42,0.4)",
                   border: "1px solid rgba(255,255,255,0.07)",
+                  transition: "border-color 0.3s ease",
                 }}
               >
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: "linear-gradient(135deg, rgba(59,130,246,0.05), rgba(124,58,237,0.05))" }} />
+                <div
+                  className="absolute inset-0 opacity-0 group-hover:opacity-100"
+                  style={{ background: "linear-gradient(135deg, rgba(59,130,246,0.05), rgba(124,58,237,0.05))", transition: "opacity 0.3s ease" }}
+                />
                 <div className="relative">
                   <div
-                    className="inline-flex items-center justify-center size-11 rounded-xl mb-3 shadow-lg"
-                    style={{ background: `linear-gradient(135deg, ${feat.gradient.includes("yellow") ? "#eab308, #f97316" : feat.gradient.includes("orange") ? "#f97316, #ef4444" : feat.gradient.includes("cyan") ? "#06b6d4, #3b82f6" : "#ec4899, #a855f7"})` }}
+                    className="inline-flex items-center justify-center rounded-xl mb-3"
+                    style={{
+                      width: 44,
+                      height: 44,
+                      background: `linear-gradient(135deg, ${feat.gradient.includes("yellow") ? "#eab308, #f97316" : feat.gradient.includes("orange") ? "#f97316, #ef4444" : feat.gradient.includes("cyan") ? "#06b6d4, #3b82f6" : "#ec4899, #a855f7"})`,
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                    }}
                   >
                     <Icon className="size-5 text-white" />
                   </div>
                   <h3 className="text-white font-semibold text-sm mb-1">{feat.title}</h3>
-                  <p className="text-slate-400 text-xs leading-relaxed">{feat.desc}</p>
+                  <p className="text-xs leading-relaxed" style={{ color: "#8888a0" }}>{feat.desc}</p>
                 </div>
               </motion.div>
             );
@@ -243,14 +247,8 @@ export default function Home() {
       </section>
 
       {/* ─── TOOLS ─── */}
-      <section id="tools" className="container mx-auto px-4 py-12">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-10"
-        >
+      <section id="tools" className="section-lazy container mx-auto px-4 py-20">
+        <div className="text-center mb-10">
           <h2
             className="text-4xl font-bold mb-3"
             style={{
@@ -262,10 +260,10 @@ export default function Home() {
           >
             {lang === "ru" ? "Все PDF инструменты в одном месте" : lang === "de" ? "Alle PDF-Werkzeuge an einem Ort" : lang === "fr" ? "Tous les outils PDF en un seul endroit" : lang === "es" ? "Todas las herramientas PDF en un solo lugar" : "All PDF tools in one place"}
           </h2>
-          <p className="text-slate-400 text-base">
-            {lang === "ru" ? `${tools.length} инструментов в ${categories.length} категориях. Бесплатно, без регистрации.` : `${tools.length} tools in ${categories.length} categories. Free, no registration.`}
+          <p style={{ color: "#8888a0" }} className="text-base">
+            {lang === "ru" ? `${tools.length} инструментов · ${categories.length} категорий` : `${tools.length} tools · ${categories.length} categories`}
           </p>
-        </motion.div>
+        </div>
 
         {/* Category pills */}
         <div className="flex flex-wrap justify-center gap-3 mb-10">
@@ -274,16 +272,17 @@ export default function Home() {
               key={cat.id}
               href={cat.id === "all" ? "/" : `/?category=${cat.id}`}
               className={cn(
-                "px-5 py-2 rounded-full text-sm font-medium transition-all duration-300",
+                "px-5 py-2 rounded-full text-sm font-medium",
                 activeCategory === cat.id
                   ? "text-white shadow-lg"
                   : "text-slate-300 border border-slate-700 hover:border-slate-500 hover:bg-slate-800/50 hover:text-white"
               )}
-              style={
-                activeCategory === cat.id
+              style={{
+                transition: "all 0.25s cubic-bezier(.4,0,.2,1)",
+                ...(activeCategory === cat.id
                   ? { background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)", boxShadow: "0 4px 16px rgba(99,102,241,0.4)", border: "1px solid rgba(124,58,237,0.7)" }
-                  : { background: "rgba(30,41,59,0.5)" }
-              }
+                  : { background: "rgba(30,41,59,0.5)" }),
+              }}
               data-testid={`filter-${cat.id}`}
             >
               {cat.label}
@@ -292,27 +291,15 @@ export default function Home() {
         </div>
 
         {/* Tool grid */}
-        <motion.div
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
-          layout
-        >
-          {filteredTools.map((tool, i) => (
-            <motion.div
-              key={tool.slug}
-              initial={{ opacity: 0, scale: 0.92 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.3, delay: i * 0.03 }}
-              layout
-            >
-              <ToolCard tool={tool} />
-            </motion.div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          {filteredTools.map((tool) => (
+            <ToolCard key={tool.slug} tool={tool} />
           ))}
-        </motion.div>
+        </div>
       </section>
 
       {/* ─── AI SECTION ─── */}
-      <section id="ai-section" className="container mx-auto px-4 py-16">
+      <section id="ai-section" className="section-lazy container mx-auto px-4 py-20">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -328,24 +315,14 @@ export default function Home() {
           <div className="absolute inset-0" style={{ background: "radial-gradient(circle at 50% 120%, rgba(120,119,198,0.25), transparent 60%)" }} />
 
           <div className="relative px-8 py-16 md:px-16 text-center">
-            <motion.div
-              initial={{ scale: 0 }}
-              whileInView={{ scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.2 }}
+            <div
               className="inline-flex items-center justify-center size-16 rounded-2xl mb-6 shadow-2xl"
               style={{ background: "linear-gradient(135deg, #7c3aed, #2563eb)", boxShadow: "0 8px 32px rgba(124,58,237,0.6)" }}
             >
               <Sparkles className="size-8 text-white" />
-            </motion.div>
+            </div>
 
-            <motion.h2
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="text-4xl md:text-5xl font-bold mb-4"
-            >
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">
               <span style={{ background: "linear-gradient(90deg, #ffffff, #e9d5ff)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
                 {lang === "ru" ? "Встроенный " : "Built-in "}
               </span>
@@ -356,32 +333,20 @@ export default function Home() {
               <span style={{ background: "linear-gradient(90deg, #ffffff, #bfdbfe)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
                 {lang === "ru" ? "для ваших документов" : "for your documents"}
               </span>
-            </motion.h2>
+            </h2>
 
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.4 }}
-              className="text-lg text-slate-300 max-w-2xl mx-auto mb-8 leading-relaxed"
-            >
+            <p className="text-lg text-slate-300 max-w-2xl mx-auto mb-8 leading-relaxed">
               {lang === "ru"
-                ? "Используйте искусственный интеллект для автоматической обработки, извлечения данных и анализа ваших PDF документов."
-                : "Use AI for automatic processing, data extraction and analysis of your PDF documents."}
-            </motion.p>
+                ? "AI для обработки, извлечения данных и анализа PDF документов."
+                : "AI for processing, data extraction and analysis of your PDF documents."}
+            </p>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.5 }}
-              className="flex flex-wrap justify-center gap-3 text-sm text-slate-400"
-            >
+            <div className="flex flex-wrap justify-center gap-3 text-sm" style={{ color: "#8888a0" }}>
               {[
-                lang === "ru" ? "Суммаризация документов" : "Document summarization",
+                lang === "ru" ? "Суммаризация" : "Summarization",
                 lang === "ru" ? "Чат с PDF" : "Chat with PDF",
-                lang === "ru" ? "Перевод на 20 языков" : "Translation to 20 languages",
-                lang === "ru" ? "OCR-распознавание" : "OCR recognition",
+                lang === "ru" ? "Перевод" : "Translation",
+                lang === "ru" ? "OCR" : "OCR",
               ].map((feat) => (
                 <div
                   key={feat}
@@ -395,9 +360,9 @@ export default function Home() {
                   {feat}
                 </div>
               ))}
-            </motion.div>
+            </div>
 
-            <div className="mt-4 text-xs text-slate-500">
+            <div className="mt-4 text-xs" style={{ color: "#55556a" }}>
               <span
                 className="px-2 py-0.5 rounded font-semibold text-purple-400 tracking-wider"
                 style={{ background: "rgba(124,58,237,0.2)" }}
@@ -405,7 +370,7 @@ export default function Home() {
                 PRO
               </span>
               {" "}
-              {lang === "ru" ? "Доступно в Pro плане" : "Available in Pro plan"}
+              {lang === "ru" ? "Доступно в Pro" : "Pro plan"}
             </div>
           </div>
         </motion.div>
@@ -431,13 +396,14 @@ export default function Home() {
           >
             {t.cta.title}
           </h2>
-          <p className="text-slate-400 mb-8 text-base">{t.cta.sub}</p>
+          <p className="mb-8 text-base" style={{ color: "#8888a0" }}>{t.cta.sub}</p>
           <Link
             href="/#tools"
-            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl font-semibold text-white transition-all duration-200 hover:opacity-90 hover:-translate-y-px"
+            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl font-semibold text-white hover:opacity-90 hover:-translate-y-px"
             style={{
               background: "linear-gradient(135deg, #7c3aed 0%, #2563eb 100%)",
               boxShadow: "0 8px 32px rgba(124,58,237,0.45)",
+              transition: "transform 0.2s ease, opacity 0.2s ease",
             }}
             data-testid="button-cta-tools"
           >

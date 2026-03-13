@@ -1,60 +1,42 @@
-import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 
-interface Particle {
-  id: number;
-  x: number;
-  y: number;
-  size: number;
-  duration: number;
-  delay: number;
-}
+const PARTICLE_COUNT = 10;
+const COLORS = [
+  "rgba(99,102,241,0.15)",
+  "rgba(59,130,246,0.12)",
+  "rgba(139,92,246,0.10)",
+];
 
 export function AnimatedBackground() {
-  const [particles, setParticles] = useState<Particle[]>([]);
-
-  useEffect(() => {
-    setParticles(
-      Array.from({ length: 18 }, (_, i) => ({
+  const particles = useMemo(
+    () =>
+      Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
         id: i,
-        x: Math.random() * 100,
-        y: Math.random() * 100,
-        size: Math.random() * 5 + 3,
-        duration: Math.random() * 18 + 12,
-        delay: Math.random() * 6,
-      }))
-    );
-  }, []);
+        x: ((i * 37 + 13) % 100),
+        y: ((i * 53 + 7) % 100),
+        size: (i % 3) * 1.5 + 4,
+        duration: 14 + (i % 5) * 4,
+        delay: (i % 4) * 2,
+        color: COLORS[i % 3],
+      })),
+    []
+  );
 
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
       {particles.map((p) => (
-        <motion.div
+        <div
           key={p.id}
-          className="absolute rounded-full blur-2xl"
+          className="absolute rounded-full blur-2xl bg-particle"
           style={{
             left: `${p.x}%`,
             top: `${p.y}%`,
             width: `${p.size}rem`,
             height: `${p.size}rem`,
-            background: p.id % 3 === 0
-              ? "radial-gradient(circle, rgba(99,102,241,0.18) 0%, transparent 70%)"
-              : p.id % 3 === 1
-              ? "radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%)"
-              : "radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%)",
-          }}
-          animate={{
-            y: [0, -28, 0],
-            x: [0, 12, 0],
-            opacity: [0.4, 0.7, 0.4],
-            scale: [1, 1.15, 1],
-          }}
-          transition={{
-            duration: p.duration,
-            delay: p.delay,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
+            background: `radial-gradient(circle, ${p.color} 0%, transparent 70%)`,
+            "--duration": `${p.duration}s`,
+            "--delay": `${p.delay}s`,
+          } as React.CSSProperties}
         />
       ))}
     </div>

@@ -10,7 +10,7 @@ export function Footer() {
   return (
     <footer
       className="border-t backdrop-blur-xl"
-      style={{ background: "rgba(2,6,23,0.85)", borderColor: "rgba(255,255,255,0.1)" }}
+      style={{ background: "rgba(2,6,23,0.85)", borderColor: "#1a1a2e" }}
     >
       <div className="container mx-auto px-4 sm:px-6 py-12">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
@@ -34,36 +34,27 @@ export function Footer() {
                 PDF<span style={{ color: "#60a5fa", WebkitTextFillColor: "#60a5fa" }}>X</span>
               </span>
             </Link>
-            <p className="text-sm text-slate-400 leading-relaxed mb-4 max-w-xs">
+            <p className="text-sm leading-relaxed mb-4 max-w-xs" style={{ color: "#55556a" }}>
               {lang === "ru"
-                ? "Все PDF инструменты в одном месте. Бесплатно, безопасно, без водяных знаков."
-                : "All PDF tools in one place. Free, secure, no watermarks."}
+                ? "PDF инструменты. Бесплатно, безопасно, без водяных знаков."
+                : "PDF tools. Free, secure, no watermarks."}
             </p>
             <div className="flex gap-2">
-              <a
-                href="#"
-                className="flex size-8 items-center justify-center rounded-lg text-slate-400 hover:text-white transition-colors"
-                style={{ background: "rgba(255,255,255,0.06)" }}
-                aria-label="GitHub"
-              >
-                <Github className="size-4" />
-              </a>
-              <a
-                href="#"
-                className="flex size-8 items-center justify-center rounded-lg text-slate-400 hover:text-white transition-colors"
-                style={{ background: "rgba(255,255,255,0.06)" }}
-                aria-label="Twitter"
-              >
-                <Twitter className="size-4" />
-              </a>
-              <a
-                href="#"
-                className="flex size-8 items-center justify-center rounded-lg text-slate-400 hover:text-white transition-colors"
-                style={{ background: "rgba(255,255,255,0.06)" }}
-                aria-label="LinkedIn"
-              >
-                <Linkedin className="size-4" />
-              </a>
+              {[
+                { icon: Github, label: "GitHub" },
+                { icon: Twitter, label: "Twitter" },
+                { icon: Linkedin, label: "LinkedIn" },
+              ].map(({ icon: SocialIcon, label }) => (
+                <a
+                  key={label}
+                  href="#"
+                  className="flex size-8 items-center justify-center rounded-lg footer-link hover:text-white transition-colors"
+                  style={{ background: "rgba(255,255,255,0.06)" }}
+                  aria-label={label}
+                >
+                  <SocialIcon className="size-4" />
+                </a>
+              ))}
             </div>
           </div>
 
@@ -74,13 +65,7 @@ export function Footer() {
             <ul className="space-y-2.5">
               {categories.slice(0, 4).map((cat) => (
                 <li key={cat.id}>
-                  <Link
-                    href={`/?category=${cat.id}`}
-                    className="text-sm transition-colors footer-link"
-                    style={{ color: "#55556a" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = "#8888a0")}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = "#55556a")}
-                  >
+                  <Link href={`/?category=${cat.id}`} className="text-sm footer-link transition-colors">
                     {getCategoryLabel(cat.id, lang)}
                   </Link>
                 </li>
@@ -90,18 +75,12 @@ export function Footer() {
 
           <div>
             <h3 className="text-white font-semibold mb-4 text-sm">
-              {lang === "ru" ? "Ещё инструменты" : "More tools"}
+              {lang === "ru" ? "Ещё" : "More"}
             </h3>
             <ul className="space-y-2.5">
               {categories.slice(4).map((cat) => (
                 <li key={cat.id}>
-                  <Link
-                    href={`/?category=${cat.id}`}
-                    className="text-sm transition-colors"
-                    style={{ color: "#55556a" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = "#8888a0")}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = "#55556a")}
-                  >
+                  <Link href={`/?category=${cat.id}`} className="text-sm footer-link transition-colors">
                     {getCategoryLabel(cat.id, lang)}
                   </Link>
                 </li>
@@ -115,46 +94,22 @@ export function Footer() {
             </h3>
             <ul className="space-y-2.5">
               <li>
-                <Link
-                  href="/pricing"
-                  className="text-sm transition-colors"
-                  style={{ color: "#55556a" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "#8888a0")}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "#55556a")}
-                >
+                <Link href="/pricing" className="text-sm footer-link transition-colors">
                   {lang === "ru" ? "Цены" : "Pricing"}
                 </Link>
               </li>
               <li>
-                <a
-                  href="#"
-                  className="text-sm transition-colors"
-                  style={{ color: "#55556a" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "#8888a0")}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "#55556a")}
-                >
+                <a href="#" className="text-sm footer-link transition-colors">
                   {t.footer.privacy}
                 </a>
               </li>
               <li>
-                <a
-                  href="#"
-                  className="text-sm transition-colors"
-                  style={{ color: "#55556a" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "#8888a0")}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "#55556a")}
-                >
+                <a href="#" className="text-sm footer-link transition-colors">
                   {t.footer.terms}
                 </a>
               </li>
               <li>
-                <a
-                  href="#"
-                  className="text-sm transition-colors"
-                  style={{ color: "#55556a" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "#8888a0")}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "#55556a")}
-                >
+                <a href="#" className="text-sm footer-link transition-colors">
                   {t.footer.contact}
                 </a>
               </li>
@@ -162,9 +117,9 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+        <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3" style={{ borderTop: "1px solid #1a1a2e" }}>
           <p className="text-sm" style={{ color: "#55556a" }}>
-            &copy; {new Date().getFullYear()} PDFX. {lang === "ru" ? "Все права защищены." : "All rights reserved."}
+            &copy; {new Date().getFullYear()} PDFX
           </p>
           <div className="flex items-center gap-2 text-sm" style={{ color: "#55556a" }}>
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block" />

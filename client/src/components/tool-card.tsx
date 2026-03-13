@@ -16,42 +16,38 @@ export function ToolCard({ tool }: ToolCardProps) {
   return (
     <Link href={`/tools/${tool.slug}`}>
       <div
-        className="group relative overflow-hidden rounded-2xl p-6 cursor-pointer transition-all duration-[250ms] ease-out hover:-translate-y-[3px] h-full"
+        className="tool-card group relative overflow-hidden rounded-2xl p-6 cursor-pointer h-full hover:-translate-y-[3px]"
         style={{
           background: "linear-gradient(135deg, rgba(15,23,42,0.7) 0%, rgba(30,41,59,0.4) 100%)",
           border: "1px solid rgba(255,255,255,0.08)",
           backdropFilter: "blur(8px)",
-          transition: "all 0.25s ease",
-        }}
-        onMouseEnter={(e) => {
-          const el = e.currentTarget;
-          el.style.boxShadow = "0 8px 30px rgba(0,0,0,0.2)";
-          el.style.borderColor = "rgba(255,255,255,0.18)";
-        }}
-        onMouseLeave={(e) => {
-          const el = e.currentTarget;
-          el.style.boxShadow = "";
-          el.style.borderColor = "rgba(255,255,255,0.08)";
+          transition: "transform 0.25s cubic-bezier(.4,0,.2,1), box-shadow 0.25s cubic-bezier(.4,0,.2,1), border-color 0.25s ease",
         }}
         data-testid={`card-tool-${tool.slug}`}
       >
         {/* Hover glow overlay */}
         <div
-          className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-          style={{ background: "linear-gradient(135deg, rgba(59,130,246,0.08), rgba(124,58,237,0.08))" }}
+          className="absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none"
+          style={{
+            background: "linear-gradient(135deg, rgba(59,130,246,0.06), rgba(124,58,237,0.06))",
+            transition: "opacity 0.3s ease",
+          }}
         />
 
         <div className="relative">
           {/* Icon box */}
           <div className="relative inline-block mb-4">
             <div
-              className="flex items-center justify-center size-14 rounded-xl shadow-lg transition-transform duration-200 group-hover:scale-110"
+              className="flex items-center justify-center rounded-xl"
               style={{
+                width: 48,
+                height: 48,
                 background: `linear-gradient(135deg, ${colors.from} 0%, ${colors.to} 100%)`,
                 boxShadow: `0 4px 16px ${colors.glow}`,
+                transition: "transform 0.2s cubic-bezier(.4,0,.2,1)",
               }}
             >
-              <Icon className="size-7 text-white" />
+              <Icon className="size-6 text-white" />
             </div>
             {tool.pro && (
               <div

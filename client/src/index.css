@@ -44,8 +44,8 @@
   --chart-4: 43 74% 49%;
   --chart-5: 27 87% 56%;
   --font-sans: 'Plus Jakarta Sans', Inter, sans-serif;
-  --font-serif: Georgia, serif;
-  --font-mono: Menlo, monospace;
+  --font-serif: Georgia, "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", Menlo, monospace;
   --radius: .5rem;
   --shadow-2xs: 0px 2px 0px 0px hsl(220 13% 91% / 0.05);
   --shadow-xs: 0px 2px 0px 0px hsl(220 13% 91% / 0.08);
@@ -321,6 +321,44 @@
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
     inset: -1px;
   }
+}
+
+/* ── Tool card hover (CSS-only, GPU-accelerated) ─────────────────────── */
+.tool-card {
+  will-change: transform, box-shadow;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+.tool-card:hover {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+/* ── Footer links ─────────────────────── */
+.footer-link {
+  color: #55556a;
+}
+.footer-link:hover {
+  color: #8888a0;
+}
+
+/* ── GPU-accelerated backgrounds ─────────────────────── */
+@keyframes float-particle {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.3; }
+  50% { transform: translate3d(12px, -28px, 0) scale(1.15); opacity: 0.6; }
+}
+
+.bg-particle {
+  will-change: transform, opacity;
+  animation: float-particle var(--duration) var(--delay) ease-in-out infinite;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+/* ── Content visibility for performance ─────────────────────── */
+.section-lazy {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 600px;
 }
 
 /* ── RTL support (Arabic and other RTL languages) ─────────────────────── */
