@@ -16,11 +16,22 @@ export function ToolCard({ tool }: ToolCardProps) {
   return (
     <Link href={`/tools/${tool.slug}`}>
       <div
-        className="group relative overflow-hidden rounded-2xl p-6 cursor-pointer transition-all duration-300 hover:scale-[1.03] hover:border-white/20 h-full"
+        className="group relative overflow-hidden rounded-2xl p-6 cursor-pointer transition-all duration-[250ms] ease-out hover:-translate-y-[3px] h-full"
         style={{
           background: "linear-gradient(135deg, rgba(15,23,42,0.7) 0%, rgba(30,41,59,0.4) 100%)",
           border: "1px solid rgba(255,255,255,0.08)",
           backdropFilter: "blur(8px)",
+          transition: "all 0.25s ease",
+        }}
+        onMouseEnter={(e) => {
+          const el = e.currentTarget;
+          el.style.boxShadow = "0 8px 30px rgba(0,0,0,0.2)";
+          el.style.borderColor = "rgba(255,255,255,0.18)";
+        }}
+        onMouseLeave={(e) => {
+          const el = e.currentTarget;
+          el.style.boxShadow = "";
+          el.style.borderColor = "rgba(255,255,255,0.08)";
         }}
         data-testid={`card-tool-${tool.slug}`}
       >
@@ -56,7 +67,7 @@ export function ToolCard({ tool }: ToolCardProps) {
           <h3 className="text-white font-semibold text-base mb-2 leading-snug">
             {name}
           </h3>
-          <p className="text-slate-400 text-sm leading-relaxed line-clamp-2">
+          <p className="text-sm leading-relaxed line-clamp-2" style={{ color: "#8888a0" }}>
             {description}
           </p>
         </div>

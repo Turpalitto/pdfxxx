@@ -163,10 +163,12 @@ export function Navbar() {
 
           {/* Pro button */}
           <Button
-            className="hidden sm:inline-flex items-center gap-1.5 text-white text-sm font-semibold"
+            className="hidden sm:inline-flex items-center gap-1.5 text-white text-sm font-semibold hover:opacity-90 transition-opacity"
             style={{
-              background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
-              boxShadow: "0 4px 16px rgba(99,102,241,0.4)",
+              background: "#6c5ce7",
+              borderRadius: "10px",
+              padding: "8px 20px",
+              fontWeight: 600,
             }}
             data-testid="button-get-pro"
             asChild

@@ -76,7 +76,10 @@ export function Footer() {
                 <li key={cat.id}>
                   <Link
                     href={`/?category=${cat.id}`}
-                    className="text-sm text-slate-400 hover:text-white transition-colors"
+                    className="text-sm transition-colors footer-link"
+                    style={{ color: "#55556a" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "#8888a0")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "#55556a")}
                   >
                     {getCategoryLabel(cat.id, lang)}
                   </Link>
@@ -94,7 +97,10 @@ export function Footer() {
                 <li key={cat.id}>
                   <Link
                     href={`/?category=${cat.id}`}
-                    className="text-sm text-slate-400 hover:text-white transition-colors"
+                    className="text-sm transition-colors"
+                    style={{ color: "#55556a" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "#8888a0")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "#55556a")}
                   >
                     {getCategoryLabel(cat.id, lang)}
                   </Link>
@@ -109,22 +115,46 @@ export function Footer() {
             </h3>
             <ul className="space-y-2.5">
               <li>
-                <Link href="/pricing" className="text-sm text-slate-400 hover:text-white transition-colors">
+                <Link
+                  href="/pricing"
+                  className="text-sm transition-colors"
+                  style={{ color: "#55556a" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "#8888a0")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "#55556a")}
+                >
                   {lang === "ru" ? "Цены" : "Pricing"}
                 </Link>
               </li>
               <li>
-                <a href="#" className="text-sm text-slate-400 hover:text-white transition-colors">
+                <a
+                  href="#"
+                  className="text-sm transition-colors"
+                  style={{ color: "#55556a" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "#8888a0")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "#55556a")}
+                >
                   {t.footer.privacy}
                 </a>
               </li>
               <li>
-                <a href="#" className="text-sm text-slate-400 hover:text-white transition-colors">
+                <a
+                  href="#"
+                  className="text-sm transition-colors"
+                  style={{ color: "#55556a" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "#8888a0")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "#55556a")}
+                >
                   {t.footer.terms}
                 </a>
               </li>
               <li>
-                <a href="#" className="text-sm text-slate-400 hover:text-white transition-colors">
+                <a
+                  href="#"
+                  className="text-sm transition-colors"
+                  style={{ color: "#55556a" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "#8888a0")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "#55556a")}
+                >
                   {t.footer.contact}
                 </a>
               </li>
@@ -133,10 +163,10 @@ export function Footer() {
         </div>
 
         <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm" style={{ color: "#55556a" }}>
             &copy; {new Date().getFullYear()} PDFX. {lang === "ru" ? "Все права защищены." : "All rights reserved."}
           </p>
-          <div className="flex items-center gap-2 text-sm text-slate-400">
+          <div className="flex items-center gap-2 text-sm" style={{ color: "#55556a" }}>
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block" />
             {t.footer.badge}
           </div>

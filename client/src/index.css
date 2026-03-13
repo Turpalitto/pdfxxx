@@ -43,7 +43,7 @@
   --chart-3: 197 71% 42%;
   --chart-4: 43 74% 49%;
   --chart-5: 27 87% 56%;
-  --font-sans: Inter, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', Inter, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
   --radius: .5rem;
@@ -179,6 +179,15 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    line-height: 1.6;
+  }
+
+  h1 {
+    letter-spacing: -0.03em;
+  }
+
+  h2 {
+    letter-spacing: -0.02em;
   }
 
   ::-webkit-scrollbar {

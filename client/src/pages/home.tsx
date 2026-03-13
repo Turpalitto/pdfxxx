@@ -61,7 +61,7 @@ export default function Home() {
   return (
     <div className="min-h-screen">
       {/* ─── HERO ─── */}
-      <section className="container mx-auto px-4 pt-20 pb-12 text-center">
+      <section className="container mx-auto px-4 pt-[120px] pb-[60px] text-center">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -281,7 +281,7 @@ export default function Home() {
               )}
               style={
                 activeCategory === cat.id
-                  ? { background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)", boxShadow: "0 4px 16px rgba(99,102,241,0.4)" }
+                  ? { background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)", boxShadow: "0 4px 16px rgba(99,102,241,0.4)", border: "1px solid rgba(124,58,237,0.7)" }
                   : { background: "rgba(30,41,59,0.5)" }
               }
               data-testid={`filter-${cat.id}`}
