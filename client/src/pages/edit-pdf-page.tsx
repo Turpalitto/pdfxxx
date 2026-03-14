@@ -5,7 +5,8 @@ import {
   MousePointer2, Type, Pencil, Image as ImageIcon, PenLine,
   Square, Circle, Minus, Highlighter, Eraser, Undo2, Redo2,
   ZoomIn, ZoomOut, Maximize2, Download, ArrowLeft, ChevronLeft, ChevronRight,
-  Upload, Loader2, ArrowRight, Copy, Trash2, ChevronsUp, ChevronsDown,
+  Upload, Loader2, ArrowRight, Copy, ClipboardPaste, Trash2, ChevronsUp, ChevronsDown,
+  Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -17,6 +18,7 @@ import { DEFAULT_MAX_FILE_SIZE_MB, mbToBytes } from "@/lib/upload-limits";
 
 type ToolType = "select" | "text" | "draw" | "image" | "sign" | "rect" | "circle" | "line" | "highlight" | "eraser";
 type DrawColor = "#1a1a1a" | "#e53e3e" | "#3182ce" | "#38a169" | "#facc15";
+type TextAlignOption = "left" | "center" | "right" | "justify";
 
 interface PageDims { width: number; height: number }
 interface TextSegmentMetric {
@@ -40,6 +42,7 @@ interface TextLineMetric {
   right: number;
   centerY: number;
   height: number;
+  text: string;
   segments: TextSegmentMetric[];
   fontFamily: string;
   fontSize: number;
@@ -47,9 +50,60 @@ interface TextLineMetric {
   fontStyle: "normal" | "italic";
 }
 
+interface TextInsertionStyle {
+  left: number;
+  top: number;
+  maxWidth: number;
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: "normal" | "bold";
+  fontStyle: "normal" | "italic";
+}
+
+interface ActiveTextEditor {
+  pageNumber: number;
+  left: number;
+  top: number;
+  baselineY: number | null;
+  width: number;
+  maxWidth: number;
+  minHeight: number;
+  lineHeight: number;
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: "normal" | "bold";
+  fontStyle: "normal" | "italic";
+  underline: boolean;
+  textAlign: TextAlignOption;
+  color: string;
+  backgroundColor: string;
+  text: string;
+  sourceObject?: any | null;
+}
+
 const DISPLAY_SCALE = 1.5;
 const THUMB_SCALE = 0.15;
 const MAX_EDIT_PDF_FILE_SIZE_MB = DEFAULT_MAX_FILE_SIZE_MB;
+const EDITOR_COLORS: DrawColor[] = ["#1a1a1a", "#e53e3e", "#3182ce", "#38a169", "#facc15"];
+const EDITOR_FONT_FAMILIES = ["Arial", "Calibri", "Cambria", "Times New Roman", "Georgia", "Garamond", "Courier New"] as const;
+const DISALLOWED_FONT_FAMILIES = new Set([
+  "Clock2017L_v0.4_170118",
+  "Clock2017R_v0.4_170118",
+  "clock2016_v1.1",
+  "AndroidClock",
+  "Noto Color Emoji",
+  "Noto Naskh Arabic",
+  "Noto Naskh Arabic UI",
+  "Noto Sans Symbols",
+  "Noto Sans Symbols2",
+  "Noto Sans Mono",
+  "SamsungKhmerUI",
+  "SamsungMyanmarUI",
+  "SamsungMyanmarZawgyiUI",
+  "SamsungThaiUI",
+  "SECFallback",
+]);
+const PDFX_TEXT_CUSTOM_PROPS = ["pdfxBaseFontSize", "pdfxMaxWidth", "pdfxBaseTop", "pdfxBaseLineHeight", "pdfxBaselineY", "pdfxAutoWidth"] as const;
 
 async function loadPdfJs() {
   const pdfjs = await import("pdfjs-dist");
@@ -94,8 +148,190 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
+function normalizeEditorFontFamily(fontFamily?: string) {
+  const normalized = (fontFamily ?? "").replace(/\s+/g, " ").trim();
+  if (!normalized) return "Arial";
+  if (DISALLOWED_FONT_FAMILIES.has(normalized)) return "Arial";
+  return normalized;
+}
+
+function isEditableTextObject(obj: any) {
+  return obj?.type === "textbox" || obj?.type === "i-text" || obj?.type === "text";
+}
+
+function rgbComponentToHex(value: number) {
+  return clamp(Math.round(value), 0, 255).toString(16).padStart(2, "0");
+}
+
+function parseCanvasColor(color?: string): { hex: string; alpha: number } | null {
+  if (!color || typeof color !== "string") return null;
+  const normalized = color.trim().toLowerCase();
+  if (/^#[0-9a-f]{6}$/i.test(normalized)) {
+    return { hex: normalized as DrawColor, alpha: 1 };
+  }
+
+  const shortHexMatch = normalized.match(/^#([0-9a-f]{3})$/i);
+  if (shortHexMatch) {
+    const expanded = `#${shortHexMatch[1].split("").map((char) => char + char).join("")}`;
+    return { hex: expanded, alpha: 1 };
+  }
+
+  const rgbaMatch = normalized.match(/^rgba?\(([^)]+)\)$/i);
+  if (!rgbaMatch) return null;
+  const parts = rgbaMatch[1].split(",").map((part) => part.trim());
+  if (parts.length < 3) return null;
+  const [r, g, b] = parts.slice(0, 3).map((part) => Number(part));
+  if (![r, g, b].every((part) => Number.isFinite(part))) return null;
+  const alpha = parts[3] !== undefined ? Number(parts[3]) : 1;
+  return {
+    hex: `#${rgbComponentToHex(r)}${rgbComponentToHex(g)}${rgbComponentToHex(b)}`,
+    alpha: Number.isFinite(alpha) ? clamp(alpha, 0, 1) : 1,
+  };
+}
+
+function toEditorColor(color?: string): DrawColor | null {
+  const parsed = parseCanvasColor(color);
+  if (!parsed) return null;
+  return EDITOR_COLORS.includes(parsed.hex as DrawColor) ? (parsed.hex as DrawColor) : null;
+}
+
+function fitTextObjectToBounds(obj: any, fallbackFontSize: number) {
+  if (!obj) return;
+  const baseFontSize = Number((obj as any).pdfxBaseFontSize ?? obj.fontSize ?? fallbackFontSize);
+  const maxWidth = Number((obj as any).pdfxMaxWidth ?? obj.width ?? 0);
+  if (!(Number.isFinite(maxWidth) && maxWidth > 24)) return;
+  const autoWidth = Boolean((obj as any).pdfxAutoWidth);
+
+  const text = typeof obj.text === "string" ? obj.text : "";
+  obj.set({
+    fontSize: baseFontSize,
+  });
+  if (!autoWidth) {
+    obj.set({ width: maxWidth });
+  }
+  obj.initDimensions?.();
+
+  if (text.trim()) {
+    if (!text.includes("\n")) {
+      const measuredWidth = typeof obj.calcTextWidth === "function"
+        ? obj.calcTextWidth()
+        : (obj.width ?? maxWidth);
+      if (measuredWidth > maxWidth) {
+        obj.set({
+          fontSize: Math.max(8, Math.round(baseFontSize * (maxWidth / measuredWidth) * 10) / 10),
+        });
+        obj.initDimensions?.();
+      }
+      const nextMeasuredWidth = typeof obj.calcTextWidth === "function"
+        ? obj.calcTextWidth()
+        : measuredWidth;
+      if (autoWidth) {
+        obj.set({
+          width: clamp(nextMeasuredWidth + Math.max(6, obj.fontSize * 0.35), 18, maxWidth),
+        });
+      }
+    } else {
+      const dynamicMinWidth = Number(obj.dynamicMinWidth ?? 0);
+      if (Number.isFinite(dynamicMinWidth) && dynamicMinWidth > maxWidth) {
+        obj.set({
+          fontSize: Math.max(8, Math.round(baseFontSize * (maxWidth / dynamicMinWidth) * 10) / 10),
+        });
+        obj.initDimensions?.();
+      }
+      if (autoWidth) {
+        const nextDynamicMinWidth = Number(obj.dynamicMinWidth ?? 0);
+        if (Number.isFinite(nextDynamicMinWidth) && nextDynamicMinWidth > 0) {
+          obj.set({
+            width: clamp(nextDynamicMinWidth + Math.max(6, obj.fontSize * 0.35), 18, maxWidth),
+          });
+        }
+      }
+    }
+  }
+
+  if (!text.trim() && autoWidth) {
+    obj.set({ width: Math.min(Math.max(baseFontSize * 0.9, 18), maxWidth) });
+  } else if (!autoWidth) {
+    obj.set({ width: maxWidth });
+  }
+  if (typeof obj.minHeight === "number" && obj.minHeight > 0) {
+    obj.set({ height: Math.max(obj.height ?? 0, obj.minHeight) });
+  }
+  if (typeof (obj as any).pdfxBaseTop === "number") {
+    obj.set({ top: (obj as any).pdfxBaseTop });
+  }
+}
+
+function buildEditorFontString(editor: Pick<ActiveTextEditor, "fontStyle" | "fontWeight" | "fontSize" | "fontFamily">) {
+  return `${editor.fontStyle} ${editor.fontWeight} ${editor.fontSize}px "${editor.fontFamily}"`;
+}
+
+function measureEditorTextWidth(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  editor: Pick<ActiveTextEditor, "fontStyle" | "fontWeight" | "fontSize" | "fontFamily">
+) {
+  ctx.font = buildEditorFontString(editor);
+  const lines = text.split("\n");
+  const widestLine = lines.reduce((max, line) => Math.max(max, ctx.measureText(line || " ").width), 0);
+  return widestLine;
+}
+
+function measureEditorTextMetrics(
+  ctx: CanvasRenderingContext2D,
+  editor: Pick<ActiveTextEditor, "fontStyle" | "fontWeight" | "fontSize" | "fontFamily">,
+  lineHeightHint?: number
+) {
+  ctx.font = buildEditorFontString(editor);
+  const metrics = ctx.measureText("Hg");
+  const fontBoxAscent = metrics.fontBoundingBoxAscent || metrics.actualBoundingBoxAscent || editor.fontSize * 0.8;
+  const fontBoxDescent = metrics.fontBoundingBoxDescent || metrics.actualBoundingBoxDescent || editor.fontSize * 0.2;
+  const actualAscent = metrics.actualBoundingBoxAscent || fontBoxAscent;
+  const actualDescent = metrics.actualBoundingBoxDescent || fontBoxDescent;
+  const fontBoxHeight = Math.max(1, fontBoxAscent + fontBoxDescent);
+  const lineHeight = Math.max(
+    Math.ceil(lineHeightHint ?? 0),
+    Math.ceil(fontBoxHeight),
+    Math.ceil(editor.fontSize * 1.05),
+    18
+  );
+  const baselineFromTop = (lineHeight - fontBoxHeight) / 2 + fontBoxAscent;
+
+  return {
+    lineHeight,
+    baselineFromTop,
+    actualAscent,
+    actualDescent,
+    fontBoxHeight,
+  };
+}
+
 function normalizePdfFontFamily(fontFamily?: string, fontName?: string) {
+  const familyCandidate = (fontFamily ?? "")
+    .split(",")[0]
+    .replace(/^[/]+/, "")
+    .replace(/[+]/g, " ")
+    .replace(/[-_]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const normalizedCandidate = familyCandidate
+    .replace(/\b(mt|ps|std|identity|cid)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (
+    normalizedCandidate &&
+    /^[a-z0-9 .]+$/i.test(normalizedCandidate) &&
+    !/^(sans|serif|monospace)$/i.test(normalizedCandidate) &&
+    !DISALLOWED_FONT_FAMILIES.has(normalizedCandidate)
+  ) {
+    return normalizeEditorFontFamily(normalizedCandidate);
+  }
+
   const source = `${fontFamily ?? ""} ${fontName ?? ""}`.toLowerCase();
+  if (source.includes("calibri")) return "Calibri";
+  if (source.includes("cambria")) return "Cambria";
+  if (source.includes("garamond")) return "Garamond";
   if (source.includes("mono") || source.includes("courier")) return "Courier New";
   if (source.includes("helvetica") || source.includes("arial") || source.includes("sans")) return "Arial";
   if (source.includes("times") || source.includes("georgia") || source.includes("serif")) return "Times New Roman";
@@ -209,6 +445,7 @@ async function extractTextLines(page: any, scale: number): Promise<TextLineMetri
         existing.bottom = Math.max(existing.bottom, bottom);
         existing.left = Math.min(existing.left, x);
         existing.right = Math.max(existing.right, x + width);
+        existing.text = `${existing.text} ${item.str}`.replace(/\s+/g, " ").trim();
         existing.segments.push(...segments);
         existing.height = existing.bottom - existing.top;
         existing.centerY = (existing.top + existing.bottom) / 2;
@@ -226,6 +463,7 @@ async function extractTextLines(page: any, scale: number): Promise<TextLineMetri
           right: x + width,
           centerY,
           height: bottom - top,
+          text: item.str.trim(),
           segments,
           fontFamily,
           fontSize,
@@ -287,6 +525,20 @@ function findNearestTextSegment(line: TextLineMetric, x: number): TextSegmentMet
   return best;
 }
 
+function estimateLineCaretIndex(line: TextLineMetric, x: number) {
+  const text = line.text ?? "";
+  if (!text) return 0;
+  const ratio = clamp((x - line.left) / Math.max(1, line.right - line.left), 0, 1);
+  return clamp(Math.round(text.length * ratio), 0, text.length);
+}
+
+function getHighlightPadding(size: number) {
+  return {
+    x: 2,
+    y: clamp(Math.round(size / 2), 2, 7),
+  };
+}
+
 function clampHighlightX(line: TextLineMetric, x: number, paddingX = 2) {
   return clamp(x, line.left - paddingX, line.right + paddingX);
 }
@@ -309,13 +561,85 @@ function resolveHighlightEndLine(
   return findNearestTextLine(lines, pointer.x, pointer.y, Math.max(28, startLine.height * 1.6));
 }
 
+function resolveTextInsertionStyle(
+  lines: TextLineMetric[],
+  pointer: { x: number; y: number },
+  fallback: Pick<TextInsertionStyle, "fontFamily" | "fontSize" | "fontWeight" | "fontStyle">
+): TextInsertionStyle {
+  const line = findNearestTextLine(lines, pointer.x, pointer.y, 34);
+  const segment = line ? findNearestTextSegment(line, pointer.x) : null;
+  const styleSource = segment ?? line;
+  const fontSize = styleSource?.fontSize ?? fallback.fontSize;
+  const insertionLeft = segment
+    ? clamp(pointer.x, segment.left, segment.right)
+    : line
+      ? clamp(pointer.x, line.left, line.right)
+      : pointer.x;
+  const rightBound = line?.right ?? (insertionLeft + Math.max(fontSize * 12, 220));
+  const top = line
+    ? line.bottom - fontSize * 0.82
+    : pointer.y - fontSize * 0.5;
+
+  return {
+    left: insertionLeft,
+    top,
+    maxWidth: Math.max(rightBound - insertionLeft + fontSize * 0.35, Math.max(fontSize * 4.5, 72)),
+    fontFamily: styleSource?.fontFamily ?? fallback.fontFamily,
+    fontSize,
+    fontWeight: styleSource?.fontWeight ?? fallback.fontWeight,
+    fontStyle: styleSource?.fontStyle ?? fallback.fontStyle,
+  };
+}
+
+function resolveHighlightRange(
+  line: TextLineMetric,
+  fromX: number,
+  toX: number,
+  paddingX: number
+) {
+  const minX = Math.min(fromX, toX);
+  const maxX = Math.max(fromX, toX);
+  const overlapping = line.segments.filter(
+    (segment) => segment.right >= minX && segment.left <= maxX
+  );
+
+  if (overlapping.length > 0) {
+    return {
+      left: clampHighlightX(line, overlapping[0].left - paddingX, paddingX),
+      right: clampHighlightX(line, overlapping[overlapping.length - 1].right + paddingX, paddingX),
+    };
+  }
+
+  const startSegment = findNearestTextSegment(line, fromX);
+  const endSegment = findNearestTextSegment(line, toX);
+  if (startSegment && endSegment) {
+    return {
+      left: clampHighlightX(
+        line,
+        Math.min(startSegment.left, endSegment.left) - paddingX,
+        paddingX
+      ),
+      right: clampHighlightX(
+        line,
+        Math.max(startSegment.right, endSegment.right) + paddingX,
+        paddingX
+      ),
+    };
+  }
+
+  return {
+    left: clampHighlightX(line, minX, paddingX),
+    right: clampHighlightX(line, maxX, paddingX),
+  };
+}
+
 function buildHighlightRectMetrics(
   lines: TextLineMetric[],
   startPoint: { x: number; y: number },
   endPoint: { x: number; y: number },
   startLine: TextLineMetric,
   endLine: TextLineMetric,
-  paddingX = 4,
+  paddingX = 2,
   paddingY = 3
 ) {
   const startIndex = lines.findIndex((line) => line === startLine);
@@ -343,12 +667,15 @@ function buildHighlightRectMetrics(
     let right = line.right + paddingX;
 
     if (firstIndex === lastIndex) {
-      left = clampHighlightX(line, Math.min(firstPoint.x, lastPoint.x), paddingX);
-      right = clampHighlightX(line, Math.max(firstPoint.x, lastPoint.x), paddingX);
+      const range = resolveHighlightRange(line, firstPoint.x, lastPoint.x, paddingX);
+      left = range.left;
+      right = range.right;
     } else if (index === firstIndex) {
-      left = clampHighlightX(firstLine, firstPoint.x, paddingX);
+      const range = resolveHighlightRange(firstLine, firstPoint.x, firstLine.right, paddingX);
+      left = range.left;
     } else if (index === lastIndex) {
-      right = clampHighlightX(lastLine, lastPoint.x, paddingX);
+      const range = resolveHighlightRange(lastLine, lastLine.left, lastPoint.x, paddingX);
+      right = range.right;
     }
 
     rects.push({
@@ -388,17 +715,27 @@ export default function EditPdfPage() {
   const [drawColor, setDrawColor] = useState<DrawColor>("#1a1a1a");
   const [brushSize, setBrushSize] = useState(3);
   const [fontSize, setFontSize] = useState(16);
+  const [fontFamily, setFontFamily] = useState<(typeof EDITOR_FONT_FAMILIES)[number]>("Arial");
   const [fontColor, setFontColor] = useState("#1a1a1a");
+  const [textBold, setTextBold] = useState(false);
+  const [textItalic, setTextItalic] = useState(false);
+  const [textUnderline, setTextUnderline] = useState(false);
+  const [textAlign, setTextAlign] = useState<TextAlignOption>("left");
   const [highlightOpacity, setHighlightOpacity] = useState(0.28);
   const [signModalOpen, setSignModalOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [hasSelection, setHasSelection] = useState(false);
+  const [hasClipboardObject, setHasClipboardObject] = useState(false);
+  const [selectionToolContext, setSelectionToolContext] = useState<"text" | "stroke" | "highlight" | null>(null);
+  const [activeTextEditor, setActiveTextEditor] = useState<ActiveTextEditor | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
   const fabricElRef = useRef<HTMLCanvasElement>(null);
+  const textEditorRef = useRef<HTMLTextAreaElement>(null);
+  const textMeasureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const fabricRef = useRef<any>(null); // fabric.Canvas instance
   const historyRef = useRef<string[]>([]);
   const historyIndexRef = useRef(-1);
@@ -412,15 +749,24 @@ export default function EditPdfPage() {
   const drawColorRef = useRef<DrawColor>("#1a1a1a");
   const brushSizeRef = useRef(3);
   const fontSizeRef = useRef(16);
+  const fontFamilyRef = useRef<(typeof EDITOR_FONT_FAMILIES)[number]>("Arial");
   const fontColorRef = useRef("#1a1a1a");
+  const textBoldRef = useRef(false);
+  const textItalicRef = useRef(false);
+  const textUnderlineRef = useRef(false);
+  const textAlignRef = useRef<TextAlignOption>("left");
   const highlightOpacityRef = useRef(0.28);
   const suppressHistoryRef = useRef(false);
+  const selectionToolbarSyncRef = useRef(false);
+  const clipboardRef = useRef<any>(null);
   const renderQueueRef = useRef<Promise<void>>(Promise.resolve());
   const renderVersionRef = useRef(0);
   const initVersionRef = useRef(0);
   const draftObjectRef = useRef<any>(null);
   const draftStartRef = useRef<{ x: number; y: number } | null>(null);
   const draftLineRef = useRef<TextLineMetric | null>(null);
+  const activeTextEditorRef = useRef<ActiveTextEditor | null>(null);
+  const syncToolbarFromObjectRef = useRef<(obj: any) => void>(() => {});
   const [, setHistoryVersion] = useState(0);
 
   const t = {
@@ -468,6 +814,7 @@ export default function EditPdfPage() {
     const json = JSON.stringify(fabricRef.current.toJSON());
     const hist = historyRef.current;
     const idx = historyIndexRef.current;
+    if (idx >= 0 && hist[idx] === json) return;
     const newHist = hist.slice(0, idx + 1);
     newHist.push(json);
     if (newHist.length > 50) newHist.shift();
@@ -475,6 +822,304 @@ export default function EditPdfPage() {
     historyIndexRef.current = newHist.length - 1;
     setHistoryVersion((prev) => prev + 1);
   }, []);
+
+  const updateSelectedObjects = useCallback((updater: (obj: any) => void) => {
+    if (!fabricRef.current) return false;
+    const activeObjects = fabricRef.current.getActiveObjects?.() || [];
+    if (activeObjects.length === 0) return false;
+
+    activeObjects.forEach((obj: any) => {
+      updater(obj);
+      obj.setCoords?.();
+    });
+    fabricRef.current.requestRenderAll?.();
+    setHasUnsavedChanges(true);
+    pushHistory();
+    return true;
+  }, [pushHistory]);
+
+  const getTextMeasureContext = useCallback(() => {
+    if (!textMeasureCanvasRef.current) {
+      textMeasureCanvasRef.current = document.createElement("canvas");
+    }
+    return textMeasureCanvasRef.current.getContext("2d");
+  }, []);
+
+  const openTextObjectEditor = useCallback((pageNumber: number, obj: any) => {
+    if (!obj || !fabricRef.current) return;
+    const fontSize = Number(obj.fontSize ?? fontSizeRef.current ?? 16);
+    const maxWidth = Number((obj as any).pdfxMaxWidth ?? obj.width ?? Math.max(fontSize * 12, 220));
+    const width = clamp(
+      Number(obj.width ?? obj.getScaledWidth?.() ?? Math.max(fontSize * 0.9, 18)),
+      18,
+      Math.max(18, maxWidth)
+    );
+    const editorSeed = {
+      fontFamily: normalizeEditorFontFamily(obj.fontFamily ?? fontFamilyRef.current),
+      fontSize,
+      fontWeight: obj.fontWeight === "bold" ? "bold" as const : "normal" as const,
+      fontStyle: obj.fontStyle === "italic" ? "italic" as const : "normal" as const,
+    };
+    const ctx = getTextMeasureContext();
+    const lineHeightHint = Number((obj as any).pdfxBaseLineHeight ?? obj.minHeight ?? (obj.lineHeight ?? 1) * fontSize);
+    const textMetrics = ctx
+      ? measureEditorTextMetrics(ctx, editorSeed, lineHeightHint)
+      : { lineHeight: Math.max(Math.round(fontSize * 1.1), 18), baselineFromTop: fontSize * 0.82 };
+    const minHeight = Math.max(Number(obj.minHeight ?? 0), textMetrics.lineHeight, 18);
+    const baselineY = Number((obj as any).pdfxBaselineY ?? (Number((obj as any).pdfxBaseTop ?? obj.top ?? 0) + textMetrics.baselineFromTop));
+
+    obj.set({
+      visible: false,
+      evented: false,
+      selectable: false,
+    });
+    fabricRef.current.discardActiveObject?.();
+    fabricRef.current.requestRenderAll?.();
+
+    setActiveTextEditor({
+      pageNumber,
+      left: Number(obj.left ?? 0),
+      top: baselineY - textMetrics.baselineFromTop,
+      baselineY,
+      width,
+      maxWidth: Math.max(18, maxWidth),
+      minHeight,
+      lineHeight: textMetrics.lineHeight,
+      fontFamily: editorSeed.fontFamily,
+      fontSize,
+      fontWeight: editorSeed.fontWeight,
+      fontStyle: editorSeed.fontStyle,
+      underline: Boolean(obj.underline),
+      textAlign: (obj.textAlign as TextAlignOption) ?? "left",
+      color: typeof obj.fill === "string" ? obj.fill : fontColorRef.current,
+      backgroundColor: typeof obj.backgroundColor === "string" ? obj.backgroundColor : "transparent",
+      text: typeof obj.text === "string" ? obj.text : "",
+      sourceObject: obj,
+    });
+  }, [getTextMeasureContext]);
+
+  const beginTextEditor = useCallback((pageNumber: number, pointer: { x: number; y: number }) => {
+    const currentLines = pageTextLinesRef.current.get(pageNumber) || [];
+    const insertionStyle = resolveTextInsertionStyle(currentLines, pointer, {
+      fontFamily: fontFamilyRef.current,
+      fontSize: fontSizeRef.current,
+      fontWeight: textBoldRef.current ? "bold" : "normal",
+      fontStyle: textItalicRef.current ? "italic" : "normal",
+    });
+    const nearestLine = findNearestTextLine(currentLines, pointer.x, pointer.y, 28);
+    const fontFamily = normalizeEditorFontFamily(nearestLine ? insertionStyle.fontFamily : fontFamilyRef.current);
+    const fontSize = insertionStyle.fontSize;
+    const ctx = getTextMeasureContext();
+    const textMetrics = ctx
+      ? measureEditorTextMetrics(ctx, {
+          fontFamily,
+          fontSize,
+          fontWeight: textBoldRef.current ? "bold" : insertionStyle.fontWeight,
+          fontStyle: textItalicRef.current ? "italic" : insertionStyle.fontStyle,
+        }, nearestLine?.height)
+      : { lineHeight: Math.max(Math.round(fontSize * 1.1), nearestLine?.height ?? 0, 18), baselineFromTop: fontSize * 0.82 };
+    const lineHeight = textMetrics.lineHeight;
+    const minHeight = lineHeight;
+    const baselineY = nearestLine
+      ? nearestLine.bottom
+      : insertionStyle.top + textMetrics.baselineFromTop;
+    const top = baselineY - textMetrics.baselineFromTop;
+    const maxWidth = insertionStyle.maxWidth;
+
+    setActiveTextEditor({
+      pageNumber,
+      left: insertionStyle.left,
+      top,
+      baselineY,
+      width: Math.min(Math.max(fontSize * 0.9, 18), maxWidth),
+      maxWidth,
+      minHeight,
+      lineHeight,
+      fontFamily,
+      fontSize,
+      fontWeight: textBoldRef.current ? "bold" : insertionStyle.fontWeight,
+      fontStyle: textItalicRef.current ? "italic" : insertionStyle.fontStyle,
+      underline: textUnderlineRef.current,
+      textAlign: textAlignRef.current,
+      color: fontColorRef.current,
+      backgroundColor: nearestLine ? "#ffffff" : "transparent",
+      text: "",
+      sourceObject: null,
+    });
+  }, [getTextMeasureContext, setActiveTextEditor]);
+
+  const commitTextEditor = useCallback(async () => {
+    const editor = activeTextEditorRef.current;
+    if (!editor || !fabricRef.current || editor.pageNumber !== currentPage) {
+      setActiveTextEditor(null);
+      return false;
+    }
+
+    const text = editor.text.trim();
+    if (!text) {
+      if (editor.sourceObject && fabricRef.current) {
+        fabricRef.current.remove(editor.sourceObject);
+        fabricRef.current.requestRenderAll?.();
+        setHasSelection(false);
+      }
+      setActiveTextEditor(null);
+      return false;
+    }
+
+    const ctx = getTextMeasureContext();
+    const textMetrics = ctx
+      ? measureEditorTextMetrics(ctx, editor, editor.lineHeight)
+      : { lineHeight: editor.lineHeight, baselineFromTop: editor.fontSize * 0.82 };
+    const normalizedTop = (editor.baselineY ?? (editor.top + textMetrics.baselineFromTop)) - textMetrics.baselineFromTop;
+    const lineHeightMultiplier = Math.max(1, textMetrics.lineHeight / Math.max(editor.fontSize, 1));
+    let obj = editor.sourceObject;
+    if (!obj) {
+      const { Textbox } = await import("fabric");
+      obj = new Textbox(text, {
+        left: editor.left,
+        top: normalizedTop,
+        fontSize: editor.fontSize,
+        fill: editor.color,
+        fontFamily: editor.fontFamily,
+        fontWeight: editor.fontWeight,
+        fontStyle: editor.fontStyle,
+        underline: editor.underline,
+        textAlign: editor.textAlign,
+        editable: false,
+        lineHeight: lineHeightMultiplier,
+        width: editor.width,
+        padding: 0,
+        backgroundColor: editor.backgroundColor,
+      });
+      fabricRef.current.add(obj);
+    }
+    obj.set({
+      text,
+      left: editor.left,
+      top: normalizedTop,
+      fontSize: editor.fontSize,
+      fill: editor.color,
+      fontFamily: editor.fontFamily,
+      fontWeight: editor.fontWeight,
+      fontStyle: editor.fontStyle,
+      underline: editor.underline,
+      textAlign: editor.textAlign,
+      editable: false,
+      lineHeight: lineHeightMultiplier,
+      width: editor.width,
+      padding: 0,
+      backgroundColor: editor.backgroundColor,
+      visible: true,
+      evented: true,
+      selectable: true,
+    });
+    (obj as any).pdfxBaseFontSize = editor.fontSize;
+    (obj as any).pdfxMaxWidth = editor.maxWidth;
+    (obj as any).pdfxBaseTop = normalizedTop;
+    (obj as any).pdfxBaseLineHeight = textMetrics.lineHeight;
+    (obj as any).pdfxBaselineY = editor.baselineY ?? (normalizedTop + textMetrics.baselineFromTop);
+    (obj as any).pdfxAutoWidth = true;
+    obj.minHeight = textMetrics.lineHeight;
+    fitTextObjectToBounds(obj, editor.fontSize);
+    try {
+      fabricRef.current.setActiveObject?.(obj);
+    } catch {
+      // Ignore transient activation errors.
+    }
+    fabricRef.current.requestRenderAll?.();
+    setHasSelection(true);
+    setHasUnsavedChanges(true);
+    syncToolbarFromObjectRef.current(obj);
+    setActiveTextEditor(null);
+    return true;
+  }, [currentPage]);
+
+  const cancelTextEditor = useCallback(() => {
+    const editor = activeTextEditorRef.current;
+    if (editor?.sourceObject) {
+      editor.sourceObject.set({
+        visible: true,
+        evented: true,
+        selectable: true,
+      });
+      fabricRef.current?.setActiveObject?.(editor.sourceObject);
+      fabricRef.current?.requestRenderAll?.();
+    }
+    setActiveTextEditor(null);
+  }, []);
+
+  const syncToolbarFromObject = useCallback((obj: any) => {
+    const target = obj?.type === "activeSelection" && typeof obj.getObjects === "function"
+      ? obj.getObjects()[0]
+      : obj;
+    if (!target) return;
+
+    selectionToolbarSyncRef.current = true;
+
+    const releaseSync = () => {
+      window.setTimeout(() => {
+        selectionToolbarSyncRef.current = false;
+      }, 0);
+    };
+
+    try {
+      if (target.type === "textbox" || target.type === "i-text" || target.type === "text") {
+        setSelectionToolContext("text");
+        const nextFontFamily = normalizeEditorFontFamily(target.fontFamily);
+        if (EDITOR_FONT_FAMILIES.includes(nextFontFamily as (typeof EDITOR_FONT_FAMILIES)[number])) {
+          setFontFamily(nextFontFamily as (typeof EDITOR_FONT_FAMILIES)[number]);
+        }
+        if (typeof target.fill === "string") {
+          setFontColor(target.fill);
+        }
+        const nextFontSize = Number((target as any).pdfxBaseFontSize ?? target.fontSize ?? fontSizeRef.current);
+        if (Number.isFinite(nextFontSize)) {
+          setFontSize(Math.round(nextFontSize));
+        }
+        setTextBold(target.fontWeight === "bold");
+        setTextItalic(target.fontStyle === "italic");
+        setTextUnderline(Boolean(target.underline));
+        setTextAlign((target.textAlign ?? "left") as TextAlignOption);
+      } else if (target.type === "line") {
+        setSelectionToolContext("stroke");
+        const nextColor = toEditorColor(target.stroke);
+        if (nextColor) setDrawColor(nextColor);
+        const nextSize = Number(target.strokeWidth ?? brushSizeRef.current);
+        if (Number.isFinite(nextSize)) {
+          setBrushSize(clamp(Math.round(nextSize), 1, 24));
+        }
+      } else if (target.type === "ellipse" || (target.type === "rect" && target.stroke !== "transparent")) {
+        setSelectionToolContext("stroke");
+        const nextColor = toEditorColor(target.stroke);
+        if (nextColor) setDrawColor(nextColor);
+        const nextSize = Number(target.strokeWidth ?? brushSizeRef.current);
+        if (Number.isFinite(nextSize)) {
+          setBrushSize(clamp(Math.round(nextSize), 1, 24));
+        }
+      } else if (target.type === "rect" && target.stroke === "transparent") {
+        setSelectionToolContext("highlight");
+        const parsed = parseCanvasColor(target.fill);
+        const nextColor = toEditorColor(parsed?.hex);
+        if (nextColor) setDrawColor(nextColor);
+        if (parsed) setHighlightOpacity(parsed.alpha);
+      } else if (target.type === "group" && typeof target.getObjects === "function") {
+        setSelectionToolContext("highlight");
+        const child = target.getObjects().find((item: any) => item.type === "rect");
+        const parsed = parseCanvasColor(child?.fill);
+        const nextColor = toEditorColor(parsed?.hex);
+        if (nextColor) setDrawColor(nextColor);
+        if (parsed) setHighlightOpacity(parsed.alpha);
+      } else {
+        setSelectionToolContext(null);
+      }
+    } finally {
+      releaseSync();
+    }
+  }, []);
+
+  useEffect(() => {
+    syncToolbarFromObjectRef.current = syncToolbarFromObject;
+  }, [syncToolbarFromObject]);
 
   const getCanvasSize = useCallback((pageNumber: number) => {
     const dim = pageDims[pageNumber - 1] || { width: 595, height: 842 };
@@ -518,13 +1163,23 @@ export default function EditPdfPage() {
     const version = ++initVersionRef.current;
     const {
       Canvas: FabricCanvas,
+      FabricObject,
       PencilBrush,
-      IText,
+      Textbox,
       Rect,
       Ellipse,
       Line,
       Group,
     } = await import("fabric");
+    const IText = Textbox;
+    FabricObject.customProperties = Array.from(new Set([
+      ...(FabricObject.customProperties ?? []),
+      ...PDFX_TEXT_CUSTOM_PROPS,
+    ]));
+    Textbox.customProperties = Array.from(new Set([
+      ...(Textbox.customProperties ?? []),
+      ...PDFX_TEXT_CUSTOM_PROPS,
+    ]));
     if (version !== initVersionRef.current) return;
     const { width, height } = getCanvasSize(pageNumber);
     if (fabricRef.current) {
@@ -542,6 +1197,7 @@ export default function EditPdfPage() {
     historyRef.current = [];
     historyIndexRef.current = -1;
     setHasSelection(false);
+    setSelectionToolContext(null);
     setHistoryVersion((prev) => prev + 1);
 
     fc.on("object:added", pushHistory);
@@ -559,9 +1215,83 @@ export default function EditPdfPage() {
         setHasSelection(false);
       }
     });
-    fc.on("selection:created", () => setHasSelection(true));
-    fc.on("selection:updated", () => setHasSelection(true));
-    fc.on("selection:cleared", () => setHasSelection(false));
+    fc.on("selection:created", () => {
+      setHasSelection(true);
+      syncToolbarFromObject(fc.getActiveObject?.());
+    });
+    fc.on("selection:updated", () => {
+      setHasSelection(true);
+      syncToolbarFromObject(fc.getActiveObject?.());
+    });
+    fc.on("selection:cleared", () => {
+      setHasSelection(false);
+      setSelectionToolContext(null);
+      selectionToolbarSyncRef.current = false;
+    });
+    fc.on("mouse:dblclick", (opt: any) => {
+      if (!opt.target || !isEditableTextObject(opt.target)) return;
+      if (activeToolRef.current !== "select" && activeToolRef.current !== "text") return;
+      openTextObjectEditor(pageNumber, opt.target);
+    });
+    fc.on("text:changed", (opt: any) => {
+      const obj = opt.target;
+      if (!obj) return;
+
+      if (obj.isEditing) {
+        const maxWidth = Number((obj as any).pdfxMaxWidth ?? obj.width ?? 0);
+        if (Number.isFinite(maxWidth) && maxWidth > 24) {
+          const autoWidth = Boolean((obj as any).pdfxAutoWidth);
+          if (autoWidth) {
+            const text = typeof obj.text === "string" ? obj.text : "";
+            const measuredWidth = text.trim() && typeof obj.calcTextWidth === "function"
+              ? obj.calcTextWidth()
+              : 0;
+            obj.set({
+              width: clamp(
+                (measuredWidth || obj.fontSize || 16) + Math.max(6, (obj.fontSize || 16) * 0.35),
+                18,
+                maxWidth
+              ),
+            });
+          } else {
+            obj.set({ width: maxWidth });
+          }
+          obj.initDimensions?.();
+        }
+      } else {
+        fitTextObjectToBounds(obj, fontSizeRef.current);
+      }
+
+      obj.setCoords?.();
+      fc.requestRenderAll?.();
+    });
+    fc.on("text:editing:exited", (opt: any) => {
+      const obj = opt.target;
+      if (!obj) return;
+
+      const text = typeof obj.text === "string" ? obj.text.trim() : "";
+      if (!text) {
+        suppressHistoryRef.current = true;
+        try {
+          fc.remove(obj);
+          fc.discardActiveObject();
+          setHasSelection(false);
+        } finally {
+          suppressHistoryRef.current = false;
+        }
+        fc.requestRenderAll?.();
+        return;
+      }
+
+      fitTextObjectToBounds(obj, fontSizeRef.current);
+      obj.setCoords?.();
+      fc.setActiveObject(obj);
+      fc.requestRenderAll?.();
+      setHasUnsavedChanges(true);
+      pushHistory();
+      syncToolbarFromObject(obj);
+    });
+    fc.on("object:modified", () => syncToolbarFromObject(fc.getActiveObject?.()));
     fc.on("mouse:down", (opt: any) => {
       if (activeToolRef.current === "eraser" && opt.target) {
         fc.remove(opt.target);
@@ -579,30 +1309,73 @@ export default function EditPdfPage() {
       const currentLines = pageTextLinesRef.current.get(pageNumber) || [];
 
       if (activeToolRef.current === "text") {
+        if (opt.target && isEditableTextObject(opt.target)) {
+          openTextObjectEditor(pageNumber, opt.target);
+          return;
+        }
+        fc.discardActiveObject?.();
+        fc.requestRenderAll?.();
+        beginTextEditor(pageNumber, pointer);
+        return;
+        const insertionStyle = resolveTextInsertionStyle(currentLines, pointer, {
+          fontFamily: fontFamilyRef.current,
+          fontSize: fontSizeRef.current,
+          fontWeight: textBoldRef.current ? "bold" : "normal",
+          fontStyle: textItalicRef.current ? "italic" : "normal",
+        });
+        const nearestLine = findNearestTextLine(currentLines, pointer.x, pointer.y, 26);
+        const hasNearbyTextLine = Boolean(nearestLine);
+        const measureText = hasNearbyTextLine ? "Hg" : "A";
+        const initialText = hasNearbyTextLine ? " " : "";
+        const initialSelectionEnd = hasNearbyTextLine ? 1 : 0;
+        const textLeft = insertionStyle.left;
+        const textWidth = insertionStyle.maxWidth;
+        suppressHistoryRef.current = true;
         const obj = new IText(isRu ? "Текст" : "Text", {
-          left: (() => {
-            const line = findNearestTextLine(currentLines, pointer.x, pointer.y, 34);
-            return line ? clamp(pointer.x, line.left, line.right) : pointer.x;
-          })(),
-          top: (() => {
-            const line = findNearestTextLine(currentLines, pointer.x, pointer.y, 34);
-            return line ? line.top + 1 : pointer.y;
-          })(),
-          fontSize: findNearestTextLine(currentLines, pointer.x, pointer.y, 34)?.fontSize ?? fontSizeRef.current,
+          left: textLeft,
+          top: insertionStyle.top,
+          fontSize: insertionStyle.fontSize,
           fill: fontColorRef.current,
-          fontFamily: findNearestTextLine(currentLines, pointer.x, pointer.y, 34)?.fontFamily ?? "Arial",
-          fontWeight: findNearestTextLine(currentLines, pointer.x, pointer.y, 34)?.fontWeight ?? "normal",
-          fontStyle: findNearestTextLine(currentLines, pointer.x, pointer.y, 34)?.fontStyle ?? "normal",
+          fontFamily: hasNearbyTextLine
+            ? normalizeEditorFontFamily(insertionStyle.fontFamily)
+            : fontFamilyRef.current,
+          fontWeight: textBoldRef.current ? "bold" : insertionStyle.fontWeight,
+          fontStyle: textItalicRef.current ? "italic" : insertionStyle.fontStyle,
+          underline: textUnderlineRef.current,
+          textAlign: textAlignRef.current,
           editable: true,
           lineHeight: 1,
+          width: Math.min(Math.max(insertionStyle.fontSize * 0.9, 18), textWidth),
+          padding: 0,
+          backgroundColor: hasNearbyTextLine ? "#ffffff" : "transparent",
         });
+        obj.set("text", measureText);
+        obj.initDimensions?.();
+        const measuredHeight = obj.getScaledHeight?.() ?? obj.height ?? insertionStyle.fontSize;
+        const textTop = hasNearbyTextLine
+          ? ((nearestLine?.bottom ?? insertionStyle.top) - measuredHeight * 0.82)
+          : insertionStyle.top;
+        obj.set({ top: textTop, text: initialText, minHeight: measuredHeight });
+        (obj as any).pdfxBaseFontSize = insertionStyle.fontSize;
+        (obj as any).pdfxMaxWidth = textWidth;
+        (obj as any).pdfxBaseTop = textTop;
+        (obj as any).pdfxAutoWidth = hasNearbyTextLine;
         fc.add(obj);
-        fc.setActiveObject(obj);
-        fc.renderAll();
+        obj.setCoords?.();
+        fc.requestRenderAll?.();
         window.setTimeout(() => {
+          suppressHistoryRef.current = false;
+          try {
+            fc.setActiveObject?.(obj);
+          } catch {
+            // Fabric can transiently fail here during object bootstrap; editing still works.
+          }
+          fc.requestRenderAll?.();
           (obj as any).enterEditing?.();
-          (obj as any).selectAll?.();
           (obj as any).hiddenTextarea?.focus?.();
+          (obj as any).selectionStart = 0;
+          (obj as any).selectionEnd = initialSelectionEnd;
+          (obj as any).hiddenTextarea?.setSelectionRange?.(0, initialSelectionEnd);
         }, 0);
         return;
       }
@@ -636,7 +1409,7 @@ export default function EditPdfPage() {
         draftObjectRef.current = obj;
         fc.add(obj);
       } else if (activeToolRef.current === "highlight") {
-        const paddingY = 3;
+        const highlightPadding = getHighlightPadding(brushSizeRef.current);
         const highlightColor = hexToRgba(drawColorRef.current, highlightOpacityRef.current);
         const highlightRects = snappedLine
           ? buildHighlightRectMetrics(
@@ -644,7 +1417,9 @@ export default function EditPdfPage() {
               draftStartRef.current ?? pointer,
               pointer,
               snappedLine,
-              snappedLine
+              snappedLine,
+              highlightPadding.x,
+              highlightPadding.y
             )
           : [];
 
@@ -667,11 +1442,11 @@ export default function EditPdfPage() {
             )
           : new Rect({
               left: highlightRects[0]?.left ?? pointer.x,
-              top: highlightRects[0]?.top ?? (snappedLine ? snappedLine.top - paddingY : pointer.y),
+              top: highlightRects[0]?.top ?? (snappedLine ? snappedLine.top - highlightPadding.y : pointer.y),
               width: highlightRects[0]?.width ?? 1,
               height: highlightRects[0]?.height ?? (
                 snappedLine
-                  ? snappedLine.height + paddingY * 2
+                  ? snappedLine.height + highlightPadding.y * 2
                   : Math.max(18, brushSizeRef.current * 4)
               ),
               fill: highlightColor,
@@ -719,9 +1494,20 @@ export default function EditPdfPage() {
       const top = Math.min(start.y, pointer.y);
       const width = Math.max(Math.abs(pointer.x - start.x), 1);
       const height = Math.max(Math.abs(pointer.y - start.y), 1);
+      const shiftPressed = Boolean(opt.e?.shiftKey);
 
       if (activeToolRef.current === "rect") {
-        draftObjectRef.current.set({ left, top, width, height });
+        if (shiftPressed) {
+          const size = Math.max(width, height);
+          draftObjectRef.current.set({
+            left: pointer.x >= start.x ? start.x : start.x - size,
+            top: pointer.y >= start.y ? start.y : start.y - size,
+            width: size,
+            height: size,
+          });
+        } else {
+          draftObjectRef.current.set({ left, top, width, height });
+        }
       } else if (activeToolRef.current === "highlight") {
         const currentLines = pageTextLinesRef.current.get(pageNumber) || [];
         const endLine = resolveHighlightEndLine(currentLines, draftLineRef.current, pointer);
@@ -729,12 +1515,15 @@ export default function EditPdfPage() {
         if (draftLineRef.current || endLine) {
           const startLine = draftLineRef.current ?? endLine!;
           const finishLine = endLine ?? draftLineRef.current ?? startLine;
+          const highlightPadding = getHighlightPadding(brushSizeRef.current);
           const rects = buildHighlightRectMetrics(
             currentLines,
             start,
             pointer,
             startLine,
-            finishLine
+            finishLine,
+            highlightPadding.x,
+            highlightPadding.y
           );
 
           if (rects.length > 0) {
@@ -779,9 +1568,29 @@ export default function EditPdfPage() {
           });
         }
       } else if (activeToolRef.current === "circle") {
-        draftObjectRef.current.set({ left, top, rx: width / 2, ry: height / 2 });
+        if (shiftPressed) {
+          const size = Math.max(width, height);
+          draftObjectRef.current.set({
+            left: pointer.x >= start.x ? start.x : start.x - size,
+            top: pointer.y >= start.y ? start.y : start.y - size,
+            rx: size / 2,
+            ry: size / 2,
+          });
+        } else {
+          draftObjectRef.current.set({ left, top, rx: width / 2, ry: height / 2 });
+        }
       } else if (activeToolRef.current === "line") {
-        draftObjectRef.current.set({ x1: start.x, y1: start.y, x2: pointer.x, y2: pointer.y });
+        if (shiftPressed) {
+          const dx = pointer.x - start.x;
+          const dy = pointer.y - start.y;
+          if (Math.abs(dx) >= Math.abs(dy)) {
+            draftObjectRef.current.set({ x1: start.x, y1: start.y, x2: pointer.x, y2: start.y });
+          } else {
+            draftObjectRef.current.set({ x1: start.x, y1: start.y, x2: start.x, y2: pointer.y });
+          }
+        } else {
+          draftObjectRef.current.set({ x1: start.x, y1: start.y, x2: pointer.x, y2: pointer.y });
+        }
       }
 
       draftObjectRef.current.setCoords?.();
@@ -801,15 +1610,16 @@ export default function EditPdfPage() {
       ) {
         const line = draftLineRef.current;
         if (line) {
+          const highlightPadding = getHighlightPadding(brushSizeRef.current);
           const centerX = draftStartRef.current?.x ?? draft.left ?? line.left;
           const fallbackHalfWidth = Math.max(18, Math.min(34, line.height * 1.35));
-          const left = clampHighlightX(line, centerX - fallbackHalfWidth, 2);
-          const right = clampHighlightX(line, centerX + fallbackHalfWidth, 2);
+          const left = clampHighlightX(line, centerX - fallbackHalfWidth, highlightPadding.x);
+          const right = clampHighlightX(line, centerX + fallbackHalfWidth, highlightPadding.x);
           draft.set({
             left,
-            top: line.top - 3,
+            top: line.top - highlightPadding.y,
             width: Math.max(right - left, 36),
-            height: line.height + 6,
+            height: line.height + highlightPadding.y * 2,
           });
         } else {
           draft.set({ width: 72 });
@@ -843,29 +1653,34 @@ export default function EditPdfPage() {
       }
     }
     pushHistory();
-  }, [applyCanvasCssSize, getCanvasSize, loadCanvasState, pushHistory]);
+  }, [applyCanvasCssSize, getCanvasSize, loadCanvasState, pushHistory, syncToolbarFromObject]);
 
-  const saveCurrent = useCallback(() => {
+  const saveCurrent = useCallback(async () => {
+    if (activeTextEditorRef.current?.pageNumber === currentPage) {
+      await commitTextEditor();
+    }
     if (!fabricRef.current) return;
     const json = JSON.stringify(fabricRef.current.toJSON());
     pageStatesRef.current.set(currentPage, json);
-  }, [currentPage]);
+  }, [commitTextEditor, currentPage]);
 
   const goBack = useCallback(() => {
-    saveCurrent();
-    if (hasUnsavedChanges) {
-      const shouldLeave = window.confirm(
-        isRu
-          ? "Есть несохраненные изменения. Выйти из редактора?"
-          : "You have unsaved changes. Leave the editor?"
-      );
-      if (!shouldLeave) return;
-    }
-    if (window.history.length > 1) {
-      window.history.back();
-      return;
-    }
-    setLocation("/");
+    void (async () => {
+      await saveCurrent();
+      if (hasUnsavedChanges) {
+        const shouldLeave = window.confirm(
+          isRu
+            ? "Есть несохраненные изменения. Выйти из редактора?"
+            : "You have unsaved changes. Leave the editor?"
+        );
+        if (!shouldLeave) return;
+      }
+      if (window.history.length > 1) {
+        window.history.back();
+        return;
+      }
+      setLocation("/");
+    })();
   }, [hasUnsavedChanges, isRu, saveCurrent, setLocation]);
 
   const updateZoom = useCallback((updater: number | ((prev: number) => number)) => {
@@ -907,12 +1722,134 @@ export default function EditPdfPage() {
   }, [fontSize]);
 
   useEffect(() => {
+    fontFamilyRef.current = fontFamily;
+  }, [fontFamily]);
+
+  useEffect(() => {
     fontColorRef.current = fontColor;
   }, [fontColor]);
 
   useEffect(() => {
+    textBoldRef.current = textBold;
+  }, [textBold]);
+
+  useEffect(() => {
+    textItalicRef.current = textItalic;
+  }, [textItalic]);
+
+  useEffect(() => {
+    textUnderlineRef.current = textUnderline;
+  }, [textUnderline]);
+
+  useEffect(() => {
+    textAlignRef.current = textAlign;
+  }, [textAlign]);
+
+  useEffect(() => {
     highlightOpacityRef.current = highlightOpacity;
   }, [highlightOpacity]);
+
+  useEffect(() => {
+    activeTextEditorRef.current = activeTextEditor;
+  }, [activeTextEditor]);
+
+  useEffect(() => {
+    if (!activeTextEditor) return;
+    const ctx = getTextMeasureContext();
+    if (!ctx) return;
+    const measuredWidth = measureEditorTextWidth(ctx, activeTextEditor.text || " ", activeTextEditor);
+    const nextWidth = clamp(
+      measuredWidth + Math.max(8, activeTextEditor.fontSize * 0.42),
+      18,
+      activeTextEditor.maxWidth
+    );
+    if (Math.abs(nextWidth - activeTextEditor.width) > 0.5) {
+      setActiveTextEditor((prev) => prev ? { ...prev, width: nextWidth } : prev);
+    }
+  }, [activeTextEditor, getTextMeasureContext]);
+
+  useEffect(() => {
+    if (!activeTextEditor || activeTextEditor.pageNumber !== currentPage) return;
+    const frame = window.requestAnimationFrame(() => {
+      textEditorRef.current?.focus();
+      const value = textEditorRef.current?.value ?? "";
+      textEditorRef.current?.setSelectionRange(value.length, value.length);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeTextEditor, currentPage]);
+
+  useEffect(() => {
+    if (!activeTextEditor || activeTextEditor.pageNumber !== currentPage || !textEditorRef.current) return;
+    const el = textEditorRef.current;
+    el.style.height = `${activeTextEditor.minHeight}px`;
+    el.style.height = `${Math.max(activeTextEditor.minHeight, el.scrollHeight)}px`;
+  }, [activeTextEditor, currentPage]);
+
+  useEffect(() => {
+    if (selectionToolbarSyncRef.current) return;
+    updateSelectedObjects((obj) => {
+      if (obj.type === "textbox" || obj.type === "i-text" || obj.type === "text") {
+        obj.set({
+          fill: fontColor,
+          fontSize,
+          fontFamily,
+          fontWeight: textBold ? "bold" : "normal",
+          fontStyle: textItalic ? "italic" : "normal",
+          underline: textUnderline,
+          textAlign,
+        });
+        if (typeof (obj as any).pdfxBaseFontSize === "number") {
+          (obj as any).pdfxBaseFontSize = fontSize;
+        }
+        fitTextObjectToBounds(obj, fontSize);
+      }
+    });
+  }, [fontColor, fontFamily, fontSize, textAlign, textBold, textItalic, textUnderline, updateSelectedObjects]);
+
+  useEffect(() => {
+    if (selectionToolbarSyncRef.current) return;
+    updateSelectedObjects((obj) => {
+      if (obj.type === "rect" && obj.stroke === "transparent") {
+        obj.set({ fill: hexToRgba(drawColor, highlightOpacity) });
+      } else if (obj.type === "line") {
+        obj.set({ stroke: drawColor, strokeWidth: Math.max(1, brushSize) });
+      } else if (obj.type === "ellipse" || (obj.type === "rect" && obj.stroke !== "transparent")) {
+        obj.set({ stroke: drawColor, strokeWidth: Math.max(1, brushSize) });
+      } else if (obj.type === "group" && typeof obj.getObjects === "function") {
+        obj.getObjects().forEach((child: any) => {
+          if (child.type === "rect") {
+            child.set({ fill: hexToRgba(drawColor, highlightOpacity) });
+          }
+        });
+      }
+    });
+  }, [brushSize, drawColor, highlightOpacity, updateSelectedObjects]);
+
+  useEffect(() => {
+    if (!activeTextEditorRef.current) return;
+    setActiveTextEditor((prev) => {
+      if (!prev) return prev;
+      const next = {
+        ...prev,
+        fontFamily,
+        fontSize,
+        fontWeight: textBold ? "bold" as const : "normal" as const,
+        fontStyle: textItalic ? "italic" as const : "normal" as const,
+        underline: textUnderline,
+        textAlign,
+        color: fontColor,
+      };
+      const ctx = getTextMeasureContext();
+      if (!ctx) return next;
+      const textMetrics = measureEditorTextMetrics(ctx, next, prev.lineHeight);
+      return {
+        ...next,
+        lineHeight: textMetrics.lineHeight,
+        minHeight: textMetrics.lineHeight,
+        top: next.baselineY != null ? next.baselineY - textMetrics.baselineFromTop : next.top,
+      };
+    });
+  }, [fontColor, fontFamily, fontSize, getTextMeasureContext, textAlign, textBold, textItalic, textUnderline]);
 
   useEffect(() => {
     if (!fabricRef.current) return;
@@ -987,6 +1924,9 @@ export default function EditPdfPage() {
   }, [loadingState, renderCurrentPage]);
 
   const handleFile = useCallback(async (f: File) => {
+    if (activeTextEditorRef.current?.pageNumber === currentPage) {
+      await commitTextEditor();
+    }
     if (hasUnsavedChanges && file) {
       const shouldReplace = window.confirm(
         isRu
@@ -1059,7 +1999,7 @@ export default function EditPdfPage() {
       setError(isRu ? "Не удалось загрузить PDF" : "Failed to load PDF");
       setLoadingState("idle");
     }
-  }, [file, hasUnsavedChanges, isRu]);
+  }, [commitTextEditor, currentPage, file, hasUnsavedChanges, isRu]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -1076,16 +2016,21 @@ export default function EditPdfPage() {
     fabricRef.current.discardActiveObject();
     fabricRef.current.renderAll();
     setHasSelection(false);
+    setSelectionToolContext(null);
   }, []);
 
-  const duplicateSelection = useCallback(async () => {
-    if (!fabricRef.current) return;
-    const activeObject = fabricRef.current.getActiveObject?.();
-    if (!activeObject?.clone) return;
-    const cloned = await activeObject.clone();
+  const placeClonedObject = useCallback((cloned: any, offsetMultiplier = 1) => {
+    if (!fabricRef.current || !cloned) return false;
+    const { width, height } = getCanvasSize(currentPage);
+    const scaledWidth = cloned.getScaledWidth?.() ?? cloned.width ?? 0;
+    const scaledHeight = cloned.getScaledHeight?.() ?? cloned.height ?? 0;
+    const offset = 18 * offsetMultiplier;
+    const nextLeft = clamp((cloned.left ?? 0) + offset, 0, Math.max(0, width - scaledWidth));
+    const nextTop = clamp((cloned.top ?? 0) + offset, 0, Math.max(0, height - scaledHeight));
+
     cloned.set({
-      left: (activeObject.left ?? 0) + 18,
-      top: (activeObject.top ?? 0) + 18,
+      left: nextLeft,
+      top: nextTop,
     });
     cloned.setCoords?.();
     fabricRef.current.discardActiveObject();
@@ -1093,7 +2038,99 @@ export default function EditPdfPage() {
     fabricRef.current.setActiveObject(cloned);
     fabricRef.current.renderAll();
     setHasSelection(true);
+    return true;
+  }, [currentPage, getCanvasSize]);
+
+  const insertClipboardText = useCallback(async (text: string) => {
+    if (!fabricRef.current || !text.trim()) return false;
+    const { Textbox } = await import("fabric");
+    const { width, height } = getCanvasSize(currentPage);
+    const currentLines = pageTextLinesRef.current.get(currentPage) || [];
+    const pointer = { x: Math.min(width * 0.22, width - 72), y: Math.min(height * 0.18, height - 48) };
+    const insertionStyle = resolveTextInsertionStyle(currentLines, pointer, {
+      fontFamily: fontFamilyRef.current,
+      fontSize: fontSizeRef.current,
+      fontWeight: textBoldRef.current ? "bold" : "normal",
+      fontStyle: textItalicRef.current ? "italic" : "normal",
+    });
+    const hasNearbyTextLine = currentLines.some((line) => Math.abs(line.centerY - pointer.y) <= Math.max(26, line.height));
+    const obj = new Textbox(text, {
+      left: insertionStyle.left,
+      top: insertionStyle.top,
+      fontSize: insertionStyle.fontSize,
+      fill: fontColorRef.current,
+      fontFamily: hasNearbyTextLine
+        ? normalizeEditorFontFamily(insertionStyle.fontFamily)
+        : fontFamilyRef.current,
+      fontWeight: textBoldRef.current ? "bold" : insertionStyle.fontWeight,
+      fontStyle: textItalicRef.current ? "italic" : insertionStyle.fontStyle,
+      underline: textUnderlineRef.current,
+      textAlign: textAlignRef.current,
+      editable: false,
+      lineHeight: 1.05,
+      width: insertionStyle.maxWidth,
+    });
+    (obj as any).pdfxBaseFontSize = insertionStyle.fontSize;
+    (obj as any).pdfxMaxWidth = insertionStyle.maxWidth;
+    (obj as any).pdfxBaseTop = insertionStyle.top;
+    fitTextObjectToBounds(obj, insertionStyle.fontSize);
+    fabricRef.current.add(obj);
+    obj.setCoords?.();
+    try {
+      fabricRef.current.setActiveObject?.(obj);
+    } catch {
+      // Ignore Fabric activation glitches and keep the inserted text visible.
+    }
+    fabricRef.current.requestRenderAll?.();
+    setHasSelection(true);
+    setHasUnsavedChanges(true);
+    syncToolbarFromObject(obj);
+    return true;
+  }, [currentPage, getCanvasSize, syncToolbarFromObject]);
+
+  const copySelection = useCallback(async () => {
+    if (!fabricRef.current) return false;
+    const activeObject = fabricRef.current.getActiveObject?.();
+    if (!activeObject?.clone) return false;
+    clipboardRef.current = await activeObject.clone();
+    setHasClipboardObject(true);
+    if ((activeObject.type === "textbox" || activeObject.type === "i-text" || activeObject.type === "text") && typeof activeObject.text === "string") {
+      try {
+        await navigator.clipboard?.writeText?.(activeObject.text);
+      } catch {
+        // Ignore clipboard API failures and keep internal object clipboard.
+      }
+    }
+    return true;
   }, []);
+
+  const pasteSelection = useCallback(async () => {
+    if (clipboardRef.current?.clone) {
+      const cloned = await clipboardRef.current.clone();
+      return placeClonedObject(cloned, 1);
+    }
+
+    try {
+      const text = await navigator.clipboard?.readText?.();
+      if (text?.trim()) {
+        return insertClipboardText(text);
+      }
+    } catch {
+      // Ignore clipboard API failures.
+    }
+
+    return false;
+  }, [insertClipboardText, placeClonedObject]);
+
+  const duplicateSelection = useCallback(async () => {
+    if (!fabricRef.current) return;
+    const activeObject = fabricRef.current.getActiveObject?.();
+    if (!activeObject?.clone) return;
+    const cloned = await activeObject.clone();
+    clipboardRef.current = cloned;
+    setHasClipboardObject(true);
+    placeClonedObject(cloned, 1);
+  }, [placeClonedObject]);
 
   const moveSelectionLayer = useCallback((direction: "front" | "back") => {
     if (!fabricRef.current) return;
@@ -1107,19 +2144,41 @@ export default function EditPdfPage() {
     activeObject.setCoords?.();
     fabricRef.current.renderAll();
     setHasUnsavedChanges(true);
-  }, []);
+    pushHistory();
+  }, [pushHistory]);
 
   const discardActiveSelection = useCallback(() => {
     if (!fabricRef.current) return;
     fabricRef.current.discardActiveObject();
     fabricRef.current.renderAll();
     setHasSelection(false);
+    setSelectionToolContext(null);
   }, []);
+
+  const nudgeSelection = useCallback((dx: number, dy: number) => {
+    if (!fabricRef.current) return;
+    const activeObjects = fabricRef.current.getActiveObjects?.() || [];
+    if (activeObjects.length === 0) return;
+
+    activeObjects.forEach((obj: any) => {
+      obj.set({
+        left: clamp((obj.left ?? 0) + dx, 0, Math.max(0, getCanvasSize(currentPage).width - (obj.getScaledWidth?.() ?? obj.width ?? 0))),
+        top: clamp((obj.top ?? 0) + dy, 0, Math.max(0, getCanvasSize(currentPage).height - (obj.getScaledHeight?.() ?? obj.height ?? 0))),
+      });
+      obj.setCoords?.();
+    });
+
+    fabricRef.current.renderAll();
+    setHasUnsavedChanges(true);
+    pushHistory();
+  }, [currentPage, getCanvasSize, pushHistory]);
 
   const switchPage = useCallback((p: number) => {
     if (p === currentPage) return;
-    saveCurrent();
-    setCurrentPage(p);
+    void (async () => {
+      await saveCurrent();
+      setCurrentPage(p);
+    })();
   }, [currentPage, saveCurrent]);
 
   const handleCanvasClick = useCallback(async (e: React.MouseEvent<HTMLElement>) => {
@@ -1257,6 +2316,50 @@ export default function EditPdfPage() {
         return;
       }
 
+      if ((e.ctrlKey || e.metaKey) && e.code === "KeyB") {
+        e.preventDefault();
+        setTextBold((prev) => !prev);
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.code === "KeyI") {
+        e.preventDefault();
+        setTextItalic((prev) => !prev);
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.code === "KeyU") {
+        e.preventDefault();
+        setTextUnderline((prev) => !prev);
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.code === "KeyC" && fabricRef.current) {
+        const activeObjects = fabricRef.current.getActiveObjects?.() || [];
+        if (activeObjects.length > 0) {
+          e.preventDefault();
+          void copySelection();
+          return;
+        }
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.code === "KeyV" && fabricRef.current) {
+        if (clipboardRef.current) {
+          e.preventDefault();
+          void pasteSelection();
+          return;
+        }
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.code === "KeyD" && fabricRef.current) {
+        const activeObjects = fabricRef.current.getActiveObjects?.() || [];
+        if (activeObjects.length > 0) {
+          e.preventDefault();
+          void duplicateSelection();
+          return;
+        }
+      }
+
       if ((e.key === "Delete" || e.key === "Backspace") && fabricRef.current) {
         const activeObjects = fabricRef.current.getActiveObjects?.() || [];
         if (activeObjects.length > 0) {
@@ -1274,6 +2377,28 @@ export default function EditPdfPage() {
         }
         setActiveTool("select");
         return;
+      }
+
+      if ((e.key === "Enter" || e.key === "F2") && fabricRef.current) {
+        const activeObject = fabricRef.current.getActiveObject?.();
+        if (activeObject && isEditableTextObject(activeObject)) {
+          e.preventDefault();
+          openTextObjectEditor(currentPage, activeObject);
+          return;
+        }
+      }
+
+      if (fabricRef.current && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+        const activeObjects = fabricRef.current.getActiveObjects?.() || [];
+        if (activeObjects.length > 0) {
+          e.preventDefault();
+          const step = e.shiftKey ? 10 : 1;
+          if (e.key === "ArrowUp") nudgeSelection(0, -step);
+          if (e.key === "ArrowDown") nudgeSelection(0, step);
+          if (e.key === "ArrowLeft") nudgeSelection(-step, 0);
+          if (e.key === "ArrowRight") nudgeSelection(step, 0);
+          return;
+        }
       }
 
       if (e.altKey || e.ctrlKey || e.metaKey) return;
@@ -1300,7 +2425,7 @@ export default function EditPdfPage() {
 
     window.addEventListener("keydown", handleKeyDown, true);
     return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [deleteSelectedObjects, discardActiveSelection, handleRedo, handleUndo]);
+  }, [copySelection, currentPage, deleteSelectedObjects, discardActiveSelection, duplicateSelection, handleRedo, handleUndo, nudgeSelection, openTextObjectEditor, pasteSelection]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -1376,7 +2501,7 @@ export default function EditPdfPage() {
     }
     setError(null);
     setIsSaving(true);
-    saveCurrent();
+    await saveCurrent();
 
     try {
       const pdfDoc = await PDFDocument.load(pageOrigBytesRef.current, { ignoreEncryption: true });
@@ -1446,7 +2571,7 @@ export default function EditPdfPage() {
     { id: "eraser", icon: Eraser, label: t.tools.eraser },
   ];
 
-  const COLORS: DrawColor[] = ["#1a1a1a", "#e53e3e", "#3182ce", "#38a169", "#facc15"];
+  const COLORS = EDITOR_COLORS;
   const canUndo = historyIndexRef.current > 0;
   const canRedo = historyIndexRef.current >= 0 && historyIndexRef.current < historyRef.current.length - 1;
 
@@ -1680,8 +2805,8 @@ export default function EditPdfPage() {
               ))}
             </div>
 
-            {(activeTool === "draw" || activeTool === "highlight" || activeTool === "rect" || activeTool === "circle" || activeTool === "line") && (
-              <div className="ml-2 flex items-center gap-2 rounded-lg bg-white/5 px-2 py-1">
+            {(activeTool === "draw" || activeTool === "highlight" || activeTool === "rect" || activeTool === "circle" || activeTool === "line" || selectionToolContext === "stroke" || selectionToolContext === "highlight") && (
+              <div className="ml-2 flex flex-wrap items-center gap-2 rounded-lg bg-white/5 px-2 py-1">
                 <span className="text-[10px] uppercase tracking-wide text-slate-400">
                   {isRu ? "Толщина" : "Size"}
                 </span>
@@ -1697,24 +2822,85 @@ export default function EditPdfPage() {
               </div>
             )}
 
-            {activeTool === "text" && (
+            {(activeTool === "text" || selectionToolContext === "text") && (
               <div className="ml-2 flex items-center gap-2 rounded-lg bg-white/5 px-2 py-1">
                 <span className="text-[10px] uppercase tracking-wide text-slate-400">
                   {isRu ? "Шрифт" : "Font"}
                 </span>
+                <select
+                  value={fontFamily}
+                  onChange={(e) => setFontFamily(e.target.value as (typeof EDITOR_FONT_FAMILIES)[number])}
+                  className="h-8 rounded-md border border-white/10 bg-slate-950/70 px-2 text-xs text-slate-100 outline-none"
+                >
+                  {EDITOR_FONT_FAMILIES.map((family) => (
+                    <option key={family} value={family}>{family}</option>
+                  ))}
+                </select>
                 <input
                   type="range"
-                  min={10}
-                  max={48}
+                  min={1}
+                  max={72}
                   value={fontSize}
                   onChange={(e) => setFontSize(parseInt(e.target.value, 10))}
                   className="w-20 accent-blue-400"
                 />
                 <span className="w-7 text-center text-xs text-slate-300">{fontSize}</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setTextBold((prev) => !prev)}
+                    className={cn(
+                      "flex size-8 items-center justify-center rounded-md transition-all",
+                      textBold ? "bg-white/15 text-white" : "text-slate-300 hover:bg-white/10 hover:text-white"
+                    )}
+                    aria-label={isRu ? "Жирный" : "Bold"}
+                  >
+                    <Bold className="size-4" />
+                  </button>
+                  <button
+                    onClick={() => setTextItalic((prev) => !prev)}
+                    className={cn(
+                      "flex size-8 items-center justify-center rounded-md transition-all",
+                      textItalic ? "bg-white/15 text-white" : "text-slate-300 hover:bg-white/10 hover:text-white"
+                    )}
+                    aria-label={isRu ? "Курсив" : "Italic"}
+                  >
+                    <Italic className="size-4" />
+                  </button>
+                  <button
+                    onClick={() => setTextUnderline((prev) => !prev)}
+                    className={cn(
+                      "flex size-8 items-center justify-center rounded-md transition-all",
+                      textUnderline ? "bg-white/15 text-white" : "text-slate-300 hover:bg-white/10 hover:text-white"
+                    )}
+                    aria-label={isRu ? "Подчеркнутый" : "Underline"}
+                  >
+                    <Underline className="size-4" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-1">
+                  {[
+                    { value: "left", icon: AlignLeft, label: isRu ? "По левому краю" : "Align left" },
+                    { value: "center", icon: AlignCenter, label: isRu ? "По центру" : "Align center" },
+                    { value: "right", icon: AlignRight, label: isRu ? "По правому краю" : "Align right" },
+                    { value: "justify", icon: AlignJustify, label: isRu ? "По ширине" : "Justify" },
+                  ].map(({ value, icon: Icon, label }) => (
+                    <button
+                      key={value}
+                      onClick={() => setTextAlign(value as TextAlignOption)}
+                      className={cn(
+                        "flex size-8 items-center justify-center rounded-md transition-all",
+                        textAlign === value ? "bg-white/15 text-white" : "text-slate-300 hover:bg-white/10 hover:text-white"
+                      )}
+                      aria-label={label}
+                    >
+                      <Icon className="size-4" />
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
-            {activeTool === "highlight" && (
+            {(activeTool === "highlight" || selectionToolContext === "highlight") && (
               <div className="ml-2 flex items-center gap-2 rounded-lg bg-white/5 px-2 py-1">
                 <span className="text-[10px] uppercase tracking-wide text-slate-400">
                   {isRu ? "Прозр." : "Opacity"}
@@ -1733,33 +2919,45 @@ export default function EditPdfPage() {
 
             <div className="w-px h-6 mx-1 bg-white/10" />
 
-            {hasSelection && (
+            {(hasSelection || hasClipboardObject) && (
               <>
                 <div className="flex items-center gap-1 rounded-lg bg-white/5 px-1 py-1">
                   <button
+                    onClick={() => void pasteSelection()}
+                    disabled={!hasClipboardObject}
+                    className="flex size-9 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 transition-all"
+                    aria-label={isRu ? "Вставить объект" : "Paste object"}
+                  >
+                    <ClipboardPaste className="size-4" />
+                  </button>
+                  <button
                     onClick={duplicateSelection}
-                    className="flex size-9 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all"
+                    disabled={!hasSelection}
+                    className="flex size-9 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 transition-all"
                     aria-label={isRu ? "Дублировать объект" : "Duplicate object"}
                   >
                     <Copy className="size-4" />
                   </button>
                   <button
                     onClick={() => moveSelectionLayer("front")}
-                    className="flex size-9 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all"
+                    disabled={!hasSelection}
+                    className="flex size-9 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 transition-all"
                     aria-label={isRu ? "Поднять слой" : "Bring forward"}
                   >
                     <ChevronsUp className="size-4" />
                   </button>
                   <button
                     onClick={() => moveSelectionLayer("back")}
-                    className="flex size-9 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all"
+                    disabled={!hasSelection}
+                    className="flex size-9 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 transition-all"
                     aria-label={isRu ? "Опустить слой" : "Send backward"}
                   >
                     <ChevronsDown className="size-4" />
                   </button>
                   <button
                     onClick={deleteSelectedObjects}
-                    className="flex size-9 items-center justify-center rounded-lg text-red-300 hover:bg-red-500/10 hover:text-red-200 transition-all"
+                    disabled={!hasSelection}
+                    className="flex size-9 items-center justify-center rounded-lg text-red-300 hover:bg-red-500/10 hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-40 transition-all"
                     aria-label={isRu ? "Удалить объект" : "Delete object"}
                   >
                     <Trash2 className="size-4" />
@@ -1895,6 +3093,81 @@ export default function EditPdfPage() {
                   id="fabric-canvas"
                   style={{ position: "absolute", top: 0, left: 0 }}
                 />
+                {activeTextEditor && activeTextEditor.pageNumber === currentPage && (
+                  <textarea
+                    ref={textEditorRef}
+                    value={activeTextEditor.text}
+                    onChange={(e) => {
+                      const nextText = e.target.value;
+                      setActiveTextEditor((prev) => prev ? { ...prev, text: nextText } : prev);
+                      setHasUnsavedChanges(true);
+                    }}
+                    onBlur={() => {
+                      void commitTextEditor();
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        cancelTextEditor();
+                        return;
+                      }
+                      if ((e.ctrlKey || e.metaKey) && e.code === "KeyB") {
+                        e.preventDefault();
+                        setTextBold((prev) => !prev);
+                        return;
+                      }
+                      if ((e.ctrlKey || e.metaKey) && e.code === "KeyI") {
+                        e.preventDefault();
+                        setTextItalic((prev) => !prev);
+                        return;
+                      }
+                      if ((e.ctrlKey || e.metaKey) && e.code === "KeyU") {
+                        e.preventDefault();
+                        setTextUnderline((prev) => !prev);
+                        return;
+                      }
+                      if ((e.ctrlKey || e.metaKey) && e.code === "KeyS") {
+                        e.preventDefault();
+                        void commitTextEditor().then((saved) => {
+                          if (saved) {
+                            void handleSaveRef.current?.();
+                          }
+                        });
+                        return;
+                      }
+                      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                        e.preventDefault();
+                        void commitTextEditor();
+                      }
+                    }}
+                    spellCheck={false}
+                    className="absolute resize-none overflow-hidden border-0 outline-none"
+                    style={{
+                      left: activeTextEditor.left,
+                      top: activeTextEditor.top,
+                      width: activeTextEditor.width,
+                      minHeight: activeTextEditor.minHeight,
+                      maxWidth: activeTextEditor.maxWidth,
+                      padding: 0,
+                      margin: 0,
+                      background: activeTextEditor.backgroundColor,
+                      boxSizing: "border-box",
+                      color: activeTextEditor.color,
+                      fontFamily: activeTextEditor.fontFamily,
+                      fontSize: activeTextEditor.fontSize,
+                      fontWeight: activeTextEditor.fontWeight,
+                      fontStyle: activeTextEditor.fontStyle,
+                      textAlign: activeTextEditor.textAlign,
+                      lineHeight: `${activeTextEditor.lineHeight}px`,
+                      textDecoration: activeTextEditor.underline ? "underline" : "none",
+                      letterSpacing: "0px",
+                      fontKerning: "normal",
+                      whiteSpace: "pre-wrap",
+                      overflowWrap: "break-word",
+                      transform: "translateZ(0)",
+                    }}
+                  />
+                )}
               </div>
             </div>
           </div>
