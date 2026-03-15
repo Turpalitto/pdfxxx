@@ -152,8 +152,9 @@ export async function addWatermark(
   pages.forEach((page) => {
     const { width, height } = page.getSize();
     const fontSize = Math.min(width, height) / 10;
+    const textWidth = font.widthOfTextAtSize(text, fontSize);
     page.drawText(text, {
-      x: width / 2 - (text.length * fontSize) / 4,
+      x: width / 2 - textWidth / 2,
       y: height / 2,
       size: fontSize,
       font,
@@ -191,6 +192,38 @@ export async function addPageNumbers(
   return pdf.save();
 }
 
+async function compressByRender(file: File): Promise<Uint8Array> {
+  const bytes = await file.arrayBuffer();
+  const pdfjs = await import("pdfjs-dist");
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+    "pdfjs-dist/build/pdf.worker.mjs",
+    import.meta.url
+  ).href;
+  const pdfjsDoc = await pdfjs.getDocument({ data: new Uint8Array(bytes) }).promise;
+  const newPdf = await PDFDocument.create();
+  const SCALE = 1.2;
+  for (let i = 1; i <= pdfjsDoc.numPages; i++) {
+    const page = await pdfjsDoc.getPage(i);
+    const vp = page.getViewport({ scale: SCALE });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(vp.width);
+    canvas.height = Math.round(vp.height);
+    const ctx = canvas.getContext("2d")!;
+    await page.render({ canvasContext: ctx, viewport: vp, canvas }).promise;
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.72);
+    canvas.width = 0;
+    canvas.height = 0;
+    const base64 = dataUrl.split(",")[1];
+    const bin = atob(base64);
+    const imgBytes = new Uint8Array(bin.length);
+    for (let j = 0; j < bin.length; j++) imgBytes[j] = bin.charCodeAt(j);
+    const img = await newPdf.embedJpg(imgBytes);
+    const newPage = newPdf.addPage([img.width, img.height]);
+    newPage.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
+  }
+  return newPdf.save();
+}
+
 export async function compressPdf(
   file: File,
   level: "low" | "medium" | "high" = "medium"
@@ -201,10 +234,12 @@ export async function compressPdf(
 
   if (level === "high") {
     const secondPdf = await PDFDocument.load(firstPass, { ignoreEncryption: true });
-    const secondPass = await secondPdf.save({ useObjectStreams: true });
-    const best = secondPass.byteLength < firstPass.byteLength ? secondPass : firstPass;
-    if (best.byteLength >= bytes.byteLength) return new Uint8Array(bytes);
-    return best;
+    const structural = await secondPdf.save({ useObjectStreams: true });
+    let rendered: Uint8Array | null = null;
+    try { rendered = await compressByRender(file); } catch { /* ignore */ }
+    const candidates: Uint8Array[] = [new Uint8Array(bytes), structural];
+    if (rendered) candidates.push(rendered);
+    return candidates.reduce((a, b) => a.byteLength <= b.byteLength ? a : b);
   }
 
   if (firstPass.byteLength >= bytes.byteLength) return new Uint8Array(bytes);
@@ -297,7 +332,7 @@ export async function addHeaderFooter(
     if (header) {
       page.drawText(header, {
         x: 20,
-        y: height - 20,
+        y: height - 30,
         size: 10,
         font,
         color: rgb(0.3, 0.3, 0.3),
@@ -306,7 +341,7 @@ export async function addHeaderFooter(
     if (footer) {
       page.drawText(footer, {
         x: 20,
-        y: 10,
+        y: 18,
         size: 10,
         font,
         color: rgb(0.3, 0.3, 0.3),
@@ -553,6 +588,8 @@ export async function redactPdf(
     });
 
     const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+    canvas.width = 0;
+    canvas.height = 0;
     const base64 = dataUrl.split(",")[1];
     const binaryStr = atob(base64);
     const imgBytes = new Uint8Array(binaryStr.length);
@@ -569,20 +606,102 @@ export async function redactPdf(
   return resultPdf.save();
 }
 
+async function htmlToPdf(html: string): Promise<Uint8Array> {
+  const decode = (s: string) =>
+    s.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+     .replace(/&nbsp;/g, " ")
+     .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
+     .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+
+  const stripTags = (s: string) => decode(s.replace(/<[^>]+>/g, "")).trim();
+
+  type Block = { text: string; tag: string };
+  const blocks: Block[] = [];
+  const re = /<(h[1-6]|p|li)(\s[^>]*)?>[\s\S]*?<\/\1>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const tag = m[1].toLowerCase();
+    const inner = m[0].slice(m[0].indexOf(">") + 1, m[0].lastIndexOf("<"));
+    const text = stripTags(inner);
+    if (text) blocks.push({ tag, text });
+  }
+
+  if (blocks.length === 0) return textToPdf(stripTags(html));
+
+  const pdf = await PDFDocument.create();
+  const isUnicode = blocks.some(b => needsUnicode(b.text));
+  let fNormal: any, fBold: any;
+  if (isUnicode) {
+    fNormal = fBold = await embedUnicodeFont(pdf);
+  } else {
+    fNormal = await pdf.embedFont(StandardFonts.Helvetica);
+    fBold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  }
+
+  const PW = 595, PH = 842, ML = 72, MR = 72, MT = 72, MB = 72;
+  const CW = PW - ML - MR;
+  let page = pdf.addPage([PW, PH]);
+  let y = PH - MT;
+
+  const ensureLine = (h: number) => {
+    if (y < MB + h) { page = pdf.addPage([PW, PH]); y = PH - MT; }
+  };
+
+  const drawBlock = (
+    text: string, font: any, sz: number,
+    indent: number, preGap: number, postGap: number
+  ) => {
+    y -= preGap;
+    const maxW = CW - indent;
+    const words = text.split(" ");
+    let line = "";
+    for (const w of words) {
+      const candidate = line ? line + " " + w : w;
+      if (font.widthOfTextAtSize(candidate, sz) > maxW && line) {
+        ensureLine(sz * 1.5);
+        page.drawText(line, { x: ML + indent, y, size: sz, font, color: rgb(0.05, 0.05, 0.05) });
+        y -= sz * 1.45;
+        line = w;
+      } else {
+        line = candidate;
+      }
+    }
+    if (line) {
+      ensureLine(sz * 1.5);
+      page.drawText(line, { x: ML + indent, y, size: sz, font, color: rgb(0.05, 0.05, 0.05) });
+      y -= sz * 1.45;
+    }
+    y -= postGap;
+  };
+
+  for (const { tag, text } of blocks) {
+    switch (tag) {
+      case "h1": drawBlock(text, fBold, 22, 0, 14, 8); break;
+      case "h2": drawBlock(text, fBold, 18, 0, 12, 6); break;
+      case "h3": drawBlock(text, fBold, 15, 0, 10, 5); break;
+      case "h4": case "h5": case "h6": drawBlock(text, fBold, 13, 0, 8, 4); break;
+      case "li": drawBlock("• " + text, fNormal, 12, 16, 0, 3); break;
+      default:   drawBlock(text, fNormal, 12, 0, 0, 6); break;
+    }
+  }
+
+  return pdf.save();
+}
+
 export async function wordToPdf(file: File): Promise<Uint8Array> {
   const arrayBuffer = await file.arrayBuffer();
-  let text = "";
+  let html = "";
   try {
     const mammoth = (await import("mammoth")).default;
-    const result = await mammoth.extractRawText({ arrayBuffer });
-    text = result.value;
+    const result = await mammoth.convertToHtml({ arrayBuffer });
+    html = result.value;
   } catch {
     throw new Error("Failed to read the Word document. Please make sure it's a valid .docx file.");
   }
-  if (!text.trim()) {
+  if (!html.trim()) {
     throw new Error("The document appears to be empty or contains only images. Text conversion requires document text.");
   }
-  return textToPdf(text);
+  return htmlToPdf(html);
 }
 
 export async function pdfToText(file: File): Promise<string> {
@@ -598,9 +717,31 @@ export async function pdfToText(file: File): Promise<string> {
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    const pageText = content.items
-      .map((item: any) => item.str || "")
-      .join(" ");
+    const items = content.items as any[];
+    let prevY: number | null = null;
+    const segments: string[] = [];
+    let seg = "";
+    for (const item of items) {
+      const str: string = item.str || "";
+      const ty: number | null = Array.isArray(item.transform) ? item.transform[5] : null;
+      const h = Math.abs(item.height || 10);
+      if (ty !== null && prevY !== null) {
+        const dy = prevY - ty;
+        if (dy > h * 0.45) {
+          segments.push(seg);
+          seg = "";
+          if (dy > h * 1.8) segments.push("");
+        }
+      }
+      seg += str;
+      if (item.hasEOL) { segments.push(seg); seg = ""; }
+      if (ty !== null) prevY = ty;
+    }
+    if (seg.trim()) segments.push(seg);
+    const pageText = segments
+      .map((s: string) => s.trimEnd())
+      .join("\n")
+      .replace(/\n{3,}/g, "\n\n");
     textParts.push(`--- Page ${i} ---\n${pageText}`);
   }
   return textParts.join("\n\n");
@@ -630,6 +771,8 @@ export async function pdfToImages(
     await page.render({ canvasContext: ctx, viewport, canvas }).promise;
     const mimeType = format === "jpg" ? "image/jpeg" : "image/png";
     const dataUrl = canvas.toDataURL(mimeType, 0.92);
+    canvas.width = 0;
+    canvas.height = 0;
     results.push({ dataUrl, page: i });
   }
   return results;
@@ -847,6 +990,8 @@ export async function pdfToDocx(file: File): Promise<Uint8Array> {
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+  <Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/>
 </Types>`
   );
 
@@ -875,7 +1020,31 @@ export async function pdfToDocx(file: File): Promise<Uint8Array> {
   zip.file(
     "word/_rels/document.xml.rels",
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>
+</Relationships>`
+  );
+
+  zip.file(
+    "word/styles.xml",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:style w:type="paragraph" w:default="1" w:styleId="Normal">
+    <w:name w:val="Normal"/>
+    <w:pPr><w:spacing w:line="276" w:lineRule="auto"/></w:pPr>
+    <w:rPr><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>
+  </w:style>
+</w:styles>`
+  );
+
+  zip.file(
+    "word/settings.xml",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:defaultTabStop w:val="720"/>
+  <w:compat/>
+</w:settings>`
   );
 
   return zip.generateAsync({ type: "uint8array" });
@@ -914,6 +1083,16 @@ export async function ocrPdf(
   const resultPdf = await PDFDocument.create();
   const SCALE = 2;
 
+  // Embed OCR text font once — use unicode font for non-Latin scripts
+  const latinScripts = new Set(["eng","fra","deu","spa","ita","por","nld","swe","nor","dan","fin","pol","ces","ron","hun","hrv","slk"]);
+  const ocrNeedsUnicode = !lang.split("+").every(l => latinScripts.has(l));
+  let ocrFont: any;
+  if (ocrNeedsUnicode) {
+    ocrFont = await embedUnicodeFont(resultPdf);
+  } else {
+    ocrFont = await resultPdf.embedFont(StandardFonts.Helvetica);
+  }
+
   for (let pageNum = 1; pageNum <= pdfjsDoc.numPages; pageNum++) {
     onProgress?.(25 + Math.round(((pageNum - 1) / pdfjsDoc.numPages) * 70));
 
@@ -927,12 +1106,12 @@ export async function ocrPdf(
     await page.render({ canvasContext: ctx, viewport, canvas }).promise;
 
     const { data } = await (worker.recognize(canvas) as Promise<any>);
+    canvas.width = 0;
+    canvas.height = 0;
 
     const [copied] = await resultPdf.copyPages(pdfLib, [pageNum - 1]);
     const newPage = resultPdf.addPage(copied);
     const { height: pdfH } = newPage.getSize();
-
-    const stdFont = await resultPdf.embedFont(StandardFonts.Helvetica);
 
     for (const word of (data as any).words) {
       if (!word.text.trim() || word.confidence < 30) continue;
@@ -946,7 +1125,7 @@ export async function ocrPdf(
           x: pdfX,
           y: pdfY,
           size: fontSize,
-          font: stdFont,
+          font: ocrFont,
           opacity: 0,
           color: rgb(0, 0, 0),
         });

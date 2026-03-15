@@ -206,8 +206,9 @@ export default function ToolPage() {
             result = await splitResultsToZip(parts, origName);
           } else {
             const start = parseInt(splitStart) || 1;
-            const pageCount = parseInt(splitEnd) || 999;
-            const results = await splitPdf(files[0], [{ start, end: pageCount }]);
+            const totalPages = await getPdfPageCount(files[0]);
+            const end = parseInt(splitEnd) || totalPages;
+            const results = await splitPdf(files[0], [{ start, end }]);
             setSplitPartsCount(1);
             result = results[0];
           }
