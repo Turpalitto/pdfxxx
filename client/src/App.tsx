@@ -79,7 +79,7 @@ function App() {
         <div
           className="min-h-screen flex flex-col text-foreground relative"
           style={{
-            background: "radial-gradient(circle at top, rgba(30,41,59,0.4) 0%, rgba(2,6,23,0) 30%), linear-gradient(135deg, #020617 0%, #0a0f2e 35%, #020617 65%, #0a0f2e 100%)",
+            background: "radial-gradient(ellipse 80% 50% at 50% -10%, rgba(59,130,246,0.18) 0%, transparent 60%), radial-gradient(ellipse 60% 40% at 80% 90%, rgba(124,58,237,0.10) 0%, transparent 60%), #030712",
           }}
         >
           <AnimatedBackground />
