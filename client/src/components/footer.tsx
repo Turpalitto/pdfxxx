@@ -1,7 +1,6 @@
 import { Link } from "wouter";
-import { FileText, Github, Twitter, Linkedin } from "lucide-react";
-import { categories } from "@/lib/tools";
-import { getCategoryLabel } from "@/lib/tools";
+import { FileText, Mail } from "lucide-react";
+import { categories, getCategoryLabel } from "@/lib/tools";
 import { useLang } from "@/lib/lang-context";
 
 export function Footer() {
@@ -9,8 +8,8 @@ export function Footer() {
 
   return (
     <footer
-      className="backdrop-blur-xl"
-      style={{ background: "rgba(2,6,23,0.9)", borderTop: "1px solid rgba(255,255,255,0.04)" }}
+      className="border-t backdrop-blur-xl"
+      style={{ background: "rgba(2,6,23,0.85)", borderColor: "rgba(255,255,255,0.1)" }}
     >
       <div className="container mx-auto px-4 sm:px-6 py-12">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
@@ -34,38 +33,30 @@ export function Footer() {
                 PDF<span style={{ color: "#60a5fa", WebkitTextFillColor: "#60a5fa" }}>X</span>
               </span>
             </Link>
-            <p className="text-sm leading-relaxed mb-4 max-w-xs" style={{ color: "#64748b" }}>
+            <p className="text-sm text-slate-400 leading-relaxed mb-4 max-w-xs">
               {lang === "ru"
-                ? "PDF инструменты. Бесплатно, безопасно, без водяных знаков."
-                : "PDF tools. Free, secure, no watermarks."}
+                ? "Онлайн-набор PDF-инструментов для конвертации, организации, защиты и OCR прямо в браузере."
+                : "An online PDF toolkit for conversion, organization, protection, and OCR directly in the browser."}
             </p>
-            <div className="flex gap-2">
-              {[
-                { icon: Github, label: "GitHub" },
-                { icon: Twitter, label: "Twitter" },
-                { icon: Linkedin, label: "LinkedIn" },
-              ].map(({ icon: SocialIcon, label }) => (
-                <a
-                  key={label}
-                  href="#"
-                  className="flex size-8 items-center justify-center rounded-lg footer-link hover:text-white transition-colors"
-                  style={{ background: "rgba(255,255,255,0.06)" }}
-                  aria-label={label}
-                >
-                  <SocialIcon className="size-4" />
-                </a>
-              ))}
-            </div>
+            <a
+              href="mailto:hello@pdfx.tools"
+              className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-300 hover:text-white transition-colors"
+              style={{ background: "rgba(255,255,255,0.06)" }}
+            >
+              <Mail className="size-4" />
+              hello@pdfx.tools
+            </a>
           </div>
 
           <div>
-            <h3 className="text-white font-semibold mb-4 text-sm">
-              {lang === "ru" ? "Инструменты" : "Tools"}
-            </h3>
+            <h3 className="text-white font-semibold mb-4 text-sm">{t.footer.pdfTools}</h3>
             <ul className="space-y-2.5">
               {categories.slice(0, 4).map((cat) => (
                 <li key={cat.id}>
-                  <Link href={`/?category=${cat.id}`} className="text-sm footer-link transition-colors">
+                  <Link
+                    href={`/?category=${cat.id}`}
+                    className="text-sm text-slate-400 hover:text-white transition-colors"
+                  >
                     {getCategoryLabel(cat.id, lang)}
                   </Link>
                 </li>
@@ -74,13 +65,14 @@ export function Footer() {
           </div>
 
           <div>
-            <h3 className="text-white font-semibold mb-4 text-sm">
-              {lang === "ru" ? "Ещё" : "More"}
-            </h3>
+            <h3 className="text-white font-semibold mb-4 text-sm">{t.footer.moreTools}</h3>
             <ul className="space-y-2.5">
               {categories.slice(4).map((cat) => (
                 <li key={cat.id}>
-                  <Link href={`/?category=${cat.id}`} className="text-sm footer-link transition-colors">
+                  <Link
+                    href={`/?category=${cat.id}`}
+                    className="text-sm text-slate-400 hover:text-white transition-colors"
+                  >
                     {getCategoryLabel(cat.id, lang)}
                   </Link>
                 </li>
@@ -89,39 +81,37 @@ export function Footer() {
           </div>
 
           <div>
-            <h3 className="text-white font-semibold mb-4 text-sm">
-              {lang === "ru" ? "Компания" : "Company"}
-            </h3>
+            <h3 className="text-white font-semibold mb-4 text-sm">{t.footer.company}</h3>
             <ul className="space-y-2.5">
               <li>
-                <Link href="/pricing" className="text-sm footer-link transition-colors">
-                  {lang === "ru" ? "Цены" : "Pricing"}
+                <Link href="/pricing" className="text-sm text-slate-400 hover:text-white transition-colors">
+                  {t.footer.pricing}
                 </Link>
               </li>
               <li>
-                <a href="#" className="text-sm footer-link transition-colors">
+                <Link href="/privacy" className="text-sm text-slate-400 hover:text-white transition-colors">
                   {t.footer.privacy}
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-sm footer-link transition-colors">
+                <Link href="/terms" className="text-sm text-slate-400 hover:text-white transition-colors">
                   {t.footer.terms}
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-sm footer-link transition-colors">
+                <Link href="/contact" className="text-sm text-slate-400 hover:text-white transition-colors">
                   {t.footer.contact}
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
         </div>
 
-        <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3" style={{ borderTop: "1px solid #1a1a2e" }}>
-          <p className="text-sm" style={{ color: "#55556a" }}>
-            &copy; {new Date().getFullYear()} PDFX
+        <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+          <p className="text-sm text-slate-400">
+            &copy; {new Date().getFullYear()} PDFX. {lang === "ru" ? "Все права защищены." : "All rights reserved."}
           </p>
-          <div className="flex items-center gap-2 text-sm" style={{ color: "#55556a" }}>
+          <div className="flex items-center gap-2 text-sm text-slate-400">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block" />
             {t.footer.badge}
           </div>

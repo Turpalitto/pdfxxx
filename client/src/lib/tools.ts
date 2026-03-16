@@ -1,8 +1,11 @@
+import type { LucideIcon } from "lucide-react";
+import { FileText, FileImage, Layers, Scissors, RotateCw, Trash2, ArrowUpDown, Lock, Unlock, PenLine, Droplets, Zap, Wrench, ScanLine, Camera, Hash, AlignLeft, Shield, Merge, Download, FileCode, FileSpreadsheet, Type, FileEdit } from "lucide-react";
+
 export interface Tool {
   slug: string;
   name: string;
   description: string;
-  iconName: string;
+  icon: LucideIcon;
   emoji: string;
   category: string;
   color: string;
@@ -98,7 +101,7 @@ export const tools: Tool[] = [
     slug: "pdf-to-word",
     name: "PDF to Word",
     description: "Convert PDF files to editable Word documents with preserved formatting.",
-    iconName: "FileText",
+    icon: FileText,
     emoji: "📄",
     category: "convert-from",
     color: "blue",
@@ -109,7 +112,7 @@ export const tools: Tool[] = [
     slug: "pdf-to-jpg",
     name: "PDF to JPG",
     description: "Convert PDF pages to high-quality JPG images. Choose 72, 150 or 300 DPI.",
-    iconName: "FileImage",
+    icon: FileImage,
     emoji: "🖼️",
     category: "convert-from",
     color: "yellow",
@@ -120,7 +123,7 @@ export const tools: Tool[] = [
     slug: "pdf-to-png",
     name: "PDF to PNG",
     description: "Convert PDF pages to PNG images with transparency support.",
-    iconName: "FileImage",
+    icon: FileImage,
     emoji: "🏞️",
     category: "convert-from",
     color: "green",
@@ -131,7 +134,7 @@ export const tools: Tool[] = [
     slug: "pdf-to-text",
     name: "PDF to Text",
     description: "Extract all text content from a PDF file quickly and cleanly.",
-    iconName: "Type",
+    icon: Type,
     emoji: "📝",
     category: "convert-from",
     color: "violet",
@@ -142,7 +145,7 @@ export const tools: Tool[] = [
     slug: "pdf-to-html",
     name: "PDF to HTML",
     description: "Convert PDF documents to HTML format for web publishing.",
-    iconName: "FileCode",
+    icon: FileCode,
     emoji: "🌐",
     category: "convert-from",
     color: "sky",
@@ -153,7 +156,7 @@ export const tools: Tool[] = [
     slug: "pdf-to-excel",
     name: "PDF to Excel",
     description: "Extract tables from PDF files into editable Excel spreadsheets.",
-    iconName: "FileSpreadsheet",
+    icon: FileSpreadsheet,
     emoji: "📊",
     category: "convert-from",
     color: "red",
@@ -165,7 +168,7 @@ export const tools: Tool[] = [
     slug: "word-to-pdf",
     name: "Word to PDF",
     description: "Convert Word documents (.docx) to PDF format instantly.",
-    iconName: "FileText",
+    icon: FileText,
     emoji: "📑",
     category: "convert-to",
     color: "indigo",
@@ -176,7 +179,7 @@ export const tools: Tool[] = [
     slug: "images-to-pdf",
     name: "Images to PDF",
     description: "Combine multiple JPG or PNG images into a single PDF file.",
-    iconName: "FileImage",
+    icon: FileImage,
     emoji: "🗃️",
     category: "convert-to",
     color: "orange",
@@ -188,7 +191,7 @@ export const tools: Tool[] = [
     slug: "excel-to-pdf",
     name: "Excel to PDF",
     description: "Convert Excel spreadsheets to PDF documents.",
-    iconName: "FileSpreadsheet",
+    icon: FileSpreadsheet,
     emoji: "📈",
     category: "convert-to",
     color: "rose",
@@ -200,7 +203,7 @@ export const tools: Tool[] = [
     slug: "text-to-pdf",
     name: "Text to PDF",
     description: "Convert plain text files or pasted content into styled PDF documents.",
-    iconName: "Type",
+    icon: Type,
     emoji: "✏️",
     category: "convert-to",
     color: "amber",
@@ -211,7 +214,7 @@ export const tools: Tool[] = [
     slug: "merge-pdf",
     name: "Merge PDF",
     description: "Combine multiple PDF files into one. Drag to reorder pages before merging.",
-    iconName: "Merge",
+    icon: Merge,
     emoji: "🔗",
     category: "organize",
     color: "teal",
@@ -223,7 +226,7 @@ export const tools: Tool[] = [
     slug: "split-pdf",
     name: "Split PDF",
     description: "Split a PDF by page ranges, every N pages, or extract specific pages.",
-    iconName: "Scissors",
+    icon: Scissors,
     emoji: "✂️",
     category: "organize",
     color: "red",
@@ -234,7 +237,7 @@ export const tools: Tool[] = [
     slug: "rotate-pdf",
     name: "Rotate PDF",
     description: "Rotate pages in a PDF 90°, 180°, or 270° individually or all at once.",
-    iconName: "RotateCw",
+    icon: RotateCw,
     emoji: "🔄",
     category: "organize",
     color: "blue",
@@ -245,7 +248,7 @@ export const tools: Tool[] = [
     slug: "delete-pages",
     name: "Delete Pages",
     description: "Remove specific pages from a PDF by entering the page numbers to delete.",
-    iconName: "Trash2",
+    icon: Trash2,
     emoji: "🗑️",
     category: "organize",
     color: "cyan",
@@ -256,7 +259,7 @@ export const tools: Tool[] = [
     slug: "reorder-pages",
     name: "Reorder Pages",
     description: "Rearrange PDF pages into any order by specifying a new page sequence.",
-    iconName: "ArrowUpDown",
+    icon: ArrowUpDown,
     emoji: "↕️",
     category: "organize",
     color: "violet",
@@ -267,7 +270,7 @@ export const tools: Tool[] = [
     slug: "extract-pages",
     name: "Extract Pages",
     description: "Extract specific pages from a PDF into a new document.",
-    iconName: "Download",
+    icon: Download,
     emoji: "📤",
     category: "organize",
     color: "green",
@@ -277,8 +280,8 @@ export const tools: Tool[] = [
   {
     slug: "protect-pdf",
     name: "Protect PDF",
-    description: "Add password protection to your PDF files (server-side processing — coming to Pro).",
-    iconName: "Lock",
+    description: "Add AES-256 password protection to your PDF files.",
+    icon: Lock,
     emoji: "🔐",
     category: "security",
     color: "orange",
@@ -289,7 +292,7 @@ export const tools: Tool[] = [
     slug: "unlock-pdf",
     name: "Unlock PDF",
     description: "Remove password protection from PDF files you own.",
-    iconName: "Unlock",
+    icon: Unlock,
     emoji: "🔓",
     category: "security",
     color: "yellow",
@@ -300,7 +303,7 @@ export const tools: Tool[] = [
     slug: "sign-pdf",
     name: "Sign PDF",
     description: "Add a text signature to the last page of your PDF with custom color styling.",
-    iconName: "PenLine",
+    icon: PenLine,
     emoji: "✍️",
     category: "security",
     color: "amber",
@@ -311,7 +314,7 @@ export const tools: Tool[] = [
     slug: "watermark-pdf",
     name: "Watermark PDF",
     description: "Add custom text or image watermarks with opacity and rotation controls.",
-    iconName: "Droplets",
+    icon: Droplets,
     emoji: "💧",
     category: "security",
     color: "sky",
@@ -322,7 +325,7 @@ export const tools: Tool[] = [
     slug: "redact-pdf",
     name: "Redact PDF",
     description: "Permanently black out sensitive content from your PDF documents.",
-    iconName: "Shield",
+    icon: Shield,
     emoji: "⬛",
     category: "security",
     color: "rose",
@@ -334,7 +337,7 @@ export const tools: Tool[] = [
     slug: "compress-pdf",
     name: "Compress PDF",
     description: "Reduce PDF file size with 3 compression levels. See instant size reduction.",
-    iconName: "Zap",
+    icon: Zap,
     emoji: "📦",
     category: "optimize",
     color: "green",
@@ -345,7 +348,7 @@ export const tools: Tool[] = [
     slug: "repair-pdf",
     name: "Repair PDF",
     description: "Attempt to fix corrupted or damaged PDF files automatically.",
-    iconName: "Wrench",
+    icon: Wrench,
     emoji: "🔧",
     category: "optimize",
     color: "yellow",
@@ -356,7 +359,7 @@ export const tools: Tool[] = [
     slug: "flatten-pdf",
     name: "Flatten PDF",
     description: "Flatten form fields and annotations into the PDF content.",
-    iconName: "Layers",
+    icon: Layers,
     emoji: "📋",
     category: "optimize",
     color: "orange",
@@ -367,7 +370,7 @@ export const tools: Tool[] = [
     slug: "ocr-pdf",
     name: "OCR PDF",
     description: "Make scanned PDFs searchable using OCR. Supports 8 languages.",
-    iconName: "ScanLine",
+    icon: ScanLine,
     emoji: "🔍",
     category: "ocr",
     color: "pink",
@@ -378,7 +381,7 @@ export const tools: Tool[] = [
     slug: "photo-to-pdf",
     name: "Photo to PDF",
     description: "Capture from camera or upload photos, auto-crop and convert to clean PDF.",
-    iconName: "Camera",
+    icon: Camera,
     emoji: "📷",
     category: "ocr",
     color: "orange",
@@ -390,7 +393,7 @@ export const tools: Tool[] = [
     slug: "pdf-page-numbers",
     name: "Page Numbers",
     description: "Add page numbers to your PDF with custom position and format options.",
-    iconName: "Hash",
+    icon: Hash,
     emoji: "🔢",
     category: "utility",
     color: "teal",
@@ -401,7 +404,7 @@ export const tools: Tool[] = [
     slug: "pdf-header-footer",
     name: "Header & Footer",
     description: "Add custom headers and footers to every page of your PDF.",
-    iconName: "AlignLeft",
+    icon: AlignLeft,
     emoji: "📌",
     category: "utility",
     color: "indigo",
@@ -412,7 +415,7 @@ export const tools: Tool[] = [
     slug: "edit-pdf",
     name: "Edit PDF",
     description: "Add text, images, drawings and signatures to PDF pages directly in your browser.",
-    iconName: "FileEdit",
+    icon: FileEdit,
     emoji: "✏️",
     category: "utility",
     color: "violet",
@@ -427,6 +430,21 @@ export function getToolBySlug(slug: string): Tool | undefined {
 
 export function getToolsByCategory(categoryId: string): Tool[] {
   return tools.filter((t) => t.category === categoryId);
+}
+
+export const ROADMAP_TOOL_SLUGS = new Set<string>();
+
+export function isToolLaunchReady(toolOrSlug: Tool | string): boolean {
+  const slug = typeof toolOrSlug === "string" ? toolOrSlug : toolOrSlug.slug;
+  return !ROADMAP_TOOL_SLUGS.has(slug);
+}
+
+export function getLaunchReadyTools(): Tool[] {
+  return tools.filter((tool) => isToolLaunchReady(tool));
+}
+
+export function getRoadmapTools(): Tool[] {
+  return tools.filter((tool) => !isToolLaunchReady(tool));
 }
 
 export const categoryColors: Record<string, { bg: string; text: string; border: string; gradient: string; glow: string; from: string; to: string }> = {
@@ -444,4 +462,3 @@ export const categoryColors: Record<string, { bg: string; text: string; border: 
   rose:    { bg: "bg-rose-500/10",    text: "text-rose-400",    border: "border-rose-500/20",    gradient: "rgba(244,63,94,0.18)",   glow: "rgba(244,63,94,0.25)",   from: "#f43f5e", to: "#e11d48" },
   sky:     { bg: "bg-sky-500/10",     text: "text-sky-400",     border: "border-sky-500/20",     gradient: "rgba(14,165,233,0.18)",  glow: "rgba(14,165,233,0.25)",  from: "#0ea5e9", to: "#0284c7" },
 };
-

@@ -24,10 +24,9 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileUpload } from "@/components/file-upload";
-import { PageSelector } from "@/components/page-selector";
 import { ProgressRing } from "@/components/progress-ring";
 import { ToolCard } from "@/components/tool-card";
-import { getToolBySlug, tools, categoryColors } from "@/lib/tools";
+import { getToolBySlug, tools, categoryColors, isToolLaunchReady } from "@/lib/tools";
 import { getToolTranslation } from "@/lib/tool-translations";
 import { getToolIcon } from "@/lib/tool-icons";
 import { DEFAULT_MAX_FILE_SIZE_MB } from "@/lib/upload-limits";
@@ -40,6 +39,7 @@ import {
   rotatePdf,
   deletePages,
   extractPages,
+  reorderPages,
   compressPdf,
   addWatermark,
   addPageNumbers,
@@ -48,15 +48,18 @@ import {
   addHeaderFooter,
   repairPdf,
   flattenPdf,
+  protectPdf,
   unlockPdf,
   signPdf,
   redactPdf,
   wordToPdf,
+  pdfToWord,
+  pdfToExcel,
+  excelToPdf,
   pdfToText,
-  pdfToDocx,
-  ocrPdf,
   pdfToImages,
   pdfToHtml,
+  ocrPdf,
   pdfImagesAsZip,
   downloadBlob,
   downloadText,
@@ -73,6 +76,7 @@ export default function ToolPage() {
   const [, params] = useRoute("/tools/:slug");
   const slug = params?.slug || "";
   const tool = getToolBySlug(slug);
+  const isLaunchReady = tool ? isToolLaunchReady(tool) : false;
   const { t, lang } = useLang();
   const toolTr = tool ? getToolTranslation(tool.slug, lang) : null;
   const _toolName = toolTr?.name ?? tool?.name ?? "";
@@ -81,14 +85,22 @@ export default function ToolPage() {
 
   useSeo({
     title: tool
-      ? `${_toolName} — PDFX | ${lang === "ru" ? "Бесплатно онлайн" : "Free Online"}`
-      : "PDFX — PDF Tools",
-    description: _toolDesc || "Free online PDF tools — merge, compress, convert, split.",
+      ? isLaunchReady
+        ? `${_toolName} вЂ” PDFX | ${lang === "ru" ? "Р‘РµСЃРїР»Р°С‚РЅРѕ РѕРЅР»Р°Р№РЅ" : "Free Online"}`
+        : `${_toolName} вЂ” PDFX | Roadmap`
+      : "PDFX вЂ” PDF Tools",
+    description: tool
+      ? isLaunchReady
+        ? _toolDesc || "Free online PDF tools вЂ” merge, compress, convert, split."
+        : lang === "ru"
+          ? `${_toolName} РїРѕРєР° РѕСЃС‚Р°С‘С‚СЃСЏ РІ roadmap Рё РµС‰С‘ РЅРµ Р·Р°РїСѓС‰РµРЅ РІ РїСѓР±Р»РёС‡РЅС‹Р№ РєР°С‚Р°Р»РѕРі PDFX.`
+          : `${_toolName} is currently on the PDFX roadmap and is not yet in the public launch catalog.`
+      : "Free online PDF tools вЂ” merge, compress, convert, split.",
     path: slug ? `/tools/${slug}` : "/",
     schemaOrg: tool ? {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
-      "name": `PDFX — ${_toolName}`,
+      "name": `PDFX вЂ” ${_toolName}`,
       "url": `https://pdfx.tools/tools/${slug}`,
       "description": _toolDesc,
       "applicationCategory": "UtilitiesApplication",
@@ -121,12 +133,24 @@ export default function ToolPage() {
   const [headerText, setHeaderText] = useState("");
   const [footerText, setFooterText] = useState("");
   const [freeTextContent, setFreeTextContent] = useState("");
+  const [password, setPassword] = useState("");
   const [signatureText, setSignatureText] = useState("");
   const [redactSearchText, setRedactSearchText] = useState("");
-  const [ocrLang, setOcrLang] = useState("eng+rus");
   const [resultText, setResultText] = useState<string | null>(null);
   const [resultHtml, setResultHtml] = useState<string | null>(null);
   const [imageScale, setImageScale] = useState<"1" | "2" | "3">("2");
+  const [ocrLanguage, setOcrLanguage] = useState(lang === "ru" ? "rus" : "eng");
+
+  const ocrLanguageOptions = [
+    { value: "eng", label: lang === "ru" ? "РђРЅРіР»РёР№СЃРєРёР№" : "English" },
+    { value: "rus", label: lang === "ru" ? "Р СѓСЃСЃРєРёР№" : "Russian" },
+    { value: "spa", label: lang === "ru" ? "РСЃРїР°РЅСЃРєРёР№" : "Spanish" },
+    { value: "fra", label: lang === "ru" ? "Р¤СЂР°РЅС†СѓР·СЃРєРёР№" : "French" },
+    { value: "deu", label: lang === "ru" ? "РќРµРјРµС†РєРёР№" : "German" },
+    { value: "ita", label: lang === "ru" ? "РС‚Р°Р»СЊСЏРЅСЃРєРёР№" : "Italian" },
+    { value: "por", label: lang === "ru" ? "РџРѕСЂС‚СѓРіР°Р»СЊСЃРєРёР№" : "Portuguese" },
+    { value: "ara", label: lang === "ru" ? "РђСЂР°Р±СЃРєРёР№" : "Arabic" },
+  ];
 
   const handleFiles = useCallback(
     (newFiles: File[]) => {
@@ -162,16 +186,6 @@ export default function ToolPage() {
   const process = useCallback(async () => {
     if (!tool || (files.length === 0 && slug !== "text-to-pdf")) {
       setError(t.tool.selectFile);
-      return;
-    }
-
-    if (slug === "protect-pdf") {
-      setState("error");
-      setError(
-        lang === "ru"
-          ? "PDF-шифрование в браузере не поддерживается. Используйте Adobe Acrobat, LibreOffice или 7-Zip."
-          : "Browser-side PDF encryption is not supported. Use Adobe Acrobat, LibreOffice, or 7-Zip."
-      );
       return;
     }
 
@@ -219,7 +233,6 @@ export default function ToolPage() {
           result = await rotatePdf(files[0], parseInt(rotation) as 90 | 180 | 270);
           break;
         case "delete-pages": {
-          if (!pagesToDelete.trim()) throw new Error(lang === "ru" ? "Выберите страницы для удаления." : "Please select pages to delete.");
           const pageCount = await getPdfPageCount(files[0]);
           const indices = parsePageSelection(pagesToDelete, pageCount, { allowDuplicates: false });
           result = await deletePages(files[0], indices);
@@ -227,12 +240,13 @@ export default function ToolPage() {
         }
         case "extract-pages":
         case "reorder-pages": {
-          if (!pagesToExtract.trim()) throw new Error(lang === "ru" ? "Выберите страницы." : "Please select pages.");
           const pageCount = await getPdfPageCount(files[0]);
           const indices = parsePageSelection(pagesToExtract, pageCount, {
             allowDuplicates: slug === "reorder-pages",
           });
-          result = await extractPages(files[0], indices);
+          result = slug === "reorder-pages"
+            ? await reorderPages(files[0], indices)
+            : await extractPages(files[0], indices);
           break;
         }
         case "compress-pdf":
@@ -265,13 +279,10 @@ export default function ToolPage() {
           result = await flattenPdf(files[0]);
           break;
         case "protect-pdf":
-          throw new Error(
-            lang === "ru"
-              ? "PDF-шифрование в браузере не поддерживается. Используйте Adobe Acrobat, LibreOffice или 7-Zip."
-              : "Browser-side PDF encryption is not supported. Use Adobe Acrobat, LibreOffice, or 7-Zip."
-          );
+          result = await protectPdf(files[0], password);
+          break;
         case "unlock-pdf":
-          result = await unlockPdf(files[0]);
+          result = await unlockPdf(files[0], password);
           break;
         case "sign-pdf":
           result = await signPdf(files[0], signatureText);
@@ -283,13 +294,14 @@ export default function ToolPage() {
           result = await wordToPdf(files[0]);
           break;
         case "excel-to-pdf":
-          throw new Error(t.tool.proOnlyError);
-        case "pdf-to-word": {
-          result = await pdfToDocx(files[0]);
+          result = await excelToPdf(files[0]);
           break;
-        }
+        case "pdf-to-word":
+          result = await pdfToWord(files[0]);
+          break;
         case "pdf-to-excel":
-          throw new Error(t.tool.proOnlyError);
+          result = await pdfToExcel(files[0]);
+          break;
         case "pdf-to-text": {
           const text = await pdfToText(files[0]);
           setResultText(text);
@@ -312,7 +324,7 @@ export default function ToolPage() {
           break;
         }
         case "ocr-pdf":
-          result = await ocrPdf(files[0], ocrLang, setProgress);
+          result = await ocrPdf(files[0], ocrLanguage, setProgress);
           break;
         default:
           throw new Error(t.tool.proOnlyError);
@@ -327,17 +339,17 @@ export default function ToolPage() {
       setState("error");
     }
   }, [
-    tool, files, slug, splitStart, splitEnd, splitMode, splitEveryN,
-    rotation, pagesToDelete, pagesToExtract, compressionLevel,
+    tool, files, slug, splitStart, splitEnd, splitMode, splitEveryN, rotation,
+    pagesToDelete, pagesToExtract, compressionLevel,
     watermarkText, watermarkOpacity, pageNumPosition,
     headerText, footerText, freeTextContent,
-    signatureText, redactSearchText, ocrLang, imageScale, lang, t, setProgress,
+    password, signatureText, redactSearchText, imageScale, ocrLanguage, t, lang, setProgress,
   ]);
 
   const handleDownload = useCallback(() => {
     if (!tool) return;
     const origName = files[0]?.name?.replace(/\.[^.]+$/, "") || "output";
-    if (resultText !== null && slug === "pdf-to-text") {
+    if (resultText !== null && (slug === "pdf-to-text")) {
       downloadText(resultText, `${origName}-pdfx.txt`);
       return;
     }
@@ -354,15 +366,13 @@ export default function ToolPage() {
       downloadBlob(resultBytes, `${origName}-split.zip`, "application/zip");
       return;
     }
-    if (slug === "pdf-to-word") {
-      downloadBlob(
-        resultBytes,
-        `${origName}-pdfx.docx`,
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-      );
-      return;
-    }
-    downloadBlob(resultBytes, `${origName}-pdfx.${tool.outputExt || "pdf"}`);
+    const mimeType =
+      tool.outputExt === "docx"
+        ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        : tool.outputExt === "xlsx"
+          ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          : "application/pdf";
+    downloadBlob(resultBytes, `${origName}-pdfx.${tool.outputExt || "pdf"}`, mimeType);
   }, [resultBytes, resultText, resultHtml, files, tool, slug, splitMode]);
 
   if (!tool) {
@@ -377,10 +387,40 @@ export default function ToolPage() {
     );
   }
 
+  if (!isLaunchReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="w-full max-w-2xl rounded-3xl border border-white/10 bg-slate-950/60 p-8 md:p-10">
+          <div className="inline-flex items-center gap-2 rounded-full bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-300 mb-4">
+            <Lock className="size-3.5" />
+            {lang === "ru" ? "Р•С‰С‘ РЅРµ Р·Р°РїСѓС‰РµРЅРѕ" : "Not launched yet"}
+          </div>
+          <h1 className="text-3xl font-bold text-white mb-3">{toolTr?.name ?? tool.name}</h1>
+          <p className="text-slate-400 leading-7 mb-6">
+            {lang === "ru"
+              ? "Р­С‚Р° С„СѓРЅРєС†РёСЏ РѕСЃС‚Р°С‘С‚СЃСЏ РІ roadmap Рё РЅРµ РїСЂРѕРґР°С‘С‚СЃСЏ РєР°Рє СѓР¶Рµ РґРѕСЃС‚СѓРїРЅР°СЏ. Р•СЃР»Рё РІР°Рј РЅСѓР¶РµРЅ СЂР°РЅРЅРёР№ РґРѕСЃС‚СѓРї РёР»Рё РІС‹ С…РѕС‚РёС‚Рµ РїРѕРІР»РёСЏС‚СЊ РЅР° РїСЂРёРѕСЂРёС‚РµС‚, РёСЃРїРѕР»СЊР·СѓР№С‚Рµ СЃС‚СЂР°РЅРёС†Сѓ РєРѕРЅС‚Р°РєС‚РѕРІ."
+              : "This feature is still on the roadmap and is not being sold as already available. If you need early access or want to influence its priority, use the contact page."}
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <Button asChild>
+              <Link href="/contact">{lang === "ru" ? "Р—Р°РїСЂРѕСЃРёС‚СЊ СЂР°РЅРЅРёР№ РґРѕСЃС‚СѓРї" : "Request early access"}</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/pricing#roadmap">{lang === "ru" ? "РћС‚РєСЂС‹С‚СЊ roadmap" : "Open roadmap"}</Link>
+            </Button>
+            <Button asChild variant="ghost">
+              <Link href="/">{lang === "ru" ? "Р’РµСЂРЅСѓС‚СЊСЃСЏ РІ РєР°С‚Р°Р»РѕРі" : "Back to catalog"}</Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const colors = categoryColors[tool.color] || categoryColors.blue;
   const Icon = getToolIcon(tool.iconName);
   const relatedTools = tools
-    .filter((t) => t.category === tool.category && t.slug !== slug)
+    .filter((t) => t.category === tool.category && t.slug !== slug && isToolLaunchReady(t))
     .slice(0, 4);
 
   return (
@@ -430,7 +470,7 @@ export default function ToolPage() {
                 files={files}
                 onRemoveFile={removeFile}
                 label={tool.accept?.includes(".pdf") ? t.tool.dropPdf : t.tool.chooseFile}
-                description={`${tool.multiple ? t.tool.multipleFiles : t.tool.singleFile} • ${t.tool.maxSize} ${maxSizeMb}MB`}
+                description={`${tool.multiple ? t.tool.multipleFiles : t.tool.singleFile} вЂў ${t.tool.maxSize} ${maxSizeMb}MB`}
               />
 
               {slug === "text-to-pdf" && files.length === 0 && (
@@ -450,16 +490,16 @@ export default function ToolPage() {
                 <div className="space-y-3">
                   <div>
                     <Label className="text-sm font-medium mb-1.5 block">
-                      {lang === "ru" ? "Режим разбивки" : "Split mode"}
+                      {lang === "ru" ? "Р РµР¶РёРј СЂР°Р·Р±РёРІРєРё" : "Split mode"}
                     </Label>
-                    <Select value={splitMode} onValueChange={(v) => setSplitMode(v as "range" | "every-n" | "all")}>
+                    <Select value={splitMode} onValueChange={(value) => setSplitMode(value as "range" | "every-n" | "all")}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="range">{lang === "ru" ? "Диапазон страниц" : "Page range"}</SelectItem>
-                        <SelectItem value="every-n">{lang === "ru" ? "Каждые N страниц" : "Every N pages"}</SelectItem>
-                        <SelectItem value="all">{lang === "ru" ? "Каждую страницу отдельно (ZIP)" : "Individual pages (ZIP)"}</SelectItem>
+                        <SelectItem value="range">{lang === "ru" ? "Р”РёР°РїР°Р·РѕРЅ СЃС‚СЂР°РЅРёС†" : "Page range"}</SelectItem>
+                        <SelectItem value="every-n">{lang === "ru" ? "РљР°Р¶РґС‹Рµ N СЃС‚СЂР°РЅРёС†" : "Every N pages"}</SelectItem>
+                        <SelectItem value="all">{lang === "ru" ? "РљР°Р¶РґСѓСЋ СЃС‚СЂР°РЅРёС†Сѓ РѕС‚РґРµР»СЊРЅРѕ (ZIP)" : "Individual pages (ZIP)"}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -491,7 +531,7 @@ export default function ToolPage() {
                   {splitMode === "every-n" && (
                     <div>
                       <Label className="text-sm font-medium mb-1.5 block">
-                        {lang === "ru" ? "Страниц в каждой части" : "Pages per part"}
+                        {lang === "ru" ? "РЎС‚СЂР°РЅРёС† РІ РєР°Р¶РґРѕР№ С‡Р°СЃС‚Рё" : "Pages per part"}
                       </Label>
                       <Input
                         type="number"
@@ -505,8 +545,8 @@ export default function ToolPage() {
                   {splitMode === "all" && (
                     <p className="text-xs text-muted-foreground">
                       {lang === "ru"
-                        ? "Каждая страница станет отдельным PDF. Все части будут упакованы в ZIP-архив."
-                        : "Each page becomes a separate PDF. All parts will be packaged in a ZIP archive."}
+                        ? "РљР°Р¶РґР°СЏ СЃС‚СЂР°РЅРёС†Р° Р±СѓРґРµС‚ СЃРѕС…СЂР°РЅРµРЅР° РєР°Рє РѕС‚РґРµР»СЊРЅС‹Р№ PDF РІРЅСѓС‚СЂРё ZIP-Р°СЂС…РёРІР°."
+                        : "Each page will be saved as a separate PDF inside a ZIP archive."}
                     </p>
                   )}
                 </div>
@@ -528,51 +568,29 @@ export default function ToolPage() {
                 </div>
               )}
 
-              {slug === "delete-pages" && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium block">{t.tool.pagesDelete}</Label>
-                  {files.length > 0 ? (
-                    <PageSelector
-                      file={files[0]}
-                      mode="select"
-                      lang={lang}
-                      onSelectionChange={(indices) =>
-                        setPagesToDelete(indices.map(i => i + 1).join(","))
-                      }
-                    />
-                  ) : (
-                    <Input
-                      value={pagesToDelete}
-                      onChange={(e) => setPagesToDelete(e.target.value)}
-                      placeholder="1, 3, 5-8"
-                      data-testid="input-pages-delete"
-                    />
-                  )}
+              {(slug === "delete-pages") && (
+                <div>
+                  <Label className="text-sm font-medium mb-1.5 block">{t.tool.pagesDelete}</Label>
+                  <Input
+                    value={pagesToDelete}
+                    onChange={(e) => setPagesToDelete(e.target.value)}
+                    placeholder="1, 3, 5-8"
+                    data-testid="input-pages-delete"
+                  />
                 </div>
               )}
 
               {(slug === "extract-pages" || slug === "reorder-pages") && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium block">
+                <div>
+                  <Label className="text-sm font-medium mb-1.5 block">
                     {slug === "reorder-pages" ? t.tool.pagesReorder : t.tool.pagesExtract}
                   </Label>
-                  {files.length > 0 ? (
-                    <PageSelector
-                      file={files[0]}
-                      mode={slug === "reorder-pages" ? "reorder" : "select"}
-                      lang={lang}
-                      onSelectionChange={(indices) =>
-                        setPagesToExtract(indices.map(i => i + 1).join(","))
-                      }
-                    />
-                  ) : (
-                    <Input
-                      value={pagesToExtract}
-                      onChange={(e) => setPagesToExtract(e.target.value)}
-                      placeholder="1, 2, 5-7"
-                      data-testid="input-pages-extract"
-                    />
-                  )}
+                  <Input
+                    value={pagesToExtract}
+                    onChange={(e) => setPagesToExtract(e.target.value)}
+                    placeholder="1, 2, 5-7"
+                    data-testid="input-pages-extract"
+                  />
                 </div>
               )}
 
@@ -581,10 +599,10 @@ export default function ToolPage() {
                   className="flex items-start gap-3 rounded-lg p-3 text-sm"
                   style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)" }}
                 >
-                  <span className="mt-0.5 text-emerald-400">✓</span>
+                  <span className="mt-0.5 text-emerald-400">вњ“</span>
                   <span className="text-slate-300">
                     {lang === "ru"
-                      ? "Оптимизирует структуру PDF. Если новый файл больше оригинала, возвращается оригинал."
+                      ? "РћРїС‚РёРјРёР·РёСЂСѓРµС‚ СЃС‚СЂСѓРєС‚СѓСЂСѓ PDF. Р•СЃР»Рё РЅРѕРІС‹Р№ С„Р°Р№Р» Р±РѕР»СЊС€Рµ РѕСЂРёРіРёРЅР°Р»Р°, РІРѕР·РІСЂР°С‰Р°РµС‚СЃСЏ РѕСЂРёРіРёРЅР°Р»."
                       : "Optimises PDF structure with object streams. If the result is larger than the original, the original is returned unchanged."}
                   </span>
                 </div>
@@ -634,17 +652,33 @@ export default function ToolPage() {
                 </div>
               )}
 
-              {slug === "protect-pdf" && (
-                <div
-                  className="flex items-start gap-3 rounded-lg p-3 text-sm"
-                  style={{ background: "rgba(249,115,22,0.08)", border: "1px solid rgba(249,115,22,0.25)" }}
-                >
-                  <span className="mt-0.5 text-orange-400">⚠</span>
-                  <span className="text-slate-300">
-                    {lang === "ru"
-                      ? "PDF-шифрование в браузере не поддерживается. Используйте Adobe Acrobat, LibreOffice или 7-Zip. Серверное шифрование появится в Pro-плане."
-                      : "Browser-side PDF encryption is not supported. Use Adobe Acrobat, LibreOffice, or 7-Zip to add passwords. Server-side encryption is coming to the Pro plan."}
-                  </span>
+              {(slug === "protect-pdf" || slug === "unlock-pdf") && (
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-sm font-medium mb-1.5 block">{t.tool.password}</Label>
+                    <Input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder={t.tool.passwordPlaceholder}
+                      data-testid="input-password"
+                    />
+                  </div>
+                  <div
+                    className="flex items-start gap-3 rounded-lg p-3 text-sm"
+                    style={{ background: "rgba(14,165,233,0.08)", border: "1px solid rgba(14,165,233,0.25)" }}
+                  >
+                    <span className="mt-0.5 text-sky-400">в„№</span>
+                    <span className="text-slate-300">
+                      {slug === "protect-pdf"
+                        ? (lang === "ru"
+                            ? "Р РµР·СѓР»СЊС‚Р°С‚ Р±СѓРґРµС‚ СЃРѕС…СЂР°РЅС‘РЅ РєР°Рє AES-256 protected PDF Рё РѕС‚РєСЂРѕРµС‚СЃСЏ С‚РѕР»СЊРєРѕ РїРѕСЃР»Рµ РІРІРѕРґР° СЌС‚РѕРіРѕ РїР°СЂРѕР»СЏ."
+                            : "The result will be saved as an AES-256 protected PDF and will open only after this password is entered.")
+                        : (lang === "ru"
+                            ? "Р’РІРµРґРёС‚Рµ РїР°СЂРѕР»СЊ РѕС‚ РёСЃС…РѕРґРЅРѕРіРѕ PDF, С‡С‚РѕР±С‹ СЃРЅСЏС‚СЊ Р·Р°С‰РёС‚Сѓ Рё СЃРѕС…СЂР°РЅРёС‚СЊ РЅРѕРІСѓСЋ РЅРµР·Р°С€РёС„СЂРѕРІР°РЅРЅСѓСЋ РєРѕРїРёСЋ."
+                            : "Enter the current PDF password to remove protection and save a new unencrypted copy.")}
+                    </span>
+                  </div>
                 </div>
               )}
 
@@ -664,18 +698,18 @@ export default function ToolPage() {
               {slug === "redact-pdf" && (
                 <div>
                   <Label className="text-sm font-medium mb-1.5 block">
-                    {lang === "ru" ? "Текст для затирания" : "Text to redact"}
+                    {lang === "ru" ? "РўРµРєСЃС‚ РґР»СЏ Р·Р°С‚РёСЂР°РЅРёСЏ" : "Text to redact"}
                   </Label>
                   <Input
                     value={redactSearchText}
                     onChange={(e) => setRedactSearchText(e.target.value)}
-                    placeholder={lang === "ru" ? "например: SECRET-123" : "e.g. SECRET-123"}
+                    placeholder={lang === "ru" ? "РЅР°РїСЂРёРјРµСЂ: SECRET-123" : "e.g. SECRET-123"}
                     data-testid="input-redact-text"
                   />
                   <p className="text-xs text-muted-foreground mt-1.5">
                     {lang === "ru"
-                      ? "Страницы с найденным текстом растеризируются — текст нельзя будет извлечь из PDF."
-                      : "Pages containing the text are rasterised — the text cannot be extracted from the output PDF."}
+                      ? "РЎС‚СЂР°РЅРёС†С‹ СЃ РЅР°Р№РґРµРЅРЅС‹Рј С‚РµРєСЃС‚РѕРј СЂР°СЃС‚РµСЂРёР·РёСЂСѓСЋС‚СЃСЏ вЂ” С‚РµРєСЃС‚ РЅРµР»СЊР·СЏ Р±СѓРґРµС‚ РёР·РІР»РµС‡СЊ РёР· PDF."
+                      : "Pages containing the text are rasterised вЂ” the text cannot be extracted from the output PDF."}
                   </p>
                 </div>
               )}
@@ -684,34 +718,30 @@ export default function ToolPage() {
                 <div className="space-y-3">
                   <div>
                     <Label className="text-sm font-medium mb-1.5 block">
-                      {lang === "ru" ? "Язык OCR" : "OCR Language"}
+                      {lang === "ru" ? "РЇР·С‹Рє OCR" : "OCR language"}
                     </Label>
-                    <Select value={ocrLang} onValueChange={setOcrLang}>
-                      <SelectTrigger>
+                    <Select value={ocrLanguage} onValueChange={setOcrLanguage}>
+                      <SelectTrigger data-testid="select-ocr-language">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="eng">English</SelectItem>
-                        <SelectItem value="rus">Русский (Russian)</SelectItem>
-                        <SelectItem value="eng+rus">English + Русский</SelectItem>
-                        <SelectItem value="deu">Deutsch (German)</SelectItem>
-                        <SelectItem value="fra">Français (French)</SelectItem>
-                        <SelectItem value="spa">Español (Spanish)</SelectItem>
-                        <SelectItem value="chi_sim">中文简体 (Chinese Simplified)</SelectItem>
-                        <SelectItem value="jpn">日本語 (Japanese)</SelectItem>
-                        <SelectItem value="ara">العربية (Arabic)</SelectItem>
+                        {ocrLanguageOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div
                     className="flex items-start gap-3 rounded-lg p-3 text-sm"
-                    style={{ background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)" }}
+                    style={{ background: "rgba(236,72,153,0.08)", border: "1px solid rgba(236,72,153,0.22)" }}
                   >
-                    <span className="mt-0.5 text-indigo-400">ℹ</span>
+                    <span className="mt-0.5 text-pink-400">в„№</span>
                     <span className="text-slate-300">
                       {lang === "ru"
-                        ? "OCR делает сканированный PDF доступным для поиска. Языковые данные загружаются при первом использовании. Обработка многостраничных файлов займёт время."
-                        : "OCR makes scanned PDFs searchable. Language data is downloaded on first use. Multi-page PDFs may take a few minutes."}
+                        ? "OCR СЃРѕР·РґР°С‘С‚ РЅРѕРІС‹Р№ searchable PDF. Р”Р»СЏ РґР»РёРЅРЅС‹С… РґРѕРєСѓРјРµРЅС‚РѕРІ РѕР±СЂР°Р±РѕС‚РєР° РјРѕР¶РµС‚ Р·Р°РЅСЏС‚СЊ Р±РѕР»СЊС€Рµ РІСЂРµРјРµРЅРё."
+                        : "OCR creates a new searchable PDF. Long documents can take more time to process."}
                     </span>
                   </div>
                 </div>
@@ -772,7 +802,12 @@ export default function ToolPage() {
                         <span className="text-sm text-muted-foreground block">{t.tool.processing}</span>
                         {slug === "redact-pdf" && (
                           <span className="text-xs text-slate-500">
-                            {lang === "ru" ? "Для многостраничных PDF это может занять минуту…" : "Multi-page PDFs may take a minute…"}
+                            {lang === "ru" ? "Р”Р»СЏ РјРЅРѕРіРѕСЃС‚СЂР°РЅРёС‡РЅС‹С… PDF СЌС‚Рѕ РјРѕР¶РµС‚ Р·Р°РЅСЏС‚СЊ РјРёРЅСѓС‚СѓвЂ¦" : "Multi-page PDFs may take a minuteвЂ¦"}
+                          </span>
+                        )}
+                        {slug === "ocr-pdf" && (
+                          <span className="text-xs text-slate-500">
+                            {lang === "ru" ? "OCR РёРґС‘С‚ РїРѕСЃС‚СЂР°РЅРёС‡РЅРѕ, РїРѕСЌС‚РѕРјСѓ РїРѕРґРѕР¶РґРёС‚Рµ Р·Р°РІРµСЂС€РµРЅРёСЏ РѕР±СЂР°Р±РѕС‚РєРёвЂ¦" : "OCR runs page by page, so please wait for processing to finishвЂ¦"}
                           </span>
                         )}
                       </div>
@@ -813,24 +848,16 @@ export default function ToolPage() {
                       {files[0] && (
                         <div className="flex items-center gap-1.5 text-sm text-emerald-400">
                           <CheckCircle className="w-4 h-4" />
-                          <span>
-                            {t.tool.doneLabel}
-                            {splitPartsCount && splitPartsCount > 1 && (
-                              <span className="text-muted-foreground ml-1">
-                                {lang === "ru" ? `${splitPartsCount} частей в ZIP` : `${splitPartsCount} parts in ZIP`}
-                              </span>
-                            )}
-                            {resultSize && files[0] && !splitPartsCount && (
-                              <span className="text-muted-foreground">
-                                {formatBytes(files[0].size)} → {formatBytes(resultSize)}
-                                {files[0].size > (resultSize || 0) && (
-                                  <span className="text-emerald-400 ml-1">
-                                    (-{Math.round((1 - (resultSize || 0) / files[0].size) * 100)}%)
-                                  </span>
-                                )}
-                              </span>
-                            )}
-                          </span>
+                          <span>{t.tool.doneLabel} {resultSize && files[0] && (
+                            <span className="text-muted-foreground">
+                              {formatBytes(files[0].size)} в†’ {formatBytes(resultSize)}
+                              {files[0].size > (resultSize || 0) && (
+                                <span className="text-emerald-400 ml-1">
+                                  (-{Math.round((1 - (resultSize || 0) / files[0].size) * 100)}%)
+                                </span>
+                              )}
+                            </span>
+                          )}</span>
                         </div>
                       )}
                     </motion.div>
@@ -851,7 +878,10 @@ export default function ToolPage() {
                     <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                       <Button
                         onClick={process}
-                        disabled={slug === "protect-pdf" || (files.length === 0 && slug !== "text-to-pdf")}
+                        disabled={
+                          (files.length === 0 && slug !== "text-to-pdf") ||
+                          ((slug === "protect-pdf" || slug === "unlock-pdf") && !password.trim())
+                        }
                         className="gap-2 shadow-lg shadow-primary/20"
                         data-testid="button-process"
                       >
@@ -930,3 +960,4 @@ export default function ToolPage() {
     </div>
   );
 }
+

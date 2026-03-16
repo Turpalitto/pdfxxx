@@ -9,7 +9,9 @@ const LANG_CODES = [
 ];
 
 const TOOL_SLUGS = [
-  "pdf-to-word","pdf-to-jpg","pdf-to-png","pdf-to-text","pdf-to-html","pdf-to-excel",
+  "pdf-to-word",
+  "pdf-to-jpg","pdf-to-png","pdf-to-text","pdf-to-html",
+  "pdf-to-excel",
   "word-to-pdf","images-to-pdf","excel-to-pdf","text-to-pdf",
   "merge-pdf","split-pdf","rotate-pdf","delete-pages","reorder-pages","extract-pages",
   "protect-pdf","unlock-pdf","sign-pdf","watermark-pdf","redact-pdf",
@@ -21,6 +23,9 @@ const TOOL_SLUGS = [
 const STATIC_PAGES = [
   { path: "/", priority: "1.0", changefreq: "weekly" },
   { path: "/pricing", priority: "0.8", changefreq: "monthly" },
+  { path: "/privacy", priority: "0.4", changefreq: "yearly" },
+  { path: "/terms", priority: "0.4", changefreq: "yearly" },
+  { path: "/contact", priority: "0.5", changefreq: "monthly" },
 ];
 
 function buildHreflangLinks(path: string): string {

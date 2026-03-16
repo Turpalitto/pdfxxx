@@ -30,59 +30,44 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
-    cssCodeSplit: true,
+    chunkSizeWarningLimit: 1800,
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (!id.includes("node_modules")) {
-            return;
+          if (!id.includes("node_modules")) return;
+
+          if (id.includes("pdfjs-dist")) {
+            return "pdfjs";
           }
 
-          if (
-            id.includes("react") ||
-            id.includes("scheduler") ||
-            id.includes("wouter") ||
-            id.includes("@tanstack/react-query")
-          ) {
-            return "framework";
+          if (id.includes("pdf-lib") || id.includes("@pdf-lib/fontkit")) {
+            return "pdf-lib";
           }
 
-          if (id.includes("@radix-ui")) {
-            return "radix";
+          if (id.includes("mammoth")) {
+            return "office";
+          }
+
+          if (id.includes("jszip")) {
+            return "zip-utils";
+          }
+
+          if (id.includes("fabric") || id.includes("tesseract.js")) {
+            return "pdf-advanced";
           }
 
           if (id.includes("framer-motion")) {
             return "motion";
           }
 
-          if (
-            id.includes("pdf-lib") ||
-            id.includes("@pdf-lib") ||
-            id.includes("pdfjs-dist") ||
-            id.includes("jszip") ||
-            id.includes("mammoth") ||
-            id.includes("xlsx")
-          ) {
-            return "pdf-core";
+          if (id.includes("@radix-ui") || id.includes("lucide-react")) {
+            return "ui-kit";
           }
-
-          if (id.includes("fabric")) {
-            return "pdf-editor";
-          }
-
-          if (id.includes("tesseract.js")) {
-            return "ocr";
-          }
-
-          return "vendor";
         },
       },
     },
   },
   server: {
-    hmr: {
-      overlay: false,
-    },
     fs: {
       strict: true,
       deny: ["**/.*"],
