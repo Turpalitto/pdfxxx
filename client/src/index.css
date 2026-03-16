@@ -414,7 +414,15 @@
 
 .tool-card:hover {
   box-shadow: 0 16px 44px rgba(2, 6, 23, 0.34);
-  border-color: rgba(255, 255, 255, 0.18) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  transform: translate3d(0, -4px, 0);
+}
+
+/* Search input — remove browser default clear button styling */
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-results-button,
+input[type="search"]::-webkit-search-results-decoration {
+  display: none;
 }
 
 .filter-pill:hover {

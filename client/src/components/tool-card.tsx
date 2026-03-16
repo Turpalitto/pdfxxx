@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { Link } from "wouter";
+import { ArrowRight } from "lucide-react";
 import { type Tool, categoryColors } from "@/lib/tools";
 import { getToolIcon } from "@/lib/tool-icons";
 import { getToolTranslation } from "@/lib/tool-translations";
@@ -18,56 +19,70 @@ export const ToolCard = memo(function ToolCard({ tool }: ToolCardProps) {
   return (
     <Link href={`/tools/${tool.slug}`}>
       <div
-        className="tool-card motion-surface group relative h-full cursor-pointer overflow-hidden rounded-2xl p-6"
+        className="tool-card group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl"
         style={{
-          background: "linear-gradient(135deg, rgba(15,23,42,0.7) 0%, rgba(30,41,59,0.4) 100%)",
-          border: "1px solid rgba(255,255,255,0.08)",
+          background:
+            "linear-gradient(160deg, rgba(15,23,42,0.95) 0%, rgba(20,30,55,0.85) 100%)",
+          border: "1px solid rgba(255,255,255,0.07)",
         }}
         data-testid={`card-tool-${tool.slug}`}
       >
-        {/* Hover glow overlay */}
-        <div
-          className="absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none"
-          style={{
-            background: "linear-gradient(135deg, rgba(59,130,246,0.08), rgba(124,58,237,0.08))",
-          }}
-        />
-        <div
-          className="pointer-events-none absolute inset-x-[-10%] top-0 h-24 translate-y-[-120%] rotate-[-8deg] bg-white/10 opacity-0 blur-3xl transition-all duration-700 ease-out group-hover:translate-y-[-25%] group-hover:opacity-100"
-        />
-
-        <div className="tool-card-copy relative">
-          {/* Icon box */}
-          <div className="relative inline-block mb-4">
-            <div
-              className="tool-card-icon flex items-center justify-center rounded-xl"
-              style={{
-                width: 48,
-                height: 48,
-                background: `linear-gradient(135deg, ${colors.from} 0%, ${colors.to} 100%)`,
-                boxShadow: `0 4px 16px ${colors.glow}`,
-              }}
-            >
-              <Icon className="size-6 text-white" />
-            </div>
-            {tool.pro && (
-              <div
-                className="absolute -top-1.5 -right-1.5 text-[9px] font-bold text-white px-1.5 py-0.5 rounded-md tracking-wider"
-                style={{ background: "linear-gradient(135deg, #7c3aed, #ec4899)" }}
-              >
-                PRO
-              </div>
-            )}
+        {/* PRO badge */}
+        {tool.pro && (
+          <div
+            className="absolute right-2 top-2 z-10 rounded-md px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-white"
+            style={{ background: "linear-gradient(135deg, #7c3aed, #ec4899)" }}
+          >
+            PRO
           </div>
+        )}
 
-          {/* Text */}
-          <h3 className="text-white font-semibold text-base mb-2 leading-snug">
+        {/* Icon area — colored top section (ilovepdf-style) */}
+        <div
+          className="flex items-center justify-center py-7 transition-all duration-500"
+          style={{
+            background: `linear-gradient(160deg, ${colors.from}1a 0%, ${colors.to}0d 100%)`,
+          }}
+        >
+          <div
+            className="tool-card-icon flex items-center justify-center rounded-2xl"
+            style={{
+              width: 56,
+              height: 56,
+              background: `linear-gradient(135deg, ${colors.from} 0%, ${colors.to} 100%)`,
+              boxShadow: `0 8px 28px ${colors.glow}`,
+            }}
+          >
+            <Icon className="size-7 text-white" />
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="tool-card-copy flex flex-1 flex-col px-4 pb-4 pt-3">
+          <h3 className="mb-1 text-sm font-semibold leading-snug text-white">
             {name}
           </h3>
-          <p className="text-sm leading-relaxed line-clamp-2" style={{ color: "#8888a0" }}>
+          <p
+            className="line-clamp-2 flex-1 text-xs leading-relaxed"
+            style={{ color: "#5e6677" }}
+          >
             {description}
           </p>
+          <div className="mt-2.5 flex justify-end">
+            <ArrowRight
+              className="size-3.5 transition-all duration-300 group-hover:translate-x-0.5"
+              style={{ color: colors.from, opacity: 0.5 }}
+            />
+          </div>
         </div>
+
+        {/* Animated color accent bottom border */}
+        <div
+          className="h-0.5 w-0 transition-[width] duration-500 ease-out group-hover:w-full"
+          style={{
+            background: `linear-gradient(90deg, ${colors.from}, ${colors.to})`,
+          }}
+        />
       </div>
     </Link>
   );
