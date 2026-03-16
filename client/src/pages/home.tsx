@@ -68,8 +68,8 @@ function RevealSection({
 }
 
 /* ─── Stats bar ──────────────────────────────────────────────── */
-const STATS = (lang: string) => [
-  { value: "50+", label: lang === "ru" ? "Инструментов" : "PDF Tools" },
+const STATS = (lang: string, toolCount: number) => [
+  { value: `${toolCount}`, label: lang === "ru" ? "Инструментов" : "PDF Tools" },
   { value: "100%", label: lang === "ru" ? "В браузере" : "Browser-based" },
   { value: "0", label: lang === "ru" ? "Загрузок на сервер" : "Server uploads" },
   { value: "∞", label: lang === "ru" ? "Бесплатно" : "Always free" },
@@ -250,7 +250,7 @@ export default function Home() {
       {!showFiltered && (
         <div className="container mx-auto px-4 pb-8 sm:px-6">
           <div className="stats-strip">
-            {STATS(lang).map((stat, i) => (
+            {STATS(lang, tools.length).map((stat, i) => (
               <div key={i} className="stats-strip-item">
                 <span className="stats-number">{stat.value}</span>
                 <span className="stats-label">{stat.label}</span>

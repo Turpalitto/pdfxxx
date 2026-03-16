@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, Component, type ReactNode } from "react";
 import { Switch, Route } from "wouter";
 import { ThemeProvider } from "@/lib/theme";
 import { LangProvider } from "@/lib/lang-context";
@@ -6,6 +6,44 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { AnimatedBackground } from "@/components/animated-background";
 import NotFound from "@/pages/not-found";
+
+/* ── Error Boundary ──────────────────────────────────────────── */
+class ErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
+          <div
+            className="mb-6 flex size-20 items-center justify-center rounded-2xl"
+            style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.15)" }}
+          >
+            <span className="text-3xl">⚠️</span>
+          </div>
+          <h2 className="mb-2 text-xl font-bold text-white">Something went wrong</h2>
+          <p className="mb-6 max-w-sm text-sm text-slate-500">
+            {(this.state.error as Error).message || "An unexpected error occurred."}
+          </p>
+          <button
+            className="rounded-xl bg-white/8 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-white/12"
+            onClick={() => { this.setState({ error: null }); window.location.reload(); }}
+          >
+            Reload page
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const importHomePage = () => import("@/pages/home");
 const importToolPage = () => import("@/pages/tool-page");
@@ -86,7 +124,9 @@ function App() {
           <div className="relative z-10 flex flex-col min-h-screen">
             <Navbar />
             <main className="flex-1">
-              <Router />
+              <ErrorBoundary>
+                <Router />
+              </ErrorBoundary>
             </main>
             <Footer />
           </div>

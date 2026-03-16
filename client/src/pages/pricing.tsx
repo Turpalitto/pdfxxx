@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { useLang } from "@/lib/lang-context";
 import { cn } from "@/lib/utils";
@@ -383,13 +383,14 @@ export default function Pricing() {
                 </div>
               )}
             </div>
-            <button
-              className="block w-full text-center py-3 rounded-xl font-semibold text-sm text-white transition-all duration-250 mb-7 border-none"
+            <a
+              href="mailto:pro@pdfx.tools?subject=Pro%20Plan"
+              className="block w-full text-center py-3 rounded-xl font-semibold text-sm text-white transition-all duration-250 mb-7 border-none hover:opacity-90"
               style={{ background: "linear-gradient(135deg, #6c5ce7 0%, #a78bfa 50%, #06b6d4 100%)", boxShadow: "0 4px 20px rgba(108,92,231,0.35)" }}
               data-testid="button-get-pro"
             >
               {T.pro.trialCta}
-            </button>
+            </a>
             <div className="text-muted-foreground font-semibold uppercase tracking-[0.08em] mb-3.5" style={{ fontSize: 12 }}>{T.pro.featuresTitle}</div>
             <ul className="flex flex-col gap-2.5">
               {(T.pro.features as [string, boolean][]).map(([text, isAi], i) => (
@@ -428,13 +429,14 @@ export default function Pricing() {
                 </div>
               )}
             </div>
-            <button
-              className="block w-full text-center py-3 rounded-xl font-semibold text-sm transition-all duration-250 mb-7 border"
+            <a
+              href="mailto:team@pdfx.tools?subject=Team%20Plan"
+              className="block w-full text-center py-3 rounded-xl font-semibold text-sm transition-all duration-250 mb-7 border hover:border-muted-foreground hover:bg-white/[0.06]"
               style={{ background: "rgba(255,255,255,0.04)" }}
               data-testid="button-contact-team"
             >
               {T.team.cta}
-            </button>
+            </a>
             <div className="text-muted-foreground font-semibold uppercase tracking-[0.08em] mb-3.5" style={{ fontSize: 12 }}>{T.team.featuresTitle}</div>
             <ul className="flex flex-col gap-2.5">
               {T.team.features.map((f, i) => (

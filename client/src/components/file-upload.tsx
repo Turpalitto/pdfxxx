@@ -1,5 +1,5 @@
 import { useCallback, useState, useRef } from "react";
-import { Upload, File, X, CheckCircle } from "lucide-react";
+import { Upload, File, X, CheckCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatBytes } from "@/lib/pdf-utils";
@@ -27,6 +27,7 @@ export function FileUpload({
   description,
 }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
+  const [rejectReason, setRejectReason] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
@@ -42,15 +43,32 @@ export function FileUpload({
   const processFiles = useCallback(
     (newFiles: FileList | null) => {
       if (!newFiles) return;
-      const arr = Array.from(newFiles).filter((f) => {
+      setRejectReason(null);
+
+      const accepted: File[] = [];
+      let hasWrongType = false;
+      let hasOversized = false;
+
+      Array.from(newFiles).forEach((f) => {
         const acceptTypes = accept.split(",").map((a) => a.trim());
-        const matches = acceptTypes.some((a) => {
+        const typeOk = acceptTypes.some((a) => {
           if (a.startsWith(".")) return f.name.toLowerCase().endsWith(a);
           return f.type.startsWith(a.replace("*", ""));
         });
-        return matches && f.size <= mbToBytes(maxSizeMb);
+        const sizeOk = f.size <= mbToBytes(maxSizeMb);
+
+        if (!typeOk) { hasWrongType = true; return; }
+        if (!sizeOk) { hasOversized = true; return; }
+        accepted.push(f);
       });
-      onFiles(arr);
+
+      if (hasWrongType) {
+        setRejectReason(`Unsupported file type. Accepted: ${accept}`);
+      } else if (hasOversized) {
+        setRejectReason(`File exceeds ${maxSizeMb} MB limit.`);
+      }
+
+      if (accepted.length > 0) onFiles(accepted);
     },
     [accept, maxSizeMb, onFiles]
   );
@@ -141,6 +159,20 @@ export function FileUpload({
           </div>
         )}
       </div>
+
+      {rejectReason && (
+        <div className="flex items-start gap-2.5 rounded-lg border border-red-500/20 bg-red-500/[0.07] px-3.5 py-2.5">
+          <AlertCircle className="mt-0.5 size-4 shrink-0 text-red-400" />
+          <p className="text-xs leading-relaxed text-red-400">{rejectReason}</p>
+          <button
+            className="ml-auto text-red-400/60 hover:text-red-400"
+            onClick={() => setRejectReason(null)}
+            aria-label="Dismiss"
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
+      )}
 
       {hasFiles && (
         <div className="flex flex-col gap-2">

@@ -232,7 +232,7 @@ export function Navbar() {
 
               <div className="mt-2 border-t pt-2" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
                 <p className="mb-1 px-3 py-1 text-xs font-medium uppercase tracking-wider text-slate-400">
-                  {lang === "ru" ? "\u042f\u0437\u044b\u043a" : "Language"}
+                  {lang === "ru" ? "Язык" : "Language"}
                 </p>
                 <div className="grid grid-cols-2 gap-0.5">
                   {LANGUAGES.map((entry) => (
