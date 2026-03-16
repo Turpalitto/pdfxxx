@@ -80,6 +80,9 @@ export default defineConfig({
     },
   },
   server: {
+    hmr: {
+      overlay: false,
+    },
     fs: {
       strict: true,
       deny: ["**/.*"],
