@@ -33,7 +33,7 @@ export function Navbar() {
   const currentLang = LANGUAGES.find((entry) => entry.code === lang) || LANGUAGES[0];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-slate-950/80 backdrop-blur-2xl">
+    <header className="sticky top-0 z-50 w-full backdrop-blur-2xl" style={{ background: "rgba(2,6,23,0.75)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
       <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6">
         <Link href="/" className="group flex shrink-0 items-center gap-2.5">
           <div
@@ -173,10 +173,11 @@ export function Navbar() {
           <Button
             className="motion-button hidden items-center gap-1.5 text-sm font-semibold text-white hover:opacity-95 sm:inline-flex"
             style={{
-              background: "#6c5ce7",
+              background: "linear-gradient(135deg, #6c5ce7 0%, #7c3aed 100%)",
               borderRadius: "10px",
               padding: "8px 20px",
               fontWeight: 600,
+              boxShadow: "0 2px 12px rgba(108,92,231,0.3)",
             }}
             data-testid="button-get-pro"
             asChild

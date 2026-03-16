@@ -9,8 +9,8 @@ export function Footer() {
 
   return (
     <footer
-      className="border-t backdrop-blur-xl"
-      style={{ background: "rgba(2,6,23,0.85)", borderColor: "#1a1a2e" }}
+      className="backdrop-blur-xl"
+      style={{ background: "rgba(2,6,23,0.9)", borderTop: "1px solid rgba(255,255,255,0.04)" }}
     >
       <div className="container mx-auto px-4 sm:px-6 py-12">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
@@ -34,7 +34,7 @@ export function Footer() {
                 PDF<span style={{ color: "#60a5fa", WebkitTextFillColor: "#60a5fa" }}>X</span>
               </span>
             </Link>
-            <p className="text-sm leading-relaxed mb-4 max-w-xs" style={{ color: "#55556a" }}>
+            <p className="text-sm leading-relaxed mb-4 max-w-xs" style={{ color: "#64748b" }}>
               {lang === "ru"
                 ? "PDF инструменты. Бесплатно, безопасно, без водяных знаков."
                 : "PDF tools. Free, secure, no watermarks."}
