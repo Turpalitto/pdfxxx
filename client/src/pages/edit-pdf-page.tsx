@@ -8,7 +8,7 @@ import {
   Upload, Loader2, ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useLang } from "@/lib/lang-context";
 import { useSeo } from "@/hooks/use-seo";
@@ -334,9 +334,28 @@ export default function EditPdfPage() {
     setCurrentPage(p);
   }, [currentPage, saveCurrent]);
 
+  const activateTextObject = useCallback((obj: any) => {
+    if (!fabricRef.current) return;
+
+    fabricRef.current.setActiveObject(obj);
+    fabricRef.current.renderAll();
+
+    requestAnimationFrame(() => {
+      obj.enterEditing?.();
+      obj.selectAll?.();
+      obj.hiddenTextarea?.focus?.();
+    });
+  }, []);
+
   const handleCanvasClick = useCallback(async (e: React.MouseEvent<HTMLElement>) => {
     if (!fabricRef.current || !pdfCanvasRef.current) return;
     if (activeTool === "select" || activeTool === "draw" || activeTool === "eraser") return;
+
+    const existingTarget = fabricRef.current.findTarget?.(e.nativeEvent);
+    if (activeTool === "text" && existingTarget?.type === "i-text") {
+      activateTextObject(existingTarget);
+      return;
+    }
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const x = (e.clientX - rect.left) / zoom;
@@ -350,11 +369,12 @@ export default function EditPdfPage() {
         fontSize, fill: fontColor,
         fontFamily: "Arial",
         editable: true,
+        width: 220,
       });
       obj.set("text", isRu ? "Текст" : "Text");
       fabricRef.current.add(obj);
-      fabricRef.current.setActiveObject(obj);
-      (obj as any).enterEditing?.();
+      activateTextObject(obj);
+      setActiveTool("select");
     } else if (activeTool === "rect") {
       const obj = new Rect({
         left: x, top: y, width: 100, height: 60,
@@ -380,7 +400,7 @@ export default function EditPdfPage() {
       fabricRef.current.add(obj);
     }
     fabricRef.current.renderAll();
-  }, [activeTool, fontSize, fontColor, drawColor, zoom, isRu]);
+  }, [activeTool, fontSize, fontColor, drawColor, zoom, isRu, activateTextObject]);
 
   const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const img = e.target.files?.[0];
@@ -709,7 +729,7 @@ export default function EditPdfPage() {
   const canvasH = Math.round(currentDim.height * DISPLAY_SCALE * zoom);
 
   return (
-    <>
+    <TooltipProvider delayDuration={120}>
       <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
         {/* Left sidebar: thumbnails */}
         <div
@@ -971,6 +991,6 @@ export default function EditPdfPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </>
+    </TooltipProvider>
   );
 }

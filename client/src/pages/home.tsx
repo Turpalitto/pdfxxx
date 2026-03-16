@@ -1,12 +1,38 @@
-import { useSearch } from "wouter";
-import { Link } from "wouter";
-import { motion } from "framer-motion";
-import { ArrowRight, Sparkles, FileX, Zap, Monitor, ShieldCheck } from "lucide-react";
+import { useMemo } from "react";
+import { Link, useSearch } from "wouter";
+import { ArrowRight, FileX, Monitor, ShieldCheck, Sparkles, Zap } from "lucide-react";
 import { ToolCard } from "@/components/tool-card";
-import { tools, categories, getCategoryLabel } from "@/lib/tools";
-import { useLang } from "@/lib/lang-context";
+import { categories, getCategoryLabel, tools } from "@/lib/tools";
 import { useSeo } from "@/hooks/use-seo";
+import { useLang } from "@/lib/lang-context";
 import { cn } from "@/lib/utils";
+
+const RU = {
+  seoTitle: "PDFX - \u0412\u0441\u0435 PDF-\u0438\u043d\u0441\u0442\u0440\u0443\u043c\u0435\u043d\u0442\u044b \u0431\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u043e | \u0411\u0435\u0437 \u0432\u043e\u0434\u044f\u043d\u044b\u0445 \u0437\u043d\u0430\u043a\u043e\u0432",
+  statsFiles: "\u0424\u0430\u0439\u043b\u043e\u0432 \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u0430\u043d\u043e",
+  statsCountries: "\u0421\u0442\u0440\u0430\u043d",
+  statsTools: "\u0418\u043d\u0441\u0442\u0440\u0443\u043c\u0435\u043d\u0442\u043e\u0432",
+  statsLocal: "\u041b\u043e\u043a\u0430\u043b\u044c\u043d\u043e",
+  badge: "\u0411\u044b\u0441\u0442\u0440\u0430\u044f \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0430 \u043f\u0440\u044f\u043c\u043e \u0432 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435",
+  hero1: "PDF-\u0438\u043d\u0441\u0442\u0440\u0443\u043c\u0435\u043d\u0442\u044b",
+  hero2: "\u0431\u0435\u0437 \u0442\u043e\u0440\u043c\u043e\u0437\u043e\u0432 \u0438 \u043b\u0438\u0448\u043d\u0435\u0433\u043e \u0432\u0435\u0441\u0430.",
+  sub: "\u0438\u043d\u0441\u0442\u0440\u0443\u043c\u0435\u043d\u0442\u043e\u0432 \u0434\u043b\u044f \u043e\u0431\u044a\u0435\u0434\u0438\u043d\u0435\u043d\u0438\u044f, \u0441\u0436\u0430\u0442\u0438\u044f, \u043a\u043e\u043d\u0432\u0435\u0440\u0442\u0430\u0446\u0438\u0438, \u0440\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u044f \u0438 OCR. \u0412\u0441\u0451 \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442 \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u043e \u0432 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435 \u0438 \u043e\u0449\u0443\u0449\u0430\u0435\u0442\u0441\u044f \u0437\u0430\u043c\u0435\u0442\u043d\u043e \u043b\u0435\u0433\u0447\u0435 \u0434\u0430\u0436\u0435 \u043d\u0430 \u043c\u043e\u0431\u0438\u043b\u044c\u043d\u044b\u0445 \u0443\u0441\u0442\u0440\u043e\u0439\u0441\u0442\u0432\u0430\u0445.",
+  filesTitle: "\u0424\u0430\u0439\u043b\u044b \u043d\u0435 \u0443\u0445\u043e\u0434\u044f\u0442 \u043d\u0430 \u0441\u0435\u0440\u0432\u0435\u0440",
+  filesDesc: "\u0414\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u044b \u043e\u0431\u0440\u0430\u0431\u0430\u0442\u044b\u0432\u0430\u044e\u0442\u0441\u044f \u043f\u0440\u044f\u043c\u043e \u0432 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435, \u0431\u0435\u0437 \u043b\u0438\u0448\u043d\u0438\u0445 \u043f\u0435\u0440\u0435\u0441\u044b\u043b\u043e\u043a \u0438 \u043e\u0436\u0438\u0434\u0430\u043d\u0438\u044f.",
+  paintTitle: "\u0411\u044b\u0441\u0442\u0440\u044b\u0439 \u043f\u0435\u0440\u0432\u044b\u0439 \u044d\u043a\u0440\u0430\u043d",
+  paintDesc: "\u0420\u0435\u0434\u0430\u043a\u0442\u043e\u0440 PDF \u0438 \u0442\u044f\u0436\u0451\u043b\u044b\u0435 \u043a\u043e\u043d\u0432\u0435\u0440\u0442\u0435\u0440\u044b \u043d\u0435 \u043c\u0435\u0448\u0430\u044e\u0442 \u0441\u0442\u0430\u0440\u0442\u043e\u0432\u043e\u0439 \u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0435.",
+  mobileTitle: "\u041b\u0435\u0433\u0447\u0435 \u043d\u0430 \u043c\u043e\u0431\u0438\u043b\u044c\u043d\u044b\u0445",
+  mobileDesc: "\u041c\u0435\u043d\u044c\u0448\u0435 \u0434\u043e\u0440\u043e\u0433\u0438\u0445 blur- \u0438 motion-\u044d\u0444\u0444\u0435\u043a\u0442\u043e\u0432 \u043d\u0430 \u0441\u043b\u0430\u0431\u044b\u0445 \u0443\u0441\u0442\u0440\u043e\u0439\u0441\u0442\u0432\u0430\u0445.",
+  watermarkTitle: "\u0411\u0435\u0437 \u0432\u043e\u0434\u044f\u043d\u044b\u0445 \u0437\u043d\u0430\u043a\u043e\u0432",
+  watermarkDesc: "\u0411\u0430\u0437\u043e\u0432\u044b\u0435 PDF-\u0441\u0446\u0435\u043d\u0430\u0440\u0438\u0438 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b \u0441\u0440\u0430\u0437\u0443 \u0438 \u0440\u0430\u0431\u043e\u0442\u0430\u044e\u0442 \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u043e.",
+  allTitle: "\u0412\u0441\u0435 \u0438\u043d\u0441\u0442\u0440\u0443\u043c\u0435\u043d\u0442\u044b \u0432 \u043e\u0434\u043d\u043e\u043c \u043c\u0435\u0441\u0442\u0435",
+  allSub: "\u0438\u043d\u0441\u0442\u0440\u0443\u043c\u0435\u043d\u0442\u043e\u0432 \u0438 \u043a\u0430\u0442\u0435\u0433\u043e\u0440\u0438\u0439 \u0441 \u0431\u044b\u0441\u0442\u0440\u044b\u043c \u0434\u043e\u0441\u0442\u0443\u043f\u043e\u043c.",
+  aiTitle: "AI-\u0444\u0443\u043d\u043a\u0446\u0438\u0438 \u0434\u043b\u044f \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u043e\u0432",
+  aiDesc: "OCR, \u0438\u0437\u0432\u043b\u0435\u0447\u0435\u043d\u0438\u0435 \u0442\u0435\u043a\u0441\u0442\u0430 \u0438 \u0431\u0443\u0434\u0443\u0449\u0438\u0435 AI-\u0441\u0446\u0435\u043d\u0430\u0440\u0438\u0438 \u043c\u043e\u0436\u043d\u043e \u0440\u0430\u0437\u0432\u0438\u0432\u0430\u0442\u044c \u0431\u0435\u0437 \u043f\u0435\u0440\u0435\u0433\u0440\u0443\u0437\u0430 \u0441\u0442\u0430\u0440\u0442\u043e\u0432\u043e\u0439 \u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0438: \u0442\u044f\u0436\u0451\u043b\u044b\u0435 \u043c\u043e\u0434\u0443\u043b\u0438 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0430\u044e\u0442\u0441\u044f \u0442\u043e\u043b\u044c\u043a\u043e \u0442\u0430\u043c, \u0433\u0434\u0435 \u043e\u043d\u0438 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0442\u0435\u043b\u044c\u043d\u043e \u043d\u0443\u0436\u043d\u044b.",
+  aiText: "\u0418\u0437\u0432\u043b\u0435\u0447\u0435\u043d\u0438\u0435 \u0442\u0435\u043a\u0441\u0442\u0430",
+  aiConvert: "\u041a\u043e\u043d\u0432\u0435\u0440\u0442\u0430\u0446\u0438\u044f PDF",
+  aiNext: "\u0421\u043b\u0435\u0434\u0443\u044e\u0449\u0438\u0439 \u0448\u0430\u0433: chat with PDF",
+};
 
 export default function Home() {
   const search = useSearch();
@@ -16,399 +42,223 @@ export default function Home() {
 
   useSeo({
     title: lang === "ru"
-      ? "PDFX — Все PDF инструменты бесплатно | Без водяных знаков"
+      ? RU.seoTitle
       : lang === "de"
-      ? "PDFX — Kostenlose PDF-Werkzeuge | Ohne Wasserzeichen"
-      : lang === "fr"
-      ? "PDFX — Outils PDF gratuits | Sans filigrane"
-      : lang === "es"
-      ? "PDFX — Herramientas PDF gratis | Sin marcas de agua"
-      : lang === "zh"
-      ? "PDFX — 免费PDF工具 | 无水印"
-      : lang === "ja"
-      ? "PDFX — 無料PDFツール | 透かしなし"
-      : lang === "ar"
-      ? "PDFX — أدوات PDF مجانية | بدون علامة مائية"
-      : "PDFX — All PDF Tools Free | No Watermarks",
+        ? "PDFX - Kostenlose PDF-Werkzeuge | Ohne Wasserzeichen"
+        : lang === "fr"
+          ? "PDFX - Outils PDF gratuits | Sans filigrane"
+          : lang === "es"
+            ? "PDFX - Herramientas PDF gratis | Sin marcas de agua"
+            : "PDFX - All PDF Tools Free | No Watermarks",
     description: t.hero.sub,
     path: "/",
   });
 
-  const filteredTools =
-    activeCategory === "all"
-      ? tools
-      : tools.filter((tool) => tool.category === activeCategory);
+  const filteredTools = useMemo(
+    () => (activeCategory === "all" ? tools : tools.filter((tool) => tool.category === activeCategory)),
+    [activeCategory]
+  );
 
-  const stats = [
-    { value: "2M+", label: lang === "ru" ? "Файлов обработано" : "Files processed", gradient: "from-purple-400 to-pink-400" },
-    { value: "180+", label: lang === "ru" ? "Стран" : "Countries", gradient: "from-blue-400 to-cyan-400" },
-    { value: "28", label: lang === "ru" ? "PDF инструментов" : "PDF tools", gradient: "from-emerald-400 to-green-400" },
-    { value: "100%", label: lang === "ru" ? "Бесплатно" : "Free to start", gradient: "from-yellow-400 to-orange-400" },
-  ];
+  const stats = useMemo(
+    () => [
+      { value: "2M+", label: lang === "ru" ? RU.statsFiles : "Files processed" },
+      { value: "180+", label: lang === "ru" ? RU.statsCountries : "Countries" },
+      { value: String(tools.length), label: lang === "ru" ? RU.statsTools : "Tools" },
+      { value: "100%", label: lang === "ru" ? RU.statsLocal : "Browser-side" },
+    ],
+    [lang]
+  );
 
-  const features = [
-    { icon: FileX, gradient: "from-yellow-500 to-orange-500", title: lang === "ru" ? "Локальная обработка" : "Files stay local", desc: lang === "ru" ? "В вашем браузере" : "In your browser" },
-    { icon: Zap, gradient: "from-orange-500 to-red-500", title: lang === "ru" ? "Мгновенно" : "Instant", desc: lang === "ru" ? "Быстрее серверов" : "Faster than servers" },
-    { icon: Monitor, gradient: "from-cyan-500 to-blue-500", title: lang === "ru" ? "Офлайн" : "Offline", desc: lang === "ru" ? "Без сервера" : "No server" },
-    { icon: ShieldCheck, gradient: "from-pink-500 to-purple-500", title: lang === "ru" ? "Без регистрации" : "No account", desc: lang === "ru" ? "Анонимно" : "Anonymous" },
-  ];
+  const features = useMemo(
+    () => [
+      {
+        icon: FileX,
+        title: lang === "ru" ? RU.filesTitle : "Files stay on device",
+        desc: lang === "ru" ? RU.filesDesc : "Processing happens in the browser without extra uploads.",
+      },
+      {
+        icon: Zap,
+        title: lang === "ru" ? RU.paintTitle : "Fast first paint",
+        desc: lang === "ru" ? RU.paintDesc : "The PDF editor and heavy converters do not block startup anymore.",
+      },
+      {
+        icon: Monitor,
+        title: lang === "ru" ? RU.mobileTitle : "Lighter on mobile",
+        desc: lang === "ru" ? RU.mobileDesc : "Fewer costly blur and motion effects on slower mobile devices.",
+      },
+      {
+        icon: ShieldCheck,
+        title: lang === "ru" ? RU.watermarkTitle : "No watermark output",
+        desc: lang === "ru" ? RU.watermarkDesc : "Core PDF workflows stay fast and local from the start.",
+      },
+    ],
+    [lang]
+  );
 
-  const categoryList = [
-    { id: "all", label: t.tools.allTools },
-    ...categories.map((c) => ({ id: c.id, label: getCategoryLabel(c.id, lang) })),
-  ];
+  const categoryList = useMemo(
+    () => [{ id: "all", label: t.tools.allTools }, ...categories.map((cat) => ({ id: cat.id, label: getCategoryLabel(cat.id, lang) }))],
+    [lang, t.tools.allTools]
+  );
 
   return (
     <div className="min-h-screen">
-      {/* ─── HERO ─── */}
-      <section className="container mx-auto px-4 pt-[120px] pb-[60px] text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 mb-8"
-        >
-          <Sparkles className="size-4 text-emerald-400" />
-          <span className="text-sm text-emerald-400">
-            {lang === "ru" ? "Обработка в вашем браузере" : "Processing in your browser"}
-          </span>
-        </motion.div>
+      <section className="container mx-auto px-4 pb-10 pt-24 sm:px-6 lg:pt-28">
+        <div className="mx-auto max-w-6xl">
+          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-200">
+            <Sparkles className="size-4" />
+            <span>{lang === "ru" ? RU.badge : "Instant browser-side processing"}</span>
+          </div>
 
-        <motion.h1
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="text-5xl md:text-7xl font-bold mb-6 leading-tight"
-          data-testid="text-hero-title"
-        >
-          <span
-            className="block"
-            style={{
-              background: "linear-gradient(90deg, #ffffff 0%, #bfdbfe 50%, #ffffff 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-            }}
-          >
-            {lang === "ru" ? "Все PDF инструменты." : lang === "de" ? "Alle PDF-Werkzeuge." : lang === "fr" ? "Tous les outils PDF." : lang === "es" ? "Todas las herramientas PDF." : lang === "zh" ? "所有PDF工具。" : lang === "ja" ? "すべてのPDFツール。" : "All PDF tools."}
-          </span>
-          <span
-            className="block"
-            style={{
-              background: "linear-gradient(90deg, #a78bfa 0%, #60a5fa 50%, #a78bfa 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-            }}
-          >
-            {lang === "ru" ? "Бесплатно." : lang === "de" ? "Kostenlos." : lang === "fr" ? "Gratuit." : lang === "es" ? "Gratis." : lang === "zh" ? "免费。" : lang === "ja" ? "無料で。" : "Free."}
-          </span>
-          <span
-            className="block"
-            style={{
-              background: "linear-gradient(90deg, #94a3b8 0%, #cbd5e1 50%, #94a3b8 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-            }}
-          >
-            {lang === "ru" ? "Без водяных знаков." : lang === "de" ? "Ohne Wasserzeichen." : lang === "fr" ? "Sans filigrane." : lang === "es" ? "Sin marcas de agua." : lang === "zh" ? "无水印。" : lang === "ja" ? "透かしなし。" : "No watermarks."}
-          </span>
-        </motion.h1>
+          <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)] lg:items-end">
+            <div>
+              <h1
+                className="max-w-3xl text-3xl font-bold leading-[1.02] tracking-[-0.04em] text-white sm:text-[2.75rem] xl:text-[3.5rem]"
+                data-testid="text-hero-title"
+              >
+                <span className="block bg-gradient-to-r from-white via-slate-100 to-blue-200 bg-clip-text text-transparent">
+                  {lang === "ru" ? RU.hero1 : "PDF tools"}
+                </span>
+                <span className="mt-1 block bg-gradient-to-r from-cyan-300 via-blue-400 to-indigo-400 bg-clip-text text-transparent">
+                  {lang === "ru" ? RU.hero2 : "without lag and startup bloat."}
+                </span>
+              </h1>
 
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="text-lg max-w-2xl mx-auto mb-10 leading-relaxed"
-          style={{ color: "#8888a0" }}
-          data-testid="text-hero-sub"
-        >
-          {lang === "ru"
-            ? `${tools.length} PDF инструментов — объединяйте, сжимайте, конвертируйте. Обработка локально в браузере.`
-            : lang === "de"
-            ? `${tools.length} PDF-Werkzeuge — zusammenführen, komprimieren, konvertieren. Lokal im Browser.`
-            : `${tools.length} PDF tools — merge, compress, convert. All processed locally in your browser.`}
-        </motion.p>
+              <p
+                className="mt-5 max-w-xl text-base leading-7 text-slate-300 sm:text-[1.02rem]"
+                data-testid="text-hero-sub"
+              >
+                {lang === "ru"
+                  ? `${tools.length} ${RU.sub}`
+                  : `${tools.length} PDF tools for merge, compress, convert, edit, and OCR. Faster routes, local processing, and lighter loading on mobile devices.`}
+              </p>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="flex flex-col sm:flex-row items-center justify-center gap-4"
-        >
-          <Link
-            href="/#tools"
-            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl font-semibold text-white text-base hover:opacity-90 hover:-translate-y-px"
-            style={{
-              background: "linear-gradient(135deg, #7c3aed 0%, #2563eb 100%)",
-              boxShadow: "0 8px 32px rgba(124,58,237,0.5)",
-              transition: "transform 0.2s ease, opacity 0.2s ease",
-            }}
-            data-testid="button-start-free"
-          >
-            {t.hero.startFree}
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-          <Link
-            href="/pricing"
-            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl font-semibold text-slate-300 hover:text-white text-base border border-slate-700 hover:border-slate-500"
-            style={{ background: "rgba(15,23,42,0.5)", transition: "all 0.2s ease" }}
-            data-testid="button-view-pro"
-          >
-            {t.hero.viewPro}
-          </Link>
-        </motion.div>
-      </section>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href="/#tools"
+                  className="motion-button inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-3.5 text-base font-semibold text-white"
+                  style={{
+                    background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
+                    boxShadow: "0 18px 50px rgba(37,99,235,0.28)",
+                  }}
+                  data-testid="button-start-free"
+                >
+                  {t.hero.startFree}
+                  <ArrowRight className="size-4" />
+                </Link>
 
-      {/* ─── STATS ─── */}
-      <section className="container mx-auto px-4 py-16">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-          {stats.map((stat, i) => (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: i * 0.08 }}
-              className="group relative overflow-hidden rounded-2xl p-6 backdrop-blur-sm hover:border-white/20"
-              style={{
-                background: "linear-gradient(135deg, rgba(15,23,42,0.6) 0%, rgba(30,41,59,0.4) 100%)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                transition: "border-color 0.3s ease",
-              }}
-              data-testid={`stat-${stat.label}`}
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/8 to-purple-500/8 opacity-0 group-hover:opacity-100 transition-opacity" />
-              <div className="relative">
-                <div className="text-4xl font-bold mb-1">
-                  <span
-                    style={{
-                      background: `linear-gradient(90deg, ${stat.gradient.includes("purple") ? "#c084fc" : stat.gradient.includes("blue") ? "#60a5fa" : stat.gradient.includes("emerald") ? "#34d399" : "#fbbf24"}, ${stat.gradient.includes("pink") ? "#f472b6" : stat.gradient.includes("cyan") ? "#22d3ee" : stat.gradient.includes("green") ? "#4ade80" : "#fb923c"})`,
-                      WebkitBackgroundClip: "text",
-                      WebkitTextFillColor: "transparent",
-                      backgroundClip: "text",
-                    }}
-                  >
-                    {stat.value}
-                  </span>
-                </div>
-                <div className="text-xs tracking-wide uppercase font-medium" style={{ color: "#55556a" }}>
-                  {stat.label}
-                </div>
+                <Link
+                  href="/pricing"
+                  className="motion-surface inline-flex items-center justify-center rounded-2xl border border-white/10 bg-slate-900/55 px-7 py-3.5 text-base font-semibold text-slate-100"
+                  data-testid="button-view-pro"
+                >
+                  {t.hero.viewPro}
+                </Link>
               </div>
-            </motion.div>
-          ))}
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {stats.map((stat) => (
+                <div
+                  key={stat.label}
+                  className="motion-surface rounded-3xl border border-white/8 bg-slate-950/55 p-6 shadow-[0_20px_60px_rgba(2,6,23,0.16)]"
+                >
+                  <div className="text-4xl font-bold tracking-[-0.03em] text-white">{stat.value}</div>
+                  <div className="mt-2 text-sm uppercase tracking-[0.18em] text-slate-400">{stat.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* ─── FEATURES ─── */}
-      <section id="features" className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {features.map((feat, i) => {
-            const Icon = feat.icon;
+      <section className="section-lazy container mx-auto px-4 py-10 sm:px-6">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {features.map((feature) => {
+            const Icon = feature.icon;
             return (
-              <motion.div
-                key={feat.title}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: i * 0.08 }}
-                className="group relative overflow-hidden rounded-2xl p-5 backdrop-blur-sm hover:border-white/20"
-                style={{
-                  background: "rgba(15,23,42,0.4)",
-                  border: "1px solid rgba(255,255,255,0.07)",
-                  transition: "border-color 0.3s ease",
-                }}
+              <article
+                key={feature.title}
+                className="motion-surface rounded-3xl border border-white/8 bg-slate-950/45 p-6"
               >
-                <div
-                  className="absolute inset-0 opacity-0 group-hover:opacity-100"
-                  style={{ background: "linear-gradient(135deg, rgba(59,130,246,0.05), rgba(124,58,237,0.05))", transition: "opacity 0.3s ease" }}
-                />
-                <div className="relative">
-                  <div
-                    className="inline-flex items-center justify-center rounded-xl mb-3"
-                    style={{
-                      width: 44,
-                      height: 44,
-                      background: `linear-gradient(135deg, ${feat.gradient.includes("yellow") ? "#eab308, #f97316" : feat.gradient.includes("orange") ? "#f97316, #ef4444" : feat.gradient.includes("cyan") ? "#06b6d4, #3b82f6" : "#ec4899, #a855f7"})`,
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-                    }}
-                  >
-                    <Icon className="size-5 text-white" />
-                  </div>
-                  <h3 className="text-white font-semibold text-sm mb-1">{feat.title}</h3>
-                  <p className="text-xs leading-relaxed" style={{ color: "#8888a0" }}>{feat.desc}</p>
+                <div className="mb-4 inline-flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-500 text-slate-950">
+                  <Icon className="size-5" />
                 </div>
-              </motion.div>
+                <h2 className="text-lg font-semibold text-white">{feature.title}</h2>
+                <p className="mt-2 text-sm leading-7 text-slate-300">{feature.desc}</p>
+              </article>
             );
           })}
         </div>
       </section>
 
-      {/* ─── TOOLS ─── */}
-      <section id="tools" className="section-lazy container mx-auto px-4 py-20">
-        <div className="text-center mb-10">
-          <h2
-            className="text-4xl font-bold mb-3"
-            style={{
-              background: "linear-gradient(90deg, #ffffff 0%, #94a3b8 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-            }}
-          >
-            {lang === "ru" ? "Все PDF инструменты в одном месте" : lang === "de" ? "Alle PDF-Werkzeuge an einem Ort" : lang === "fr" ? "Tous les outils PDF en un seul endroit" : lang === "es" ? "Todas las herramientas PDF en un solo lugar" : "All PDF tools in one place"}
-          </h2>
-          <p style={{ color: "#8888a0" }} className="text-base">
-            {lang === "ru" ? `${tools.length} инструментов · ${categories.length} категорий` : `${tools.length} tools · ${categories.length} categories`}
-          </p>
+      <section id="tools" className="section-lazy container mx-auto px-4 py-16 sm:px-6">
+        <div className="mb-10 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h2 className="text-3xl font-bold tracking-[-0.03em] text-white sm:text-4xl">
+              {lang === "ru" ? RU.allTitle : "All tools in one place"}
+            </h2>
+            <p className="mt-3 text-base text-slate-300">
+              {lang === "ru"
+                ? `${tools.length} ${categories.length} ${RU.allSub}`
+                : `${tools.length} tools and ${categories.length} categories with quick access.`}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            {categoryList.map((category) => (
+              <Link
+                key={category.id}
+                href={category.id === "all" ? "/" : `/?category=${category.id}`}
+                className={cn(
+                  "filter-pill rounded-full border px-4 py-2 text-sm font-medium transition-colors",
+                  activeCategory === category.id
+                    ? "border-blue-400/40 bg-blue-500/15 text-white"
+                    : "border-white/8 bg-slate-950/45 text-slate-300 hover:border-white/16 hover:text-white"
+                )}
+                data-testid={`filter-${category.id}`}
+              >
+                {category.label}
+              </Link>
+            ))}
+          </div>
         </div>
 
-        {/* Category pills */}
-        <div className="flex flex-wrap justify-center gap-3 mb-10">
-          {categoryList.map((cat) => (
-            <Link
-              key={cat.id}
-              href={cat.id === "all" ? "/" : `/?category=${cat.id}`}
-              className={cn(
-                "px-5 py-2 rounded-full text-sm font-medium",
-                activeCategory === cat.id
-                  ? "text-white shadow-lg"
-                  : "text-slate-300 border border-slate-700 hover:border-slate-500 hover:bg-slate-800/50 hover:text-white"
-              )}
-              style={{
-                transition: "all 0.25s cubic-bezier(.4,0,.2,1)",
-                ...(activeCategory === cat.id
-                  ? { background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)", boxShadow: "0 4px 16px rgba(99,102,241,0.4)", border: "1px solid rgba(124,58,237,0.7)" }
-                  : { background: "rgba(30,41,59,0.5)" }),
-              }}
-              data-testid={`filter-${cat.id}`}
-            >
-              {cat.label}
-            </Link>
-          ))}
-        </div>
-
-        {/* Tool grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
           {filteredTools.map((tool) => (
             <ToolCard key={tool.slug} tool={tool} />
           ))}
         </div>
       </section>
 
-      {/* ─── AI SECTION ─── */}
-      <section id="ai-section" className="section-lazy container mx-auto px-4 py-20">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="relative overflow-hidden rounded-3xl"
-          style={{
-            background: "linear-gradient(135deg, rgba(88,28,135,0.4) 0%, rgba(30,58,138,0.4) 50%, rgba(2,6,23,0.6) 100%)",
-            border: "1px solid rgba(168,85,247,0.3)",
-          }}
-        >
-          <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.1), rgba(59,130,246,0.1))" }} />
-          <div className="absolute inset-0" style={{ background: "radial-gradient(circle at 50% 120%, rgba(120,119,198,0.25), transparent 60%)" }} />
-
-          <div className="relative px-8 py-16 md:px-16 text-center">
-            <div
-              className="inline-flex items-center justify-center size-16 rounded-2xl mb-6 shadow-2xl"
-              style={{ background: "linear-gradient(135deg, #7c3aed, #2563eb)", boxShadow: "0 8px 32px rgba(124,58,237,0.6)" }}
-            >
-              <Sparkles className="size-8 text-white" />
+      <section id="ai-section" className="section-lazy container mx-auto px-4 pb-24 pt-4 sm:px-6">
+        <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(135deg,rgba(8,15,36,0.92),rgba(21,34,67,0.88),rgba(30,41,59,0.75))]">
+          <div className="grid gap-8 px-6 py-10 md:grid-cols-[1.1fr_0.9fr] md:px-10 md:py-14">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-fuchsia-400/20 bg-fuchsia-400/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-fuchsia-200">
+                <Sparkles className="size-3.5" />
+                AI
+              </div>
+              <h2 className="mt-5 text-3xl font-bold tracking-[-0.03em] text-white sm:text-4xl">
+                {lang === "ru" ? RU.aiTitle : "AI features for documents"}
+              </h2>
+              <p className="mt-4 max-w-2xl text-base leading-8 text-slate-300">
+                {lang === "ru" ? RU.aiDesc : "OCR, text extraction, and future AI workflows can grow without bloating startup: heavy modules only load where they are actually needed."}
+              </p>
             </div>
 
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              <span style={{ background: "linear-gradient(90deg, #ffffff, #e9d5ff)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
-                {lang === "ru" ? "Встроенный " : "Built-in "}
-              </span>
-              <span style={{ background: "linear-gradient(90deg, #c084fc, #60a5fa)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
-                {lang === "ru" ? "AI-ассистент" : "AI assistant"}
-              </span>
-              <br />
-              <span style={{ background: "linear-gradient(90deg, #ffffff, #bfdbfe)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
-                {lang === "ru" ? "для ваших документов" : "for your documents"}
-              </span>
-            </h2>
-
-            <p className="text-lg text-slate-300 max-w-2xl mx-auto mb-8 leading-relaxed">
-              {lang === "ru"
-                ? "AI для обработки, извлечения данных и анализа PDF документов."
-                : "AI for processing, data extraction and analysis of your PDF documents."}
-            </p>
-
-            <div className="flex flex-wrap justify-center gap-3 text-sm" style={{ color: "#8888a0" }}>
+            <div className="grid gap-3 sm:grid-cols-2">
               {[
-                lang === "ru" ? "Суммаризация" : "Summarization",
-                lang === "ru" ? "Чат с PDF" : "Chat with PDF",
-                lang === "ru" ? "Перевод" : "Translation",
-                lang === "ru" ? "OCR" : "OCR",
-              ].map((feat) => (
-                <div
-                  key={feat}
-                  className="flex items-center gap-2 rounded-full px-4 py-2 border"
-                  style={{ background: "rgba(15,23,42,0.5)", borderColor: "rgba(255,255,255,0.1)" }}
-                >
-                  <span
-                    className="w-1.5 h-1.5 rounded-full shrink-0"
-                    style={{ background: "linear-gradient(135deg, #c084fc, #60a5fa)" }}
-                  />
-                  {feat}
+                "OCR",
+                lang === "ru" ? RU.aiText : "Text extraction",
+                lang === "ru" ? RU.aiConvert : "PDF conversion",
+                lang === "ru" ? RU.aiNext : "Next step: chat with PDF",
+              ].map((item) => (
+                <div key={item} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-slate-200">
+                  {item}
                 </div>
               ))}
             </div>
-
-            <div className="mt-4 text-xs" style={{ color: "#55556a" }}>
-              <span
-                className="px-2 py-0.5 rounded font-semibold text-purple-400 tracking-wider"
-                style={{ background: "rgba(124,58,237,0.2)" }}
-              >
-                PRO
-              </span>
-              {" "}
-              {lang === "ru" ? "Доступно в Pro" : "Pro plan"}
-            </div>
           </div>
-        </motion.div>
-      </section>
-
-      {/* ─── CTA ─── */}
-      <section className="text-center px-4 py-20 relative">
-        <div
-          className="pointer-events-none absolute inset-x-0 bottom-0"
-          style={{ height: 400, background: "radial-gradient(ellipse at 50% 100%, rgba(99,102,241,0.1) 0%, transparent 70%)" }}
-        />
-        <div className="relative">
-          <h2
-            className="font-extrabold mb-4"
-            style={{
-              fontSize: "clamp(28px, 4vw, 44px)",
-              letterSpacing: "-0.03em",
-              background: "linear-gradient(90deg, #ffffff, #94a3b8)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-            }}
-          >
-            {t.cta.title}
-          </h2>
-          <p className="mb-8 text-base" style={{ color: "#8888a0" }}>{t.cta.sub}</p>
-          <Link
-            href="/#tools"
-            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl font-semibold text-white hover:opacity-90 hover:-translate-y-px"
-            style={{
-              background: "linear-gradient(135deg, #7c3aed 0%, #2563eb 100%)",
-              boxShadow: "0 8px 32px rgba(124,58,237,0.45)",
-              transition: "transform 0.2s ease, opacity 0.2s ease",
-            }}
-            data-testid="button-cta-tools"
-          >
-            {t.cta.btn} →
-          </Link>
         </div>
       </section>
     </div>

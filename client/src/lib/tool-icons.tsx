@@ -1,0 +1,58 @@
+import type { LucideIcon } from "lucide-react";
+import {
+  AlignLeft,
+  ArrowUpDown,
+  Camera,
+  Download,
+  Droplets,
+  FileCode,
+  FileEdit,
+  FileImage,
+  FileSpreadsheet,
+  FileText,
+  Hash,
+  Layers,
+  Lock,
+  Merge,
+  PenLine,
+  RotateCw,
+  ScanLine,
+  Scissors,
+  Shield,
+  Trash2,
+  Type,
+  Unlock,
+  Wrench,
+  Zap,
+} from "lucide-react";
+
+const TOOL_ICONS: Record<string, LucideIcon> = {
+  AlignLeft,
+  ArrowUpDown,
+  Camera,
+  Download,
+  Droplets,
+  FileCode,
+  FileEdit,
+  FileImage,
+  FileSpreadsheet,
+  FileText,
+  Hash,
+  Layers,
+  Lock,
+  Merge,
+  PenLine,
+  RotateCw,
+  ScanLine,
+  Scissors,
+  Shield,
+  Trash2,
+  Type,
+  Unlock,
+  Wrench,
+  Zap,
+};
+
+export function getToolIcon(name: string): LucideIcon {
+  return TOOL_ICONS[name] ?? FileText;
+}

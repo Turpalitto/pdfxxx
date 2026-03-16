@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { LANGUAGES } from "@/lib/i18n";
+import { LANGUAGES } from "@/lib/languages";
 
 const BASE_URL = "https://pdfx.tools";
 const LANG_CODES = LANGUAGES.map((l) => l.code);

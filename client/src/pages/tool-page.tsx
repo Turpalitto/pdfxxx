@@ -29,6 +29,7 @@ import { ProgressRing } from "@/components/progress-ring";
 import { ToolCard } from "@/components/tool-card";
 import { getToolBySlug, tools, categoryColors } from "@/lib/tools";
 import { getToolTranslation } from "@/lib/tool-translations";
+import { getToolIcon } from "@/lib/tool-icons";
 import { DEFAULT_MAX_FILE_SIZE_MB } from "@/lib/upload-limits";
 import {
   mergePdfs,
@@ -377,7 +378,7 @@ export default function ToolPage() {
   }
 
   const colors = categoryColors[tool.color] || categoryColors.blue;
-  const Icon = tool.icon;
+  const Icon = getToolIcon(tool.iconName);
   const relatedTools = tools
     .filter((t) => t.category === tool.category && t.slug !== slug)
     .slice(0, 4);

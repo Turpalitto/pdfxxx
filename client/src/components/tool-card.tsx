@@ -1,5 +1,7 @@
+import { memo } from "react";
 import { Link } from "wouter";
 import { type Tool, categoryColors } from "@/lib/tools";
+import { getToolIcon } from "@/lib/tool-icons";
 import { getToolTranslation } from "@/lib/tool-translations";
 import { useLang } from "@/lib/lang-context";
 
@@ -7,21 +9,19 @@ interface ToolCardProps {
   tool: Tool;
 }
 
-export function ToolCard({ tool }: ToolCardProps) {
+export const ToolCard = memo(function ToolCard({ tool }: ToolCardProps) {
   const { lang } = useLang();
   const colors = categoryColors[tool.color] || categoryColors.blue;
   const { name, description } = getToolTranslation(tool.slug, lang);
-  const Icon = tool.icon;
+  const Icon = getToolIcon(tool.iconName);
 
   return (
     <Link href={`/tools/${tool.slug}`}>
       <div
-        className="tool-card group relative overflow-hidden rounded-2xl p-6 cursor-pointer h-full hover:-translate-y-[3px]"
+        className="tool-card motion-surface group relative h-full cursor-pointer overflow-hidden rounded-2xl p-6"
         style={{
           background: "linear-gradient(135deg, rgba(15,23,42,0.7) 0%, rgba(30,41,59,0.4) 100%)",
           border: "1px solid rgba(255,255,255,0.08)",
-          backdropFilter: "blur(8px)",
-          transition: "transform 0.25s cubic-bezier(.4,0,.2,1), box-shadow 0.25s cubic-bezier(.4,0,.2,1), border-color 0.25s ease",
         }}
         data-testid={`card-tool-${tool.slug}`}
       >
@@ -29,22 +29,23 @@ export function ToolCard({ tool }: ToolCardProps) {
         <div
           className="absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none"
           style={{
-            background: "linear-gradient(135deg, rgba(59,130,246,0.06), rgba(124,58,237,0.06))",
-            transition: "opacity 0.3s ease",
+            background: "linear-gradient(135deg, rgba(59,130,246,0.08), rgba(124,58,237,0.08))",
           }}
         />
+        <div
+          className="pointer-events-none absolute inset-x-[-10%] top-0 h-24 translate-y-[-120%] rotate-[-8deg] bg-white/10 opacity-0 blur-3xl transition-all duration-700 ease-out group-hover:translate-y-[-25%] group-hover:opacity-100"
+        />
 
-        <div className="relative">
+        <div className="tool-card-copy relative">
           {/* Icon box */}
           <div className="relative inline-block mb-4">
             <div
-              className="flex items-center justify-center rounded-xl"
+              className="tool-card-icon flex items-center justify-center rounded-xl"
               style={{
                 width: 48,
                 height: 48,
                 background: `linear-gradient(135deg, ${colors.from} 0%, ${colors.to} 100%)`,
                 boxShadow: `0 4px 16px ${colors.glow}`,
-                transition: "transform 0.2s cubic-bezier(.4,0,.2,1)",
               }}
             >
               <Icon className="size-6 text-white" />
@@ -70,4 +71,4 @@ export function ToolCard({ tool }: ToolCardProps) {
       </div>
     </Link>
   );
-}
+});
