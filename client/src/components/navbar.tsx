@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X, FileText, ChevronDown, Globe, Sparkles } from "lucide-react";
+import { Menu, X, FileText, ChevronDown, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLang } from "@/lib/lang-context";
 import { LANGUAGES, type LangCode } from "@/lib/i18n";
 import { categories, getCategoryLabel } from "@/lib/tools";
 import { cn } from "@/lib/utils";
+import { loadContactPage, loadHomePage, loadPricingPage } from "@/lib/route-preload";
 
 export function Navbar() {
   const { lang, setLang, t } = useLang();
@@ -15,13 +16,14 @@ export function Navbar() {
   const [location] = useLocation();
   const langRef = useRef<HTMLDivElement>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
+  const isHome = location === "/" || location === "";
+  const isPricing = (location as string) === "/pricing";
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (langRef.current && !langRef.current.contains(e.target as Node)) setLangOpen(false);
       if (toolsRef.current && !toolsRef.current.contains(e.target as Node)) setToolsOpen(false);
     }
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
@@ -29,37 +31,40 @@ export function Navbar() {
   const currentLang = LANGUAGES.find((item) => item.code === lang) || LANGUAGES[0];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-slate-950/80 backdrop-blur-xl">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6">
+    <header
+      className={cn(
+        "sticky top-0 z-50 w-full border-b transition-colors",
+        isHome
+          ? "bg-white/90 backdrop-blur-md border-gray-200"
+          : "bg-slate-950/80 backdrop-blur-xl border-white/10"
+      )}
+    >
+      <div className="max-w-7xl mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+        {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 shrink-0 group">
           <div
-            className="relative flex size-9 items-center justify-center rounded-xl shadow-lg transition-shadow group-hover:shadow-blue-500/60"
-            style={{ background: "linear-gradient(135deg, #3b82f6 0%, #7c3aed 100%)", boxShadow: "0 4px 14px rgba(99,102,241,0.5)" }}
+            className="relative flex size-10 items-center justify-center rounded-xl shadow-lg transition-shadow group-hover:shadow-blue-500/40"
+            style={{ background: "linear-gradient(135deg, #0ea5e9 0%, #14b8a6 100%)", boxShadow: "0 4px 14px rgba(14,165,233,0.35)" }}
           >
-            <FileText className="size-5 text-white" />
-            <div className="absolute -top-1 -right-1 flex size-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full size-3 bg-emerald-500" />
-            </div>
+            <FileText className="size-6 text-white" />
           </div>
           <span
-            className="text-lg font-bold"
-            style={{
-              background: "linear-gradient(90deg, #ffffff 0%, #bfdbfe 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-            }}
+            className={cn("text-xl font-bold", isHome ? "text-gray-900" : "text-white")}
           >
-            PDF<span style={{ color: "#60a5fa", WebkitTextFillColor: "#60a5fa" }}>X</span>
+            PDF<span className="text-sky-600">X</span>
           </span>
         </Link>
 
+        {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-1">
           <div ref={toolsRef} className="relative">
             <button
-              className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
-              data-testid="nav-tools"
+              className={cn(
+                "flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-sm transition-colors",
+                isHome
+                  ? "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  : "text-slate-300 hover:text-white hover:bg-white/5"
+              )}
               onClick={() => setToolsOpen((open) => !open)}
             >
               {t.nav.tools}
@@ -67,21 +72,26 @@ export function Navbar() {
             </button>
             {toolsOpen && (
               <div
-                className="absolute top-full left-0 mt-2 w-56 rounded-xl z-50 overflow-hidden"
-                style={{
-                  background: "rgba(2,6,23,0.97)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  boxShadow: "0 20px 60px rgba(0,0,0,0.7)",
-                }}
+                className={cn(
+                  "absolute top-full left-0 mt-2 w-56 rounded-xl z-50 overflow-hidden shadow-xl",
+                  isHome ? "bg-white border border-gray-200" : "border border-white/10"
+                )}
+                style={!isHome ? { background: "rgba(2,6,23,0.97)", boxShadow: "0 20px 60px rgba(0,0,0,0.7)" } : undefined}
               >
                 <div className="p-1.5">
                   {categories.map((cat) => (
                     <Link
                       key={cat.id}
                       href={`/?category=${cat.id}`}
-                      className="flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg text-slate-300 hover:text-white hover:bg-white/6 transition-colors"
+                      onMouseEnter={() => void loadHomePage()}
+                      onFocus={() => void loadHomePage()}
+                      className={cn(
+                        "flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors",
+                        isHome
+                          ? "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                          : "text-slate-300 hover:text-white hover:bg-white/6"
+                      )}
                       onClick={() => setToolsOpen(false)}
-                      data-testid={`nav-category-${cat.id}`}
                     >
                       {getCategoryLabel(cat.id, lang)}
                     </Link>
@@ -93,26 +103,32 @@ export function Navbar() {
 
           <Link
             href="/pricing"
+            onMouseEnter={() => void loadPricingPage()}
+            onFocus={() => void loadPricingPage()}
             className={cn(
               "px-3.5 py-1.5 rounded-lg text-sm transition-colors",
-              location === "/pricing"
-                ? "text-white bg-white/6 font-medium"
-                : "text-slate-300 hover:text-white hover:bg-white/5"
+              isHome
+                ? "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                : (isPricing ? "text-white bg-white/6 font-medium" : "text-slate-300 hover:text-white hover:bg-white/5")
             )}
-            data-testid="nav-pricing"
           >
             {t.nav.pricing}
           </Link>
-
         </nav>
 
+        {/* Right side */}
         <div className="flex items-center gap-2">
+          {/* Language selector */}
           <div ref={langRef} className="relative">
             <button
               onClick={() => setLangOpen((open) => !open)}
-              className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
+              className={cn(
+                "hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm transition-colors",
+                isHome
+                  ? "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  : "text-slate-300 hover:text-white hover:bg-white/5"
+              )}
               aria-label="Change language"
-              data-testid="button-lang-toggle"
             >
               <Globe className="w-4 h-4" />
               <span className="text-sm font-medium">{currentLang.nativeName}</span>
@@ -120,12 +136,11 @@ export function Navbar() {
             </button>
             {langOpen && (
               <div
-                className="absolute top-full right-0 mt-2 w-52 max-h-72 overflow-y-auto rounded-xl z-50"
-                style={{
-                  background: "rgba(2,6,23,0.97)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  boxShadow: "0 20px 60px rgba(0,0,0,0.7)",
-                }}
+                className={cn(
+                  "absolute top-full right-0 mt-2 w-52 max-h-72 overflow-y-auto rounded-xl z-50 shadow-xl",
+                  isHome ? "bg-white border border-gray-200" : "border border-white/10"
+                )}
+                style={!isHome ? { background: "rgba(2,6,23,0.97)", boxShadow: "0 20px 60px rgba(0,0,0,0.7)" } : undefined}
               >
                 <div className="p-1.5">
                   {LANGUAGES.map((item) => (
@@ -133,16 +148,12 @@ export function Navbar() {
                       key={item.code}
                       className={cn(
                         "w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg text-left transition-colors",
-                        lang === item.code
-                          ? "text-white font-medium"
-                          : "text-slate-300 hover:text-white hover:bg-white/6"
+                        isHome
+                          ? (lang === item.code ? "text-gray-900 font-medium bg-blue-50" : "text-gray-600 hover:text-gray-900 hover:bg-gray-50")
+                          : (lang === item.code ? "text-white font-medium" : "text-slate-300 hover:text-white hover:bg-white/6")
                       )}
-                      style={lang === item.code ? { background: "rgba(99,102,241,0.2)" } : undefined}
-                      onClick={() => {
-                        setLang(item.code as LangCode);
-                        setLangOpen(false);
-                      }}
-                      data-testid={`lang-option-${item.code}`}
+                      style={(!isHome && lang === item.code) ? { background: "rgba(99,102,241,0.2)" } : undefined}
+                      onClick={() => { setLang(item.code as LangCode); setLangOpen(false); }}
                     >
                       <span className="text-base leading-none">{item.flag}</span>
                       <span>{item.nativeName}</span>
@@ -153,45 +164,56 @@ export function Navbar() {
             )}
           </div>
 
+          {/* CTA button */}
           <Button
-            className="hidden sm:inline-flex items-center gap-1.5 text-white text-sm font-semibold"
-            style={{
-              background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
-              boxShadow: "0 4px 16px rgba(99,102,241,0.4)",
-            }}
-            data-testid="button-get-pro"
+            className={cn(
+              "hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold",
+              isHome
+                ? "bg-gradient-to-r from-sky-600 to-teal-500 hover:from-sky-700 hover:to-teal-600 text-white border-0"
+                : "text-white"
+            )}
+            style={!isHome ? { background: "linear-gradient(135deg, #0ea5e9 0%, #14b8a6 100%)", boxShadow: "0 4px 16px rgba(20,184,166,0.28)" } : undefined}
             asChild
           >
-            <Link href="/contact">
-              <Sparkles className="w-3.5 h-3.5" />
+            <Link
+              href="/contact"
+              onMouseEnter={() => void loadContactPage()}
+              onFocus={() => void loadContactPage()}
+            >
               {lang === "ru" ? "Связаться" : "Contact"}
             </Link>
           </Button>
 
+          {/* Mobile menu toggle */}
           <Button
             size="icon"
             variant="ghost"
-            className="md:hidden text-slate-300 hover:text-white"
+            className={cn("md:hidden", isHome ? "text-gray-600 hover:text-gray-900" : "text-slate-300 hover:text-white")}
             onClick={() => setMenuOpen((open) => !open)}
             aria-label="Toggle menu"
-            data-testid="button-mobile-menu"
           >
             {menuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
           </Button>
         </div>
       </div>
 
+      {/* Mobile menu */}
       {menuOpen && (
         <div
-          className="md:hidden px-4 py-3"
-          style={{ background: "rgba(2,6,23,0.97)", borderTop: "1px solid rgba(255,255,255,0.07)" }}
+          className={cn("md:hidden px-4 py-3 border-t", isHome ? "bg-white border-gray-200" : "border-white/7")}
+          style={!isHome ? { background: "rgba(2,6,23,0.97)" } : undefined}
         >
           <nav className="flex flex-col gap-0.5">
             {categories.map((cat) => (
               <Link
                 key={cat.id}
                 href={`/?category=${cat.id}`}
-                className="px-3 py-2 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
+                onMouseEnter={() => void loadHomePage()}
+                onFocus={() => void loadHomePage()}
+                className={cn(
+                  "px-3 py-2 rounded-lg text-sm transition-colors",
+                  isHome ? "text-gray-600 hover:text-gray-900 hover:bg-gray-100" : "text-slate-300 hover:text-white hover:bg-white/5"
+                )}
                 onClick={() => setMenuOpen(false)}
               >
                 {getCategoryLabel(cat.id, lang)}
@@ -199,20 +221,30 @@ export function Navbar() {
             ))}
             <Link
               href="/pricing"
-              className="px-3 py-2 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
+              onMouseEnter={() => void loadPricingPage()}
+              onFocus={() => void loadPricingPage()}
+              className={cn(
+                "px-3 py-2 rounded-lg text-sm transition-colors",
+                isHome ? "text-gray-600 hover:text-gray-900 hover:bg-gray-100" : "text-slate-300 hover:text-white hover:bg-white/5"
+              )}
               onClick={() => setMenuOpen(false)}
             >
               {t.nav.pricing}
             </Link>
             <Link
               href="/contact"
-              className="px-3 py-2 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
+              onMouseEnter={() => void loadContactPage()}
+              onFocus={() => void loadContactPage()}
+              className={cn(
+                "px-3 py-2 rounded-lg text-sm transition-colors",
+                isHome ? "text-gray-600 hover:text-gray-900 hover:bg-gray-100" : "text-slate-300 hover:text-white hover:bg-white/5"
+              )}
               onClick={() => setMenuOpen(false)}
             >
               {lang === "ru" ? "Контакт" : "Contact"}
             </Link>
-            <div className="border-t mt-2 pt-2" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
-              <p className="px-3 py-1 text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">
+            <div className={cn("border-t mt-2 pt-2", isHome ? "border-gray-200" : "border-white/7")}>
+              <p className={cn("px-3 py-1 text-xs font-medium uppercase tracking-wider mb-1", isHome ? "text-gray-400" : "text-slate-400")}>
                 {lang === "ru" ? "Язык" : "Language"}
               </p>
               <div className="grid grid-cols-2 gap-0.5">
@@ -221,13 +253,12 @@ export function Navbar() {
                     key={item.code}
                     className={cn(
                       "flex items-center gap-2 px-3 py-2 text-xs rounded-lg text-left transition-colors",
-                      lang === item.code ? "text-white font-medium" : "text-slate-300 hover:text-white hover:bg-white/5"
+                      isHome
+                        ? (lang === item.code ? "text-blue-600 font-medium" : "text-gray-600 hover:text-gray-900 hover:bg-gray-100")
+                        : (lang === item.code ? "text-white font-medium" : "text-slate-300 hover:text-white hover:bg-white/5")
                     )}
-                    style={lang === item.code ? { background: "rgba(99,102,241,0.2)" } : undefined}
-                    onClick={() => {
-                      setLang(item.code as LangCode);
-                      setMenuOpen(false);
-                    }}
+                    style={(!isHome && lang === item.code) ? { background: "rgba(99,102,241,0.2)" } : undefined}
+                    onClick={() => { setLang(item.code as LangCode); setMenuOpen(false); }}
                   >
                     <span>{item.flag}</span>
                     <span>{item.nativeName}</span>

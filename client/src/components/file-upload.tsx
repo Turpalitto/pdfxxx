@@ -2,8 +2,9 @@ import { useCallback, useState, useRef } from "react";
 import { Upload, File, X, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { formatBytes } from "@/lib/pdf-utils";
+import { formatBytes, looksLikePdfFile } from "@/lib/pdf-utils";
 import { DEFAULT_MAX_FILE_SIZE_MB, mbToBytes } from "@/lib/upload-limits";
+import { useLang } from "@/lib/lang-context";
 
 interface FileUploadProps {
   accept?: string;
@@ -12,6 +13,7 @@ interface FileUploadProps {
   onFiles: (files: File[]) => void;
   files?: File[];
   onRemoveFile?: (index: number) => void;
+  onValidationError?: (message: string | null) => void;
   label?: string;
   description?: string;
 }
@@ -23,11 +25,13 @@ export function FileUpload({
   onFiles,
   files = [],
   onRemoveFile,
+  onValidationError,
   label = "Drop your PDF here",
   description,
 }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { lang } = useLang();
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -40,19 +44,58 @@ export function FileUpload({
   }, []);
 
   const processFiles = useCallback(
-    (newFiles: FileList | null) => {
+    async (newFiles: FileList | null) => {
       if (!newFiles) return;
-      const arr = Array.from(newFiles).filter((f) => {
-        const acceptTypes = accept.split(",").map((a) => a.trim());
-        const matches = acceptTypes.some((a) => {
+      const acceptedExtensions = accept.split(",").map((a) => a.trim().toLowerCase());
+      const expectsPdf = acceptedExtensions.some((value) => value.includes("pdf"));
+      const acceptedFiles: File[] = [];
+      const rejectedMessages: string[] = [];
+
+      for (const f of Array.from(newFiles)) {
+        const matches = acceptedExtensions.some((a) => {
           if (a.startsWith(".")) return f.name.toLowerCase().endsWith(a);
           return f.type.startsWith(a.replace("*", ""));
         });
-        return matches && f.size <= mbToBytes(maxSizeMb);
-      });
-      onFiles(arr);
+
+        if (!matches) {
+          rejectedMessages.push(
+            lang === "ru"
+              ? `${f.name}: неподдерживаемый формат файла.`
+              : `${f.name}: unsupported file format.`
+          );
+          continue;
+        }
+
+        if (f.size > mbToBytes(maxSizeMb)) {
+          rejectedMessages.push(
+            lang === "ru"
+              ? `${f.name}: файл больше ${maxSizeMb}MB.`
+              : `${f.name}: file is larger than ${maxSizeMb}MB.`
+          );
+          continue;
+        }
+
+        if (expectsPdf && f.name.toLowerCase().endsWith(".pdf")) {
+          const isPdf = await looksLikePdfFile(f);
+          if (!isPdf) {
+            rejectedMessages.push(
+              lang === "ru"
+                ? `${f.name}: файл не выглядит как корректный PDF.`
+                : `${f.name}: file does not look like a valid PDF.`
+            );
+            continue;
+          }
+        }
+
+        acceptedFiles.push(f);
+      }
+
+      if (acceptedFiles.length > 0) {
+        onFiles(acceptedFiles);
+      }
+      onValidationError?.(rejectedMessages.length > 0 ? rejectedMessages.join(" ") : null);
     },
-    [accept, maxSizeMb, onFiles]
+    [accept, lang, maxSizeMb, onFiles, onValidationError]
   );
 
   const handleDrop = useCallback(

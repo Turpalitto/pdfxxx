@@ -86,6 +86,27 @@ function toUint8Array(data: ArrayBuffer | Uint8Array | number[] | null | undefin
   return new Uint8Array(data);
 }
 
+function bytesContainPdfHeader(bytes: Uint8Array): boolean {
+  const limit = Math.min(bytes.length, 1024);
+  for (let i = 0; i <= limit - 5; i++) {
+    if (
+      bytes[i] === 0x25 &&
+      bytes[i + 1] === 0x50 &&
+      bytes[i + 2] === 0x44 &&
+      bytes[i + 3] === 0x46 &&
+      bytes[i + 4] === 0x2d
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export async function looksLikePdfFile(file: File): Promise<boolean> {
+  const head = new Uint8Array(await file.slice(0, 1024).arrayBuffer());
+  return bytesContainPdfHeader(head);
+}
+
 function escapeXml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -337,7 +358,8 @@ export async function addWatermark(
   file: File,
   text: string,
   opacity: number = 0.3,
-  rotation: number = 45
+  rotation: number = 45,
+  position: "center" | "top-left" | "top-right" | "bottom-left" | "bottom-right" | "tile" = "center"
 ): Promise<Uint8Array> {
   const bytes = await file.arrayBuffer();
   const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
@@ -348,15 +370,43 @@ export async function addWatermark(
   pages.forEach((page) => {
     const { width, height } = page.getSize();
     const fontSize = Math.min(width, height) / 10;
-    page.drawText(text, {
-      x: width / 2 - (text.length * fontSize) / 4,
-      y: height / 2,
-      size: fontSize,
-      font,
-      color: rgb(0.5, 0.5, 0.5),
-      opacity,
-      rotate: degrees(rotation),
-    });
+    const textWidth = font.widthOfTextAtSize(text, fontSize);
+    const drawAt = (x: number, y: number) => {
+      page.drawText(text, {
+        x,
+        y,
+        size: fontSize,
+        font,
+        color: rgb(0.5, 0.5, 0.5),
+        opacity,
+        rotate: degrees(position === "center" ? rotation : 0),
+      });
+    };
+    if (position === "center") {
+      drawAt(width / 2 - (text.length * fontSize) / 4, height / 2);
+    } else if (position === "top-left") {
+      drawAt(50, height - 60);
+    } else if (position === "top-right") {
+      drawAt(width - textWidth - 50, height - 60);
+    } else if (position === "bottom-left") {
+      drawAt(50, 50);
+    } else if (position === "bottom-right") {
+      drawAt(width - textWidth - 50, 50);
+    } else if (position === "tile") {
+      for (let y = 80; y < height; y += 150) {
+        for (let x = 30; x < width; x += 180) {
+          page.drawText(text, {
+            x,
+            y,
+            size: fontSize,
+            font,
+            color: rgb(0.5, 0.5, 0.5),
+            opacity,
+            rotate: degrees(rotation),
+          });
+        }
+      }
+    }
   });
   return pdf.save();
 }
@@ -364,7 +414,8 @@ export async function addWatermark(
 export async function addPageNumbers(
   file: File,
   position: "bottom-center" | "bottom-right" | "bottom-left" | "top-center" = "bottom-center",
-  startFrom: number = 1
+  startFrom: number = 1,
+  format: "number" | "x-of-y" = "number"
 ): Promise<Uint8Array> {
   const bytes = await file.arrayBuffer();
   const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
@@ -372,7 +423,9 @@ export async function addPageNumbers(
   const pages = pdf.getPages();
   pages.forEach((page, i) => {
     const { width, height } = page.getSize();
-    const text = `${i + startFrom}`;
+    const text = format === "x-of-y"
+      ? `${i + startFrom} / ${pages.length + startFrom - 1}`
+      : `${i + startFrom}`;
     const fontSize = 10;
     const textWidth = font.widthOfTextAtSize(text, fontSize);
     let x: number, y: number;
