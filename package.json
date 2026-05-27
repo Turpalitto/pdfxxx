@@ -8,6 +8,7 @@
     "build": "tsx script/build.ts",
     "start": "cross-env NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
+    "test:e2e": "playwright test",
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
@@ -50,7 +51,7 @@
     "connect-pg-simple": "^10.0.0",
     "cross-env": "^10.1.0",
     "date-fns": "^3.6.0",
-    "drizzle-orm": "^0.39.3",
+    "drizzle-orm": "^0.45.2",
     "drizzle-zod": "^0.7.0",
     "embla-carousel-react": "^8.6.0",
     "express": "^5.0.1",
@@ -91,6 +92,7 @@
     "@replit/vite-plugin-dev-banner": "^0.1.1",
     "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
     "@tailwindcss/typography": "^0.5.15",
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/vite": "^4.1.18",
     "@types/connect-pg-simple": "^7.0.3",
     "@types/express": "^5.0.0",

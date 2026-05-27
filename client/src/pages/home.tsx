@@ -145,60 +145,58 @@ export default function Home() {
 
   return (
     <>
-      <section className="relative overflow-hidden bg-gradient-to-br from-sky-600 via-cyan-600 to-blue-700">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.16),transparent_34%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(15,23,42,0.02)_0%,rgba(15,23,42,0.18)_60%,rgba(15,23,42,0.32)_100%)]" />
-        <div className="absolute left-1/2 top-0 h-[30rem] w-[30rem] -translate-x-1/2 rounded-full bg-white/10 blur-3xl" />
-
-        <div className="relative mx-auto max-w-7xl px-4 pb-24 pt-12 sm:px-6 sm:pb-28 sm:pt-14 lg:px-8 lg:pb-32 lg:pt-16">
-          <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1.08fr)_minmax(340px,420px)] lg:gap-10">
+      <section className="relative overflow-hidden">
+        <div className="relative mx-auto max-w-7xl px-4 pb-10 pt-8 sm:px-6 sm:pb-12 sm:pt-10 lg:px-8">
+          <div className="grid items-stretch gap-6 lg:grid-cols-[1.15fr_0.85fr]">
             <motion.div
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55 }}
-              className="max-w-2xl text-center lg:text-left"
+              className="premium-surface premium-grid flex min-h-[520px] flex-col justify-between rounded-[34px] p-7 text-center sm:p-9 lg:text-left"
             >
-              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-4 py-2 text-sm text-white/95 backdrop-blur-sm">
-                <Sparkles className="h-4 w-4" />
-                <span>{lang === "ru" ? "Все инструменты для работы с PDF" : "All tools for working with PDF"}</span>
+              <div>
+                <div className="premium-kicker mb-5 inline-flex items-center gap-2 rounded-full border border-border bg-white/45 px-4 py-2 text-xs font-semibold text-primary shadow-sm backdrop-blur-sm">
+                  <Sparkles className="h-4 w-4" />
+                  <span>{lang === "ru" ? "Редакторский стиль · тихая премиальность" : "Editorial style · quiet premium"}</span>
+                </div>
+
+                <h1 className="paper-title text-5xl font-bold leading-[0.96] text-foreground sm:text-6xl lg:text-[5.4rem]">
+                  {lang === "ru" ? "PDF-сервис с ощущением" : "PDF tools with a"}
+                  <br />
+                  <span className="text-primary">{lang === "ru" ? "дорогой бумажной среды." : "premium paper feel."}</span>
+                </h1>
+
+                <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-muted-foreground sm:text-lg lg:mx-0">
+                  {lang === "ru"
+                    ? "Спокойная палитра, мягкий off-white, деликатные зелёные акценты и карточки как листы плотной дизайнерской бумаги. PDFX не кричит, а внушает доверие."
+                    : "A calm palette, soft off-white surfaces, delicate green accents, and cards that feel like dense design paper. PDFX stays quiet and trustworthy."}
+                </p>
+
+                <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row lg:justify-start">
+                  <Link
+                    href="/#tools"
+                    className="inline-flex h-12 items-center gap-2 rounded-full bg-[#234138] px-7 text-[15px] font-semibold text-[#f7f3ea] shadow-[0_12px_30px_rgba(35,65,56,0.22)] transition-transform hover:-translate-y-0.5 hover:bg-[#31584f]"
+                  >
+                    <Upload className="h-5 w-5" />
+                    {lang === "ru" ? "Все инструменты" : "All tools"}
+                  </Link>
+                  <Link
+                    href="/tools/merge-pdf"
+                    onMouseEnter={() => preloadToolRoute("merge-pdf")}
+                    onFocus={() => preloadToolRoute("merge-pdf")}
+                    className="inline-flex h-12 items-center gap-2 rounded-full border border-border bg-white/55 px-7 text-[15px] font-semibold text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-white/75"
+                  >
+                    {lang === "ru" ? "Смотреть сценарий" : "View workflow"}
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
               </div>
 
-              <h1 className="text-4xl font-bold leading-[0.98] tracking-tight text-white sm:text-5xl lg:text-6xl">
-                {lang === "ru" ? "Все инструменты" : "All PDF tools"}
-                <br />
-                <span className="text-cyan-100">{lang === "ru" ? "для PDF онлайн" : "for working online"}</span>
-              </h1>
-
-              <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-cyan-50/90 sm:text-xl lg:mx-0">
-                {lang === "ru"
-                  ? "Конвертируйте, редактируйте, объединяйте и сжимайте PDF файлы онлайн. Начните с нужного инструмента прямо на первом экране."
-                  : "Convert, edit, merge, and compress PDF files online. Start with the tool you need right from the first screen."}
-              </p>
-
-              <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row lg:justify-start">
-                <Link
-                  href="/#tools"
-                  className="inline-flex h-11 items-center gap-2 rounded-xl bg-white px-7 text-[15px] font-semibold text-sky-700 shadow-lg shadow-sky-900/20 transition-transform hover:-translate-y-0.5"
-                >
-                  <Upload className="h-5 w-5" />
-                  {lang === "ru" ? "Все инструменты" : "All tools"}
-                </Link>
-                <Link
-                  href="/tools/merge-pdf"
-                  onMouseEnter={() => preloadToolRoute("merge-pdf")}
-                  onFocus={() => preloadToolRoute("merge-pdf")}
-                  className="inline-flex h-11 items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-7 text-[15px] font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/15"
-                >
-                  {lang === "ru" ? "Объединить PDF" : "Merge PDF"}
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </div>
-
-              <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-white/90 lg:justify-start">
+              <div className="mt-8 grid gap-3 sm:grid-cols-3">
                 {stats.map((stat) => (
-                  <div key={stat} className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-emerald-300" />
-                    <span>{stat}</span>
+                  <div key={stat} className="rounded-[22px] border border-border bg-white/45 px-4 py-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+                    <strong className="paper-title block text-2xl font-bold text-foreground">{stat.split(" ")[0]}</strong>
+                    <span className="mt-1 block text-sm leading-5 text-muted-foreground">{stat.replace(stat.split(" ")[0], "").trim() || stat}</span>
                   </div>
                 ))}
               </div>
@@ -208,22 +206,22 @@ export default function Home() {
               initial={{ opacity: 0, y: 20, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.6, delay: 0.08 }}
-              className="relative mx-auto w-full max-w-[420px]"
+              className="premium-surface relative mx-auto flex min-h-[520px] w-full items-center justify-center rounded-[34px] p-6"
             >
-              <div className="absolute -right-5 top-8 hidden rounded-2xl border border-white/20 bg-white/14 px-4 py-3 text-white/90 shadow-2xl shadow-sky-900/20 backdrop-blur-md sm:block">
+              <div className="absolute right-8 top-8 hidden rounded-full border border-border bg-white/45 px-4 py-3 text-foreground shadow-sm backdrop-blur-md sm:block">
                 <div className="flex items-center gap-2 text-sm font-medium">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+                  <CheckCircle2 className="h-4 w-4 text-teal-500" />
                   {lang === "ru" ? "Быстрый старт без лишних шагов" : "Start instantly without extra steps"}
                 </div>
               </div>
 
-              <div className="absolute -left-5 bottom-8 hidden rounded-2xl border border-white/20 bg-slate-950/25 px-4 py-3 text-white shadow-2xl shadow-sky-950/20 backdrop-blur-md sm:block">
+              <div className="absolute -left-3 bottom-10 hidden rounded-full border border-border bg-white/50 px-4 py-3 text-foreground shadow-sm backdrop-blur-md sm:block">
                 <div className="flex items-center gap-3">
-                  <div className="rounded-xl bg-white/12 p-2">
-                    <Wand2 className="h-4 w-4 text-cyan-200" />
+                  <div className="rounded-full bg-[#cfdacb] p-2">
+                    <Wand2 className="h-4 w-4 text-primary" />
                   </div>
                   <div>
-                    <div className="text-xs uppercase tracking-[0.18em] text-white/60">
+                    <div className="premium-kicker text-xs text-muted-foreground">
                       {lang === "ru" ? "Популярно" : "Popular"}
                     </div>
                     <div className="text-sm font-semibold">{lang === "ru" ? "PDF в Word и JPG" : "PDF to Word and JPG"}</div>
@@ -231,31 +229,31 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="overflow-hidden rounded-[2rem] border border-white/20 bg-white/12 p-4 shadow-[0_30px_90px_rgba(15,23,42,0.28)] backdrop-blur-xl">
-                <div className="rounded-[1.5rem] bg-slate-950/18 p-4">
-                  <div className="flex items-center justify-between rounded-2xl border border-white/12 bg-white/10 px-4 py-3 text-white">
+              <div className="relative z-[1] w-full max-w-[470px] rotate-[-2deg] rounded-[30px] border border-border bg-[#efe8db] p-3 shadow-[0_18px_50px_rgba(54,47,35,0.08)]">
+                <div className="rotate-[2deg] rounded-[28px] border border-border bg-[linear-gradient(180deg,rgba(249,246,239,0.96),rgba(237,231,220,0.94))] p-5 shadow-[0_18px_50px_rgba(54,47,35,0.08)]">
+                  <div className="flex items-center justify-between rounded-[20px] border border-border bg-white/45 px-4 py-3 text-foreground">
                     <div>
-                      <p className="text-xs uppercase tracking-[0.2em] text-white/60">
+                      <p className="premium-kicker text-xs text-muted-foreground">
                         {lang === "ru" ? "Рабочая панель" : "Workspace"}
                       </p>
-                      <p className="mt-1 text-lg font-semibold">PDFX Toolkit</p>
+                      <p className="paper-title mt-1 text-lg font-semibold">PDFX Toolkit</p>
                     </div>
-                    <div className="rounded-xl bg-white/12 p-3">
-                      <Layers3 className="h-5 w-5 text-cyan-100" />
+                    <div className="rounded-[14px] bg-[#cfdacb] p-3">
+                      <Layers3 className="h-5 w-5 text-primary" />
                     </div>
                   </div>
 
-                  <div className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
+                  <div className="mt-4 rounded-[22px] border border-border bg-white/55 p-4 shadow-sm">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        <p className="premium-kicker text-xs font-semibold text-muted-foreground">
                           {lang === "ru" ? "Популярные действия" : "Quick actions"}
                         </p>
-                        <p className="mt-1 text-sm text-slate-500">
+                        <p className="mt-1 text-sm text-muted-foreground">
                           {lang === "ru" ? "Запустите нужный инструмент в один клик" : "Launch the right tool in one click"}
                         </p>
                       </div>
-                      <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
+                      <span className="rounded-full bg-[#e5ecdf] px-3 py-1 text-xs font-semibold text-primary">
                         {lang === "ru" ? "Онлайн" : "Online"}
                       </span>
                     </div>
@@ -269,7 +267,7 @@ export default function Home() {
                         return (
                           <div
                             key={tool.slug}
-                            className="rounded-2xl border border-slate-200 bg-slate-50 p-3 transition-transform hover:-translate-y-0.5"
+                            className="rounded-[18px] border border-border bg-[#f7f3ea] p-3 transition-transform hover:-translate-y-0.5"
                           >
                             <div
                               className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl"
@@ -280,7 +278,7 @@ export default function Home() {
                             >
                               <Icon className="h-5 w-5 text-white" />
                             </div>
-                            <div className="text-sm font-semibold leading-5 text-slate-900">{name}</div>
+                            <div className="text-sm font-semibold leading-5 text-foreground">{name}</div>
                           </div>
                         );
                       })}
@@ -288,28 +286,28 @@ export default function Home() {
                   </div>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-[1.15fr_0.85fr]">
-                    <div className="rounded-2xl border border-white/15 bg-white/10 p-4 text-white">
-                      <div className="text-xs uppercase tracking-[0.18em] text-white/60">
+                    <div className="rounded-[20px] border border-border bg-white/45 p-4 text-foreground">
+                      <div className="premium-kicker text-xs text-muted-foreground">
                         {lang === "ru" ? "Почему удобно" : "Why it works"}
                       </div>
-                      <div className="mt-3 space-y-2 text-sm text-white/90">
+                      <div className="mt-3 space-y-2 text-sm text-muted-foreground">
                         <div className="flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+                          <CheckCircle2 className="h-4 w-4 text-teal-500" />
                           <span>{lang === "ru" ? "Понятный каталог инструментов" : "Clear tools catalog"}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+                          <CheckCircle2 className="h-4 w-4 text-teal-500" />
                           <span>{lang === "ru" ? "Быстрые действия без лишних экранов" : "Quick start without extra screens"}</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-cyan-200/15 bg-slate-950/28 p-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-                      <div className="text-xs uppercase tracking-[0.18em] text-white/60">
+                    <div className="rounded-[20px] border border-border bg-white/45 p-4 text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
+                      <div className="premium-kicker text-xs text-muted-foreground">
                         {lang === "ru" ? "За 1 минуту" : "In 1 minute"}
                       </div>
-                      <div className="mt-3 text-4xl font-bold leading-none text-cyan-50">4+</div>
-                      <div className="mt-2 text-sm font-medium leading-6 text-white/80">
+                      <div className="paper-title mt-3 text-4xl font-bold leading-none text-foreground">4+</div>
+                      <div className="mt-2 text-sm font-medium leading-6 text-muted-foreground">
                         {lang === "ru" ? "готовых сценария на стартовом экране" : "ready actions above the fold"}
                       </div>
                     </div>
@@ -321,25 +319,25 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="tools" className="relative z-10 -mt-24 bg-slate-50 pb-16 pt-8 sm:-mt-28 sm:pb-20 sm:pt-10">
-        <div className="mx-auto max-w-7xl rounded-[2rem] border border-slate-200/80 bg-white px-4 py-10 shadow-[0_20px_60px_rgba(15,23,42,0.08)] sm:px-6 sm:py-12 lg:px-8">
+      <section id="tools" className="relative z-10 pb-14 pt-6 sm:pb-16">
+        <div className="premium-surface mx-auto max-w-7xl rounded-[34px] px-5 py-10 sm:px-7 sm:py-12 lg:px-8">
           {recentTools.length > 0 && (
-            <div className="mb-10 rounded-[1.75rem] border border-sky-100 bg-sky-50/70 p-5 sm:p-6">
+            <div className="pdfx-panel-muted mb-10 rounded-xl p-5 sm:p-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.18em] text-sky-700">
+                  <p className="premium-kicker text-xs font-semibold text-primary">
                     {lang === "ru" ? "Продолжить работу" : "Continue working"}
                   </p>
-                  <h2 className="mt-2 text-2xl font-bold text-slate-900">
+                  <h2 className="paper-title mt-2 text-3xl font-bold text-foreground">
                     {lang === "ru" ? "Недавние инструменты" : "Recent tools"}
                   </h2>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
                     {lang === "ru"
                       ? "PDFX запоминает только последние инструменты в вашем браузере, чтобы вы возвращались к нужному сценарию без лишних шагов."
                       : "PDFX remembers only your recent tools in the browser so you can return to the right flow without extra steps."}
                   </p>
                 </div>
-                <Link href="/privacy" className="inline-flex items-center gap-1 text-sm font-medium text-sky-700 transition-colors hover:text-sky-800">
+                <Link href="/privacy" className="inline-flex items-center gap-1 text-sm font-medium text-primary transition-colors hover:text-foreground">
                   {lang === "ru" ? "Как это хранится" : "How this is stored"}
                   <ArrowUpRight className="h-4 w-4" />
                 </Link>
@@ -360,13 +358,13 @@ export default function Home() {
             transition={{ duration: 0.45 }}
             className="mb-10 text-center sm:mb-12"
           >
-            <p className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-sky-700">
+            <p className="premium-kicker mb-3 text-xs font-semibold text-primary">
               {lang === "ru" ? "Каталог PDF-инструментов" : "PDF toolkit"}
             </p>
-            <h2 className="text-3xl font-bold text-slate-900 sm:text-4xl">
+            <h2 className="paper-title mx-auto max-w-4xl text-4xl font-bold leading-[1.02] text-foreground sm:text-5xl lg:text-6xl">
               {lang === "ru" ? "Выберите инструмент" : "Choose your tool"}
             </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
+            <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
               {lang === "ru"
                 ? "Полный набор инструментов для работы с PDF документами. Выберите нужный инструмент и начните работу."
                 : "A complete set of tools for working with PDF documents. Choose the tool you need and get started."}
@@ -383,8 +381,8 @@ export default function Home() {
                 className={cn(
                   "rounded-full border px-4 py-2 text-sm font-medium transition-all duration-200",
                   activeCategory === cat.id
-                    ? "border-sky-600 bg-sky-600 text-white shadow-sm"
-                    : "border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:text-sky-700"
+                    ? "border-[#234138] bg-[#234138] text-[#f7f3ea] shadow-[0_12px_30px_rgba(35,65,56,0.18)] dark:border-slate-100 dark:bg-slate-100 dark:text-slate-950"
+                    : "border-border bg-white/45 text-muted-foreground hover:border-primary/40 hover:bg-white/65 hover:text-primary"
                 )}
               >
                 {cat.label}
@@ -392,7 +390,7 @@ export default function Home() {
             ))}
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {filteredTools.map((tool, index) => (
               <motion.div
                 key={tool.slug}
@@ -408,9 +406,9 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="bg-slate-50 pb-16 sm:pb-20">
+      <section className="pb-16 sm:pb-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="rounded-[2rem] bg-slate-950 px-6 py-10 text-white shadow-[0_24px_80px_rgba(15,23,42,0.24)] sm:px-8 sm:py-12">
+          <div className="premium-dark-surface rounded-[34px] px-6 py-10 text-foreground dark:text-white sm:px-8 sm:py-12">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -419,14 +417,14 @@ export default function Home() {
               className="mb-10 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
             >
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-300">
+                <p className="premium-kicker text-xs font-semibold text-primary dark:text-cyan-300">
                   {lang === "ru" ? "Workflow-режим" : "Workflow mode"}
                 </p>
-                <h2 className="mt-3 text-3xl font-bold sm:text-4xl">
+                <h2 className="paper-title mt-3 text-4xl font-bold leading-[1.04] sm:text-5xl">
                   {lang === "ru" ? "Не просто инструменты, а готовые сценарии" : "Not just tools, but ready-made workflows"}
                 </h2>
               </div>
-              <p className="max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
+              <p className="max-w-2xl text-sm leading-7 text-muted-foreground dark:text-slate-300 sm:text-base">
                 {lang === "ru"
                   ? "PDFX начинает играть не в каталог ссылок, а в реальные пользовательские задачи: подготовить договор, обработать скан, извлечь контент и вернуть финальный PDF."
                   : "PDFX stops behaving like a tool directory and starts solving real jobs: prepare a contract, clean up a scan, extract content, and ship the final PDF."}
@@ -441,19 +439,19 @@ export default function Home() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.35, delay: index * 0.06 }}
-                  className={`rounded-[1.75rem] border border-white/10 bg-gradient-to-br ${workflow.accentClass} p-5`}
+                  className={`rounded-[22px] border border-border bg-white/40 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] dark:border-white/10 dark:bg-gradient-to-br ${workflow.accentClass}`}
                 >
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200/90">
+                  <p className="premium-kicker text-xs font-semibold text-primary dark:text-cyan-200/90">
                     {lang === "ru" ? "Готовый сценарий" : "Ready workflow"}
                   </p>
-                  <h3 className="mt-3 text-xl font-semibold text-white">{workflow.title}</h3>
-                  <p className="mt-3 text-sm leading-6 text-slate-200">{workflow.description}</p>
+                  <h3 className="paper-title mt-3 text-2xl font-semibold text-foreground dark:text-white">{workflow.title}</h3>
+                  <p className="mt-3 text-sm leading-6 text-muted-foreground dark:text-slate-200">{workflow.description}</p>
 
                   <div className="mt-4 flex flex-wrap gap-2">
                     {workflow.tools.map((tool, toolIndex) => (
                       <span
                         key={tool.slug}
-                        className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-xs font-medium text-slate-100"
+                        className="rounded-full border border-border bg-white/45 px-3 py-1 text-xs font-medium text-muted-foreground dark:border-white/10 dark:bg-white/8 dark:text-slate-100"
                       >
                         {toolIndex + 1}. {getToolTranslation(tool.slug, lang).name}
                       </span>
@@ -464,7 +462,7 @@ export default function Home() {
                     href={`/tools/${workflow.tools[0].slug}`}
                     onMouseEnter={() => preloadToolRoute(workflow.tools[0].slug)}
                     onFocus={() => preloadToolRoute(workflow.tools[0].slug)}
-                    className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-cyan-200 transition-colors hover:text-white"
+                    className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-primary transition-colors hover:text-foreground dark:text-cyan-200 dark:hover:text-white"
                   >
                     {lang === "ru" ? "Открыть первый шаг" : "Open first step"}
                     <ArrowRight className="h-4 w-4" />
@@ -481,13 +479,13 @@ export default function Home() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.35, delay: 0.18 + index * 0.05 }}
-                  className="rounded-[1.5rem] border border-white/10 bg-white/5 p-5"
+                  className="rounded-[22px] border border-border bg-white/40 p-5 dark:border-white/10 dark:bg-white/5"
                 >
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10">
-                    <signal.icon className="h-5 w-5 text-cyan-200" />
+                  <div className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-[#cfdacb] dark:bg-white/10">
+                    <signal.icon className="h-5 w-5 text-primary dark:text-cyan-200" />
                   </div>
-                  <h3 className="mt-4 text-lg font-semibold text-white">{signal.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-300">{signal.description}</p>
+                  <h3 className="paper-title mt-4 text-xl font-semibold text-foreground dark:text-white">{signal.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground dark:text-slate-300">{signal.description}</p>
                 </motion.div>
               ))}
             </div>
@@ -495,7 +493,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="bg-white py-16 sm:py-20">
+      <section className="py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -504,13 +502,13 @@ export default function Home() {
             transition={{ duration: 0.45 }}
             className="mb-12 text-center"
           >
-            <p className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-sky-700">
+            <p className="premium-kicker mb-3 text-xs font-semibold text-primary">
               {lang === "ru" ? "Преимущества" : "Why PDFX"}
             </p>
-            <h2 className="text-3xl font-bold text-slate-900 sm:text-4xl">
+            <h2 className="paper-title text-4xl font-bold text-foreground sm:text-5xl">
               {lang === "ru" ? "Почему выбирают нас" : "Why choose us"}
             </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
+            <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
               {lang === "ru"
                 ? "PDFX сфокусирован на скорости, приватности и понятных сценариях без лишних экранов."
                 : "PDFX is built around speed, privacy, and clear flows without extra screens."}
@@ -525,13 +523,13 @@ export default function Home() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: index * 0.08 }}
-                className="rounded-3xl border border-slate-200 bg-slate-50 px-6 py-8 text-center"
+                className="pdfx-panel rounded-[26px] px-6 py-8 text-center"
               >
-                <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-sky-100">
-                  <feature.icon className="h-8 w-8 text-sky-700" />
+                <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-[16px] bg-[#cfdacb]">
+                  <feature.icon className="h-7 w-7 text-teal-700" />
                 </div>
-                <h3 className="text-lg font-semibold text-slate-900">{feature.title}</h3>
-                <p className="mt-3 text-sm leading-6 text-slate-600">{feature.description}</p>
+                <h3 className="paper-title text-xl font-semibold text-foreground">{feature.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-muted-foreground">{feature.description}</p>
               </motion.div>
             ))}
           </div>

@@ -9,41 +9,41 @@
   --opaque-button-border-intensity: -8;
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
-  --background: 220 14% 98%;
-  --foreground: 222 47% 11%;
-  --border: 220 13% 91%;
-  --card: 220 14% 96%;
-  --card-foreground: 222 47% 11%;
-  --card-border: 220 13% 93%;
+  --background: 43 30% 91%;
+  --foreground: 160 17% 16%;
+  --border: 100 11% 76%;
+  --card: 42 36% 94%;
+  --card-foreground: 160 17% 16%;
+  --card-border: 100 11% 78%;
   --sidebar: 220 13% 94%;
   --sidebar-foreground: 222 47% 11%;
   --sidebar-border: 220 13% 90%;
-  --sidebar-primary: 217 91% 60%;
+  --sidebar-primary: 160 64% 25%;
   --sidebar-primary-foreground: 210 40% 98%;
   --sidebar-accent: 220 14% 88%;
   --sidebar-accent-foreground: 222 47% 11%;
-  --sidebar-ring: 217 91% 60%;
-  --popover: 220 14% 92%;
-  --popover-foreground: 222 47% 11%;
-  --popover-border: 220 13% 88%;
-  --primary: 217 91% 60%;
-  --primary-foreground: 210 40% 98%;
-  --secondary: 220 13% 86%;
-  --secondary-foreground: 222 47% 11%;
-  --muted: 220 13% 88%;
-  --muted-foreground: 215 16% 47%;
-  --accent: 220 13% 90%;
-  --accent-foreground: 222 47% 11%;
+  --sidebar-ring: 160 64% 25%;
+  --popover: 42 36% 94%;
+  --popover-foreground: 160 17% 16%;
+  --popover-border: 100 11% 78%;
+  --primary: 169 25% 29%;
+  --primary-foreground: 42 36% 94%;
+  --secondary: 42 25% 86%;
+  --secondary-foreground: 160 17% 16%;
+  --muted: 42 22% 88%;
+  --muted-foreground: 164 7% 39%;
+  --accent: 105 19% 82%;
+  --accent-foreground: 160 17% 16%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 210 40% 98%;
-  --input: 217 20% 65%;
-  --ring: 217 91% 60%;
-  --chart-1: 217 91% 45%;
-  --chart-2: 271 81% 56%;
-  --chart-3: 197 71% 42%;
-  --chart-4: 43 74% 49%;
-  --chart-5: 27 87% 56%;
-  --font-sans: Inter, sans-serif;
+  --input: 150 16% 68%;
+  --ring: 160 64% 25%;
+  --chart-1: 160 64% 25%;
+  --chart-2: 190 65% 42%;
+  --chart-3: 43 74% 49%;
+  --chart-4: 345 72% 58%;
+  --chart-5: 222 47% 32%;
+  --font-sans: "Noto Sans", sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
   --radius: .5rem;
@@ -57,6 +57,24 @@
   --shadow-2xl: 0px 2px 0px 0px hsl(220 13% 91% / 0.25);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
+  --pdfx-page-bg:
+    radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.55), transparent 22%),
+    radial-gradient(circle at 80% 0%, rgba(217, 229, 215, 0.50), transparent 24%),
+    linear-gradient(180deg, #f1ede3 0%, #ebe6d8 100%);
+  --pdfx-nav-bg: rgba(247, 243, 234, 0.82);
+  --pdfx-nav-border: rgba(58, 71, 62, 0.12);
+  --pdfx-panel: linear-gradient(180deg, rgba(247, 243, 234, 0.94) 0%, rgba(241, 236, 227, 0.96) 100%);
+  --pdfx-panel-strong: linear-gradient(180deg, rgba(248, 245, 238, 0.96) 0%, rgba(238, 232, 219, 0.98) 100%);
+  --pdfx-panel-muted: rgba(255, 255, 255, 0.40);
+  --pdfx-panel-border: rgba(59, 70, 63, 0.12);
+  --pdfx-soft-ink: rgb(55, 91, 84);
+  --pdfx-subtle-ink: rgb(93, 106, 102);
+  --pdfx-shadow: 0 18px 50px rgba(54, 47, 35, 0.08);
+  --pdfx-shadow-lg: 0 28px 80px rgba(54, 47, 35, 0.12);
+  --pdfx-inner-line: rgba(74, 83, 77, 0.06);
+  --pdfx-editor-bg: #e8e2d5;
+  --pdfx-editor-rail: rgba(247, 243, 234, 0.86);
+  --pdfx-editor-toolbar: rgba(247, 243, 234, 0.94);
 
 /* Fallback for older browsers */
   --sidebar-primary-border: hsl(var(--sidebar-primary));
@@ -135,6 +153,22 @@
   --shadow-lg: 0px 2px 0px 0px hsl(230 40% 5% / 0.1), 0px 4px 6px -1px hsl(230 40% 5% / 0.3);
   --shadow-xl: 0px 2px 0px 0px hsl(230 40% 5% / 0.1), 0px 8px 10px -1px hsl(230 40% 5% / 0.35);
   --shadow-2xl: 0px 2px 0px 0px hsl(230 40% 5% / 0.4);
+  --pdfx-page-bg:
+    radial-gradient(circle at 14% 8%, rgba(45, 212, 191, 0.10), transparent 28rem),
+    radial-gradient(circle at 88% 0%, rgba(56, 189, 248, 0.08), transparent 26rem),
+    linear-gradient(180deg, #12141b 0%, #10131a 48%, #0f1218 100%);
+  --pdfx-nav-bg: rgba(18, 20, 27, 0.88);
+  --pdfx-nav-border: rgba(226, 232, 240, 0.10);
+  --pdfx-panel: rgba(25, 29, 39, 0.76);
+  --pdfx-panel-strong: rgba(27, 31, 42, 0.92);
+  --pdfx-panel-muted: rgba(33, 38, 50, 0.62);
+  --pdfx-panel-border: rgba(226, 232, 240, 0.10);
+  --pdfx-soft-ink: rgb(203, 213, 225);
+  --pdfx-subtle-ink: rgb(148, 163, 184);
+  --pdfx-shadow: 0 24px 70px rgba(0, 0, 0, 0.30);
+  --pdfx-editor-bg: #151922;
+  --pdfx-editor-rail: rgba(20, 24, 33, 0.92);
+  --pdfx-editor-toolbar: rgba(19, 23, 32, 0.96);
 
 /* Fallback for older browsers */
   --sidebar-primary-border: hsl(var(--sidebar-primary));
@@ -179,6 +213,23 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    text-rendering: geometricPrecision;
+    background: var(--pdfx-page-bg);
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.24;
+    background-image:
+      radial-gradient(rgba(44, 54, 48, 0.06) 0.7px, transparent 0.7px),
+      radial-gradient(rgba(44, 54, 48, 0.03) 0.9px, transparent 0.9px);
+    background-position: 0 0, 22px 24px;
+    background-size: 26px 26px, 31px 31px;
+    mix-blend-mode: multiply;
   }
 
   ::-webkit-scrollbar {
@@ -199,6 +250,139 @@
   ::selection {
     background: hsl(var(--primary) / 0.25);
     color: hsl(var(--foreground));
+  }
+
+  :focus-visible {
+    outline: 2px solid rgba(14, 165, 233, 0.72);
+    outline-offset: 3px;
+  }
+}
+
+@layer components {
+  .premium-surface {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--pdfx-panel-border);
+    background: var(--pdfx-panel);
+    box-shadow: var(--pdfx-shadow);
+    backdrop-filter: blur(18px);
+  }
+
+  .premium-surface::before,
+  .pdfx-panel::before,
+  .pdfx-panel-strong::before,
+  .paper-tool-card::before {
+    content: "";
+    position: absolute;
+    inset: 10px;
+    border: 1px solid var(--pdfx-inner-line);
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  .premium-dark-surface {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--pdfx-panel-border);
+    background:
+      radial-gradient(circle at top left, rgba(208, 221, 208, 0.55), transparent 28%),
+      var(--pdfx-panel-strong);
+    box-shadow: var(--pdfx-shadow);
+  }
+
+  .dark .premium-dark-surface {
+    border: 1px solid rgba(226, 232, 240, 0.12);
+    background:
+      radial-gradient(circle at 18% 0%, rgba(20, 184, 166, 0.24), transparent 24rem),
+      radial-gradient(circle at 84% 14%, rgba(14, 165, 233, 0.20), transparent 22rem),
+      linear-gradient(135deg, #111827 0%, #172033 48%, #10151f 100%);
+    box-shadow: 0 28px 90px rgba(15, 23, 42, 0.26);
+  }
+
+  .pdfx-page {
+    background: var(--pdfx-page-bg);
+  }
+
+  .pdfx-panel {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--pdfx-panel-border);
+    background: var(--pdfx-panel);
+    box-shadow: var(--pdfx-shadow);
+    backdrop-filter: blur(18px);
+  }
+
+  .pdfx-panel-strong {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--pdfx-panel-border);
+    background: var(--pdfx-panel-strong);
+    box-shadow: var(--pdfx-shadow);
+    backdrop-filter: blur(18px);
+  }
+
+  .pdfx-panel-muted {
+    border: 1px solid var(--pdfx-panel-border);
+    background: var(--pdfx-panel-muted);
+  }
+
+  .pdfx-soft-text {
+    color: var(--pdfx-soft-ink);
+  }
+
+  .pdfx-subtle-text {
+    color: var(--pdfx-subtle-ink);
+  }
+
+  .pdfx-editor-rail {
+    background: var(--pdfx-editor-rail);
+    border-color: var(--pdfx-panel-border);
+  }
+
+  .pdfx-editor-toolbar {
+    background: var(--pdfx-editor-toolbar);
+    border-color: var(--pdfx-panel-border);
+  }
+
+  .premium-grid {
+    background-image:
+      linear-gradient(rgba(44, 54, 48, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(44, 54, 48, 0.035) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
+  .premium-kicker {
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .paper-title {
+    font-family: Georgia, Cambria, "Times New Roman", serif;
+    letter-spacing: 0;
+  }
+
+  .paper-tool-card {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--pdfx-panel-border);
+    background: linear-gradient(180deg, rgba(248, 245, 238, 0.96), rgba(240, 235, 226, 0.95));
+    box-shadow: 0 8px 20px rgba(54, 47, 35, 0.06);
+  }
+
+  .paper-tool-card:hover {
+    border-color: rgba(55, 91, 84, 0.18);
+    box-shadow: var(--pdfx-shadow);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }
 

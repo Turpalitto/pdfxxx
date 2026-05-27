@@ -427,13 +427,13 @@ export default function ToolPage() {
   if (!isLaunchReady) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="w-full max-w-2xl rounded-3xl border border-white/10 bg-slate-950/60 p-8 md:p-10">
-          <div className="inline-flex items-center gap-2 rounded-full bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-300 mb-4">
+        <div className="pdfx-panel-strong w-full max-w-2xl rounded-3xl p-8 md:p-10">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-500">
             <Lock className="size-3.5" />
             {lang === "ru" ? "Ещё не запущено" : "Not launched yet"}
           </div>
-          <h1 className="text-3xl font-bold text-white mb-3">{toolTr?.name ?? tool.name}</h1>
-          <p className="text-slate-400 leading-7 mb-6">
+          <h1 className="mb-3 text-3xl font-bold text-foreground">{toolTr?.name ?? tool.name}</h1>
+          <p className="mb-6 leading-7 text-muted-foreground">
             {lang === "ru"
               ? "Эта функция остаётся в roadmap и не продаётся как уже доступная. Если вам нужен ранний доступ или вы хотите повлиять на приоритет, используйте страницу контактов."
               : "This feature is still on the roadmap and is not being sold as already available. If you need early access or want to influence its priority, use the contact page."}
@@ -503,7 +503,7 @@ export default function ToolPage() {
               </div>
             </div>
 
-            <div className="rounded-md border border-border bg-card p-5 space-y-5">
+            <div className="pdfx-panel-strong space-y-5 rounded-xl p-5">
               <FileUpload
                 accept={tool.accept}
                 multiple={tool.multiple}
@@ -646,7 +646,7 @@ export default function ToolPage() {
                   style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)" }}
                 >
                   <span className="mt-0.5 text-emerald-400">✓</span>
-                  <span className="text-slate-300">
+                  <span className="text-muted-foreground">
                     {lang === "ru"
                       ? "Оптимизирует структуру PDF. Если новый файл больше оригинала, возвращается оригинал."
                       : "Optimises PDF structure with object streams. If the result is larger than the original, the original is returned unchanged."}
@@ -749,7 +749,7 @@ export default function ToolPage() {
                     style={{ background: "rgba(14,165,233,0.08)", border: "1px solid rgba(14,165,233,0.25)" }}
                   >
                     <span className="mt-0.5 text-sky-400">ℹ</span>
-                    <span className="text-slate-300">
+                    <span className="text-muted-foreground">
                       {slug === "protect-pdf"
                         ? (lang === "ru"
                             ? "Результат будет сохранён как AES-256 protected PDF и откроется только после ввода этого пароля."
@@ -818,7 +818,7 @@ export default function ToolPage() {
                     style={{ background: "rgba(236,72,153,0.08)", border: "1px solid rgba(236,72,153,0.22)" }}
                   >
                     <span className="mt-0.5 text-pink-400">ℹ</span>
-                    <span className="text-slate-300">
+                    <span className="text-muted-foreground">
                       {lang === "ru"
                         ? "OCR создаёт новый searchable PDF. Для длинных документов обработка может занять больше времени."
                         : "OCR creates a new searchable PDF. Long documents can take more time to process."}
@@ -974,7 +974,7 @@ export default function ToolPage() {
               </div>
             </div>
 
-            <div className="rounded-md border border-border/50 bg-muted/20 p-5">
+            <div className="pdfx-panel-muted rounded-xl p-5">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
                   <CheckCircle className="w-3 h-3 text-emerald-400" />
@@ -992,7 +992,7 @@ export default function ToolPage() {
               <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">
                 {t.tool.howToUse}
               </h3>
-              <div className="rounded-md border border-card-border bg-card p-4 space-y-4">
+              <div className="pdfx-panel space-y-4 rounded-xl p-4">
                 {[
                   { step: 1, text: t.tool.step1 },
                   { step: 2, text: t.tool.step2 },
@@ -1083,7 +1083,7 @@ export default function ToolPage() {
               </div>
             )}
 
-            <div className="rounded-md border border-primary/20 bg-gradient-to-br from-primary/5 to-violet-500/5 p-5">
+            <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 to-teal-500/10 p-5">
               <div className="flex items-center gap-2 mb-2">
                 <Lock className="w-4 h-4 text-primary" />
                 <span className="text-sm font-semibold">{t.tool.goPro}</span>

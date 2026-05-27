@@ -5,17 +5,19 @@ type Theme = "dark" | "light";
 interface ThemeContextType {
   theme: Theme;
   toggleTheme: () => void;
+  setTheme: (theme: Theme) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: "dark",
+  theme: "light",
   toggleTheme: () => {},
+  setTheme: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
     const stored = localStorage.getItem("pdfx-theme");
-    return (stored as Theme) || "dark";
+    return stored === "dark" || stored === "light" ? stored : "light";
   });
 
   useEffect(() => {
@@ -30,7 +32,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );

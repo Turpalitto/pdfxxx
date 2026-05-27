@@ -1,16 +1,15 @@
 import { Suspense, lazy, useEffect } from "react";
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/lib/theme";
 import { LangProvider } from "@/lib/lang-context";
-import Home from "@/pages/home";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
-import { AnimatedBackground } from "@/components/animated-background";
 import {
+  loadHomePage,
   loadContactPage,
   loadEditPdfPage,
   loadNotFoundPage,
@@ -21,6 +20,7 @@ import {
   warmPrimaryRoutes,
 } from "@/lib/route-preload";
 
+const Home = lazy(loadHomePage);
 const ToolPage = lazy(loadToolPage);
 const EditPdfPage = lazy(loadEditPdfPage);
 const Pricing = lazy(loadPricingPage);
@@ -39,7 +39,7 @@ function Router() {
     <Suspense
       fallback={
         <div className="mx-auto flex min-h-[50vh] w-full max-w-6xl items-center justify-center px-6">
-          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/55 px-5 py-3 text-sm text-slate-200 backdrop-blur-md">
+          <div className="pdfx-panel flex items-center gap-3 rounded-2xl px-5 py-3 text-sm text-muted-foreground">
             <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-cyan-300" />
             Preparing PDFX...
           </div>
@@ -61,9 +61,6 @@ function Router() {
 }
 
 function ThemedLayout() {
-  const [location] = useLocation();
-  const isHome = location === "/" || location === "";
-
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -84,15 +81,7 @@ function ThemedLayout() {
   }, []);
 
   return (
-    <div
-      className="min-h-screen flex flex-col text-foreground relative"
-      style={{
-        background: isHome
-          ? "#ffffff"
-          : "linear-gradient(135deg, #020617 0%, #0a0f2e 35%, #020617 65%, #0a0f2e 100%)",
-      }}
-    >
-      {!isHome && <AnimatedBackground />}
+    <div className="pdfx-page min-h-screen flex flex-col text-foreground relative">
       <div className="relative z-10 flex flex-col min-h-screen">
         <Navbar />
         <main className="flex-1">

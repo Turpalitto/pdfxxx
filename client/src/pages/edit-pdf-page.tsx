@@ -2579,7 +2579,7 @@ export default function EditPdfPage() {
     return (
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         <div className="flex items-center gap-3 mb-6">
-            <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white gap-1" onClick={goBack}>
+            <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground hover:text-foreground" onClick={goBack}>
               <ArrowLeft className="size-4" />
               {isRu ? "Все инструменты" : "All tools"}
             </Button>
@@ -2588,8 +2588,8 @@ export default function EditPdfPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
             <div className="mb-6">
-              <h1 className="text-3xl font-bold text-white mb-2">{t.title}</h1>
-              <p className="text-slate-400">
+              <h1 className="mb-2 text-3xl font-bold text-foreground">{t.title}</h1>
+              <p className="text-muted-foreground">
                 {isRu
                   ? "Добавляйте текст, рисунки, подписи и фигуры прямо в браузере. Файл не отправляется на сервер."
                   : "Add text, drawings, signatures and shapes directly in the browser. File never leaves your device."}
@@ -2598,18 +2598,17 @@ export default function EditPdfPage() {
 
             {loadingState === "loading" ? (
               <div
-                className="rounded-2xl p-12 text-center"
-                style={{ background: "rgba(15,23,42,0.7)", border: "1px solid rgba(255,255,255,0.1)" }}
+                className="pdfx-panel rounded-2xl p-12 text-center"
               >
                 <Loader2 className="size-10 text-blue-400 mx-auto mb-4 animate-spin" />
-                <p className="text-white font-medium mb-2">{isRu ? "Загрузка PDF…" : "Loading PDF…"}</p>
+                <p className="mb-2 font-medium text-foreground">{isRu ? "Загрузка PDF…" : "Loading PDF…"}</p>
                 <div className="w-full max-w-xs mx-auto rounded-full h-2 bg-slate-700 overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300"
                     style={{ width: `${loadProgress}%` }}
                   />
                 </div>
-                <p className="text-slate-400 text-sm mt-2">{loadProgress}%</p>
+                <p className="mt-2 text-sm text-muted-foreground">{loadProgress}%</p>
               </div>
             ) : (
               <div
@@ -2617,9 +2616,9 @@ export default function EditPdfPage() {
                   "rounded-2xl border-2 border-dashed transition-colors duration-200 cursor-pointer",
                   isDragging
                     ? "border-blue-500 bg-blue-500/10"
-                    : "border-white/15 hover:border-white/30"
+                    : "border-border hover:border-primary/40"
                 )}
-                style={{ background: isDragging ? undefined : "rgba(15,23,42,0.7)" }}
+                style={isDragging ? undefined : { background: "var(--pdfx-panel)" }}
                 onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                 onDragLeave={() => setIsDragging(false)}
                 onDrop={handleDrop}
@@ -2633,15 +2632,15 @@ export default function EditPdfPage() {
                   >
                     <Upload className="size-8 text-white" />
                   </div>
-                  <p className="text-white font-medium mb-1">{t.upload}</p>
+                  <p className="mb-1 font-medium text-foreground">{t.upload}</p>
                   <button
                     type="button"
                     onClick={openPdfPicker}
-                    className="text-blue-400 hover:text-blue-300 font-semibold transition-colors"
+                    className="font-semibold text-primary transition-colors hover:text-primary/80"
                   >
                     {t.choose}
                   </button>
-                  <p className="text-slate-500 text-sm mt-2">{t.limit} · PDF</p>
+                  <p className="mt-2 text-sm text-muted-foreground">{t.limit} · PDF</p>
                   {error && <p className="text-red-400 text-sm mt-3 font-medium">{error}</p>}
                 </div>
               </div>
@@ -2658,10 +2657,9 @@ export default function EditPdfPage() {
 
           <div>
             <div
-              className="rounded-2xl p-5"
-              style={{ background: "rgba(15,23,42,0.7)", border: "1px solid rgba(255,255,255,0.08)" }}
+              className="pdfx-panel rounded-2xl p-5"
             >
-              <h3 className="text-white font-semibold mb-4">{t.howToUse}</h3>
+              <h3 className="mb-4 font-semibold text-foreground">{t.howToUse}</h3>
               <ol className="space-y-3">
                 {t.steps.map((step, i) => (
                   <li key={i} className="flex items-start gap-3">
@@ -2671,13 +2669,13 @@ export default function EditPdfPage() {
                     >
                       {i + 1}
                     </span>
-                    <span className="text-slate-300 text-sm">{step}</span>
+                    <span className="text-sm text-muted-foreground">{step}</span>
                   </li>
                 ))}
               </ol>
 
-              <div className="mt-6 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-                <p className="text-slate-500 text-xs mb-3">{isRu ? "Похожие инструменты" : "Related tools"}</p>
+              <div className="mt-6 border-t border-border pt-4">
+                <p className="mb-3 text-xs text-muted-foreground">{isRu ? "Похожие инструменты" : "Related tools"}</p>
                 <div className="flex flex-col gap-2">
                   {[
                     { slug: "sign-pdf", label: isRu ? "Подписать PDF" : "Sign PDF" },
@@ -2685,7 +2683,7 @@ export default function EditPdfPage() {
                     { slug: "protect-pdf", label: isRu ? "Защитить PDF" : "Protect PDF" },
                   ].map(({ slug, label }) => (
                     <Link key={slug} href={`/tools/${slug}`}>
-                      <div className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm group">
+                      <div className="group flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
                         <ArrowRight className="size-3 group-hover:translate-x-0.5 transition-transform" />
                         {label}
                       </div>
@@ -2710,10 +2708,10 @@ export default function EditPdfPage() {
         {/* Left sidebar: thumbnails */}
         <div
           className="w-44 flex-shrink-0 flex flex-col overflow-y-auto"
-          style={{ background: "rgba(2,6,23,0.9)", borderRight: "1px solid rgba(255,255,255,0.08)" }}
+          style={{ background: "var(--pdfx-editor-rail)", borderRight: "1px solid var(--pdfx-panel-border)" }}
         >
-          <div className="p-2 text-xs font-medium text-slate-400 sticky top-0 z-10 py-3 px-3"
-            style={{ background: "rgba(2,6,23,0.95)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <div className="sticky top-0 z-10 p-2 px-3 py-3 text-xs font-medium text-muted-foreground"
+            style={{ background: "var(--pdfx-editor-toolbar)", borderBottom: "1px solid var(--pdfx-panel-border)" }}>
             {pageCount} {isRu ? "страниц" : "pages"}
           </div>
           <div className="flex flex-col gap-2 p-2">
@@ -2741,7 +2739,7 @@ export default function EditPdfPage() {
           {/* Toolbar */}
           <div
             className="flex items-center gap-1 px-3 py-2 flex-wrap"
-            style={{ background: "rgba(2,6,23,0.95)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}
+            style={{ background: "var(--pdfx-editor-toolbar)", borderBottom: "1px solid var(--pdfx-panel-border)" }}
           >
             <button
               onClick={goBack}
@@ -3078,7 +3076,7 @@ export default function EditPdfPage() {
           </div>
 
           {/* Canvas area */}
-          <div className="flex-1 overflow-auto" style={{ background: "#1a1f2e" }}>
+          <div className="flex-1 overflow-auto" style={{ background: "var(--pdfx-editor-bg)" }}>
             <div className="flex items-start justify-center min-h-full p-6">
               <div
                 className="relative shadow-2xl"

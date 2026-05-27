@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X, FileText, ChevronDown, Globe } from "lucide-react";
+import { Menu, X, FileText, ChevronDown, Globe, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLang } from "@/lib/lang-context";
+import { useTheme } from "@/lib/theme";
 import { LANGUAGES, type LangCode } from "@/lib/i18n";
 import { categories, getCategoryLabel } from "@/lib/tools";
 import { cn } from "@/lib/utils";
@@ -10,14 +11,15 @@ import { loadContactPage, loadHomePage, loadPricingPage } from "@/lib/route-prel
 
 export function Navbar() {
   const { lang, setLang, t } = useLang();
+  const { theme, toggleTheme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [location] = useLocation();
   const langRef = useRef<HTMLDivElement>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
-  const isHome = location === "/" || location === "";
   const isPricing = (location as string) === "/pricing";
+  const isDark = theme === "dark";
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -32,26 +34,27 @@ export function Navbar() {
 
   return (
     <header
-      className={cn(
-        "sticky top-0 z-50 w-full border-b transition-colors",
-        isHome
-          ? "bg-white/90 backdrop-blur-md border-gray-200"
-          : "bg-slate-950/80 backdrop-blur-xl border-white/10"
-      )}
+      className="sticky top-3 z-50 mx-auto w-[min(1240px,calc(100%-24px))] rounded-[28px] border backdrop-blur-xl transition-colors md:rounded-full"
+      style={{
+        background: "var(--pdfx-nav-bg)",
+        borderColor: "var(--pdfx-nav-border)",
+        boxShadow: "0 8px 20px rgba(54, 47, 35, 0.06)",
+      }}
     >
-      <div className="max-w-7xl mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex min-h-16 items-center justify-between gap-3 px-4 py-2 sm:px-5">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 shrink-0 group">
+        <Link href="/" className="flex shrink-0 items-center gap-3 group">
           <div
-            className="relative flex size-10 items-center justify-center rounded-xl shadow-lg transition-shadow group-hover:shadow-blue-500/40"
-            style={{ background: "linear-gradient(135deg, #0ea5e9 0%, #14b8a6 100%)", boxShadow: "0 4px 14px rgba(14,165,233,0.35)" }}
+            className="relative flex size-10 items-center justify-center rounded-[14px] shadow-lg transition-shadow group-hover:shadow-blue-500/30"
+            style={{ background: "linear-gradient(135deg, #1b96b3 0%, #2f6aa6 100%)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.45), 0 10px 20px rgba(29,95,135,0.25)" }}
           >
             <FileText className="size-6 text-white" />
           </div>
-          <span
-            className={cn("text-xl font-bold", isHome ? "text-gray-900" : "text-white")}
-          >
-            PDF<span className="text-sky-600">X</span>
+          <span className="grid gap-0.5">
+            <span className="paper-title text-xl font-bold leading-none text-foreground">
+              PDF<span className="text-primary">X</span>
+            </span>
+            <span className="hidden text-xs leading-none text-muted-foreground sm:block">calm tools for document work</span>
           </span>
         </Link>
 
@@ -59,12 +62,7 @@ export function Navbar() {
         <nav className="hidden md:flex items-center gap-1">
           <div ref={toolsRef} className="relative">
             <button
-              className={cn(
-                "flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-sm transition-colors",
-                isHome
-                  ? "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                  : "text-slate-300 hover:text-white hover:bg-white/5"
-              )}
+              className="flex items-center gap-1 rounded-full px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-white/50 hover:text-foreground"
               onClick={() => setToolsOpen((open) => !open)}
             >
               {t.nav.tools}
@@ -72,11 +70,7 @@ export function Navbar() {
             </button>
             {toolsOpen && (
               <div
-                className={cn(
-                  "absolute top-full left-0 mt-2 w-56 rounded-xl z-50 overflow-hidden shadow-xl",
-                  isHome ? "bg-white border border-gray-200" : "border border-white/10"
-                )}
-                style={!isHome ? { background: "rgba(2,6,23,0.97)", boxShadow: "0 20px 60px rgba(0,0,0,0.7)" } : undefined}
+                className="pdfx-panel-strong absolute left-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-xl shadow-2xl"
               >
                 <div className="p-1.5">
                   {categories.map((cat) => (
@@ -85,12 +79,7 @@ export function Navbar() {
                       href={`/?category=${cat.id}`}
                       onMouseEnter={() => void loadHomePage()}
                       onFocus={() => void loadHomePage()}
-                      className={cn(
-                        "flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors",
-                        isHome
-                          ? "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                          : "text-slate-300 hover:text-white hover:bg-white/6"
-                      )}
+                      className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-white/50 hover:text-foreground"
                       onClick={() => setToolsOpen(false)}
                     >
                       {getCategoryLabel(cat.id, lang)}
@@ -106,10 +95,10 @@ export function Navbar() {
             onMouseEnter={() => void loadPricingPage()}
             onFocus={() => void loadPricingPage()}
             className={cn(
-              "px-3.5 py-1.5 rounded-lg text-sm transition-colors",
-              isHome
-                ? "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                : (isPricing ? "text-white bg-white/6 font-medium" : "text-slate-300 hover:text-white hover:bg-white/5")
+              "rounded-full px-4 py-2 text-sm font-medium transition-colors",
+              isPricing
+                ? "bg-white/55 text-foreground"
+                : "text-muted-foreground hover:bg-white/50 hover:text-foreground"
             )}
           >
             {t.nav.pricing}
@@ -118,16 +107,24 @@ export function Navbar() {
 
         {/* Right side */}
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="inline-flex h-10 items-center gap-2 rounded-full border border-border bg-white/45 px-3 text-sm font-medium text-muted-foreground shadow-sm transition-colors hover:bg-white/70 hover:text-foreground"
+            aria-label={isDark ? "Switch to light mode" : "Switch to night mode"}
+            title={isDark ? "Light mode" : "Night mode"}
+          >
+            <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-primary">
+              {isDark ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
+            </span>
+            <span className="hidden lg:inline">{isDark ? "Light" : "Night"}</span>
+          </button>
+
           {/* Language selector */}
           <div ref={langRef} className="relative">
             <button
               onClick={() => setLangOpen((open) => !open)}
-              className={cn(
-                "hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm transition-colors",
-                isHome
-                  ? "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                  : "text-slate-300 hover:text-white hover:bg-white/5"
-              )}
+            className="hidden items-center gap-1.5 rounded-full px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-white/50 hover:text-foreground md:flex"
               aria-label="Change language"
             >
               <Globe className="w-4 h-4" />
@@ -136,23 +133,18 @@ export function Navbar() {
             </button>
             {langOpen && (
               <div
-                className={cn(
-                  "absolute top-full right-0 mt-2 w-52 max-h-72 overflow-y-auto rounded-xl z-50 shadow-xl",
-                  isHome ? "bg-white border border-gray-200" : "border border-white/10"
-                )}
-                style={!isHome ? { background: "rgba(2,6,23,0.97)", boxShadow: "0 20px 60px rgba(0,0,0,0.7)" } : undefined}
+                className="pdfx-panel-strong absolute right-0 top-full z-50 mt-2 max-h-72 w-56 overflow-y-auto rounded-xl shadow-2xl"
               >
                 <div className="p-1.5">
                   {LANGUAGES.map((item) => (
                     <button
                       key={item.code}
                       className={cn(
-                        "w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg text-left transition-colors",
-                        isHome
-                          ? (lang === item.code ? "text-gray-900 font-medium bg-blue-50" : "text-gray-600 hover:text-gray-900 hover:bg-gray-50")
-                          : (lang === item.code ? "text-white font-medium" : "text-slate-300 hover:text-white hover:bg-white/6")
+                        "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition-colors",
+                        lang === item.code
+                          ? "bg-white/55 font-medium text-foreground"
+                          : "text-muted-foreground hover:bg-white/50 hover:text-foreground"
                       )}
-                      style={(!isHome && lang === item.code) ? { background: "rgba(99,102,241,0.2)" } : undefined}
                       onClick={() => { setLang(item.code as LangCode); setLangOpen(false); }}
                     >
                       <span className="text-base leading-none">{item.flag}</span>
@@ -166,13 +158,7 @@ export function Navbar() {
 
           {/* CTA button */}
           <Button
-            className={cn(
-              "hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold",
-              isHome
-                ? "bg-gradient-to-r from-sky-600 to-teal-500 hover:from-sky-700 hover:to-teal-600 text-white border-0"
-                : "text-white"
-            )}
-            style={!isHome ? { background: "linear-gradient(135deg, #0ea5e9 0%, #14b8a6 100%)", boxShadow: "0 4px 16px rgba(20,184,166,0.28)" } : undefined}
+            className="hidden items-center gap-1.5 rounded-full border-0 bg-[#234138] px-5 text-sm font-semibold text-[#f7f3ea] shadow-[0_12px_30px_rgba(35,65,56,0.22)] hover:bg-[#31584f] dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white sm:inline-flex"
             asChild
           >
             <Link
@@ -188,7 +174,7 @@ export function Navbar() {
           <Button
             size="icon"
             variant="ghost"
-            className={cn("md:hidden", isHome ? "text-gray-600 hover:text-gray-900" : "text-slate-300 hover:text-white")}
+          className="rounded-full text-muted-foreground hover:bg-white/55 hover:text-foreground md:hidden"
             onClick={() => setMenuOpen((open) => !open)}
             aria-label="Toggle menu"
           >
@@ -200,8 +186,7 @@ export function Navbar() {
       {/* Mobile menu */}
       {menuOpen && (
         <div
-          className={cn("md:hidden px-4 py-3 border-t", isHome ? "bg-white border-gray-200" : "border-white/7")}
-          style={!isHome ? { background: "rgba(2,6,23,0.97)" } : undefined}
+          className="border-t border-border px-4 py-4 md:hidden"
         >
           <nav className="flex flex-col gap-0.5">
             {categories.map((cat) => (
@@ -210,10 +195,7 @@ export function Navbar() {
                 href={`/?category=${cat.id}`}
                 onMouseEnter={() => void loadHomePage()}
                 onFocus={() => void loadHomePage()}
-                className={cn(
-                  "px-3 py-2 rounded-lg text-sm transition-colors",
-                  isHome ? "text-gray-600 hover:text-gray-900 hover:bg-gray-100" : "text-slate-300 hover:text-white hover:bg-white/5"
-                )}
+                className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent/70 hover:text-foreground"
                 onClick={() => setMenuOpen(false)}
               >
                 {getCategoryLabel(cat.id, lang)}
@@ -223,10 +205,7 @@ export function Navbar() {
               href="/pricing"
               onMouseEnter={() => void loadPricingPage()}
               onFocus={() => void loadPricingPage()}
-              className={cn(
-                "px-3 py-2 rounded-lg text-sm transition-colors",
-                isHome ? "text-gray-600 hover:text-gray-900 hover:bg-gray-100" : "text-slate-300 hover:text-white hover:bg-white/5"
-              )}
+              className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent/70 hover:text-foreground"
               onClick={() => setMenuOpen(false)}
             >
               {t.nav.pricing}
@@ -235,16 +214,13 @@ export function Navbar() {
               href="/contact"
               onMouseEnter={() => void loadContactPage()}
               onFocus={() => void loadContactPage()}
-              className={cn(
-                "px-3 py-2 rounded-lg text-sm transition-colors",
-                isHome ? "text-gray-600 hover:text-gray-900 hover:bg-gray-100" : "text-slate-300 hover:text-white hover:bg-white/5"
-              )}
+              className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent/70 hover:text-foreground"
               onClick={() => setMenuOpen(false)}
             >
               {lang === "ru" ? "Контакт" : "Contact"}
             </Link>
-            <div className={cn("border-t mt-2 pt-2", isHome ? "border-gray-200" : "border-white/7")}>
-              <p className={cn("px-3 py-1 text-xs font-medium uppercase tracking-wider mb-1", isHome ? "text-gray-400" : "text-slate-400")}>
+            <div className="mt-2 border-t border-border pt-2">
+              <p className="premium-kicker mb-1 px-3 py-1 text-xs font-semibold text-muted-foreground">
                 {lang === "ru" ? "Язык" : "Language"}
               </p>
               <div className="grid grid-cols-2 gap-0.5">
@@ -252,12 +228,11 @@ export function Navbar() {
                   <button
                     key={item.code}
                     className={cn(
-                      "flex items-center gap-2 px-3 py-2 text-xs rounded-lg text-left transition-colors",
-                      isHome
-                        ? (lang === item.code ? "text-blue-600 font-medium" : "text-gray-600 hover:text-gray-900 hover:bg-gray-100")
-                        : (lang === item.code ? "text-white font-medium" : "text-slate-300 hover:text-white hover:bg-white/5")
+                      "flex items-center gap-2 rounded-md px-3 py-2 text-left text-xs transition-colors",
+                      lang === item.code
+                        ? "font-medium text-primary"
+                        : "text-muted-foreground hover:bg-accent/70 hover:text-foreground"
                     )}
-                    style={(!isHome && lang === item.code) ? { background: "rgba(99,102,241,0.2)" } : undefined}
                     onClick={() => { setLang(item.code as LangCode); setMenuOpen(false); }}
                   >
                     <span>{item.flag}</span>
