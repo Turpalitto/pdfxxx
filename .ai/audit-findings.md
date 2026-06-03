@@ -48,12 +48,13 @@ addWatermark, addHeaderFooter, signPdf, addPageNumbers, textToPdf — `drawText`
 ### H7. pdfToText/Html/Docx — пустой результат для сканов без ошибки
 `pdf-utils.ts:1126-1145` и др. — для PDF без текстового слоя возвращают строку из одних разделителей страниц. В отличие от pdfToWord/Excel (бросают «Try OCR»), эти молча отдают пустышку. Плюс pdfToText теряет переносы строк/колонки (join(" ") без учёта Y).
 
-### H8. Редактор: потеря введённого текста при смене страницы
+### H8. Редактор: потеря введённого текста при смене страницы ✅ ИСПРАВЛЕНО
 `edit-pdf-page.tsx:319-324` — `commitTextEditor` при `editor.pageNumber !== currentPage` делает `setActiveTextEditor(null)` и **выбрасывает текст**. onBlur textarea при переключении страницы срабатывает уже после смены `currentPage` → набранный текст теряется без сохранения в pageStates.
+Фикс: helper `commitEditorToStoredPage` строит Textbox offscreen и мержит его в сохранённый JSON исходной страницы (pageStatesRef) вместо отбрасывания.
 
-### H9. Редактор: гонки undo/redo через булев suppressHistoryRef
+### H9. Редактор: гонки undo/redo через булев suppressHistoryRef ✅ ИСПРАВЛЕНО
 `use-editor-history.ts:36-67` — `suppressHistoryRef` булев, общий для loadCanvasState/draft-рисования/undo/redo. Два конкурентных `loadFromJSON` (двойной Ctrl+Z) → первый `.then` снимает подавление в середине второго → ложные записи в историю, обрезка redo-ветки, недетерминированное состояние.
-Фикс: счётчик вложенности вместо булева; сериализовать undo/redo.
+Фикс: добавлен re-entrancy guard `restoringRef` в хук — пока loadFromJSON одного undo/redo в полёте, новые вызовы игнорируются; `resetHistory` сбрасывает guard при пересоздании canvas.
 
 ### H10. addBackground рисует фон ПОВЕРХ контента
 `pdf-utils.ts:2686-2696` — `drawRectangle` добавляет операторы в конец stream → прямоугольник поверх текста, даже при opacity 0.15 тонирует/перекрывает контент вместо подложки.

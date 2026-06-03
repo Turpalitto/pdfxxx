@@ -17,6 +17,10 @@ export function useEditorHistory(
   const historyRef = useRef<string[]>([]);
   const historyIndexRef = useRef(-1);
   const suppressHistoryRef = useRef(false);
+  // Re-entrancy guard: пока loadFromJSON одного undo/redo в полёте, новые
+  // вызовы игнорируются. Иначе резолв первого промиса снимает
+  // suppressHistoryRef раньше, чем догрузится второй → порча истории (H9).
+  const restoringRef = useRef(false);
   const [historyVersion, setHistoryVersion] = useState(0);
 
   const pushHistory = useCallback(() => {
@@ -34,34 +38,42 @@ export function useEditorHistory(
   }, []);
 
   const handleUndo = useCallback(() => {
+    if (restoringRef.current) return;
     const idx = historyIndexRef.current;
     if (idx <= 0 || !fabricRef.current) return;
     historyIndexRef.current = idx - 1;
     setHistoryVersion((prev) => prev + 1);
+    restoringRef.current = true;
     suppressHistoryRef.current = true;
     fabricRef.current.loadFromJSON(JSON.parse(historyRef.current[idx - 1])).then(() => {
       suppressHistoryRef.current = false;
+      restoringRef.current = false;
       fabricRef.current.renderAll();
       setHistoryVersion((prev) => prev + 1);
     }).catch(() => {
       suppressHistoryRef.current = false;
+      restoringRef.current = false;
       setHistoryVersion((prev) => prev + 1);
     });
   }, []);
 
   const handleRedo = useCallback(() => {
+    if (restoringRef.current) return;
     const idx = historyIndexRef.current;
     const hist = historyRef.current;
     if (idx >= hist.length - 1 || !fabricRef.current) return;
     historyIndexRef.current = idx + 1;
     setHistoryVersion((prev) => prev + 1);
+    restoringRef.current = true;
     suppressHistoryRef.current = true;
     fabricRef.current.loadFromJSON(JSON.parse(hist[idx + 1])).then(() => {
       suppressHistoryRef.current = false;
+      restoringRef.current = false;
       fabricRef.current.renderAll();
       setHistoryVersion((prev) => prev + 1);
     }).catch(() => {
       suppressHistoryRef.current = false;
+      restoringRef.current = false;
       setHistoryVersion((prev) => prev + 1);
     });
   }, []);
@@ -69,6 +81,8 @@ export function useEditorHistory(
   const resetHistory = useCallback(() => {
     historyRef.current = [];
     historyIndexRef.current = -1;
+    restoringRef.current = false;
+    suppressHistoryRef.current = false;
     setHistoryVersion((prev) => prev + 1);
   }, []);
 

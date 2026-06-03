@@ -4,6 +4,15 @@
 
 ---
 
+## [2026-06-03] — Аудит-фиксы редактора: H8, H9
+
+### Исправлено
+- **H8 — потеря текста при смене страницы** (`edit-pdf-page.tsx`): `commitTextEditor` больше не выбрасывает набранный текст, когда `editor.pageNumber !== currentPage`. Добавлен helper `commitEditorToStoredPage`, который строит Textbox на offscreen StaticCanvas и мержит его в сохранённый JSON исходной страницы (`pageStatesRef`).
+- **H9 — гонка undo/redo** (`use-editor-history.ts`): добавлен re-entrancy guard `restoringRef`. Пока `loadFromJSON` одного undo/redo в полёте, повторные вызовы игнорируются — это исключает преждевременное снятие `suppressHistoryRef` резолвом первого промиса и порчу истории при двойном Ctrl+Z. `resetHistory` сбрасывает guard и suppress-флаг при пересоздании canvas.
+- `npx tsc --noEmit` → 0 ошибок.
+
+---
+
 ## [2026-06-02] — Round 16: Мобильная адаптация edit-pdf + Skeleton
 
 ### Добавлено
