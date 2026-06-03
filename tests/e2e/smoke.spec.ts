@@ -30,24 +30,19 @@ test.describe("public pages", () => {
     await expectNoHorizontalOverflow(page);
   });
 
-  test("tool pages keep the shared palette and theme toggle", async ({ page }) => {
+  test("tool pages keep the shared palette", async ({ page }) => {
     await page.goto("/tools/pdf-to-excel");
 
     await expect(page.getByRole("banner")).toBeVisible();
     await expect(page.getByRole("heading", { level: 1 })).toContainText(/PDF в Excel|PDF to Excel/i);
     await expect(page.getByTestId("dropzone-file-upload")).toBeVisible();
 
-    const initialTheme = await page.evaluate(() => document.documentElement.classList.contains("dark"));
-    await page.getByRole("button", { name: initialTheme ? "Switch to light mode" : "Switch to night mode" }).click();
-
-    await expect.poll(async () => (
-      page.evaluate(() => document.documentElement.classList.contains("dark"))
-    )).toBe(!initialTheme);
+    // App is light-only (theme switching was removed); assert the stable light palette.
+    const isDark = await page.evaluate(() => document.documentElement.classList.contains("dark"));
+    expect(isDark).toBe(false);
 
     await page.goto("/");
-    await expect.poll(async () => (
-      page.evaluate(() => document.documentElement.classList.contains("dark"))
-    )).toBe(!initialTheme);
+    await expect(page.getByRole("banner")).toBeVisible();
     await expectNoHorizontalOverflow(page);
   });
 });

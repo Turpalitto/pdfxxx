@@ -26,7 +26,11 @@ export function ProgressRing({
           width={size}
           height={size}
           className="-rotate-90"
-          aria-label={`Progress: ${progress}%`}
+          role="progressbar"
+          aria-valuenow={Math.round(progress)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={`Progress: ${Math.round(progress)}%`}
         >
           <circle
             cx={size / 2}

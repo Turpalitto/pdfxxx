@@ -1,4 +1,4 @@
-import type { LangCode } from "./i18n";
+﻿import type { LangCode } from "./i18n";
 import { getToolBySlug, isToolLaunchReady, type Tool } from "./tools";
 
 const RECENT_TOOLS_STORAGE_KEY = "pdfx-recent-tools";
@@ -82,6 +82,71 @@ const workflowDefinitions: WorkflowDefinition[] = [
     },
     accentClass: "from-amber-500/15 to-orange-500/10",
     toolSlugs: ["delete-pages", "reorder-pages", "watermark-pdf"],
+  },
+  {
+    id: "email-ready",
+    title: {
+      en: "Prepare PDFs for email",
+      ru: "Подготовить PDF для email",
+    },
+    description: {
+      en: "Repair the file, compress it, and split large documents into sendable parts.",
+      ru: "Почините файл, уменьшите размер и разделите большой документ на части для отправки.",
+    },
+    accentClass: "from-emerald-500/15 to-teal-500/10",
+    toolSlugs: ["repair-pdf", "compress-pdf", "split-pdf"],
+  },
+  {
+    id: "pre-publish-cleanup",
+    title: {
+      en: "Clean before publishing",
+      ru: "Очистить перед публикацией",
+    },
+    description: {
+      en: "Flatten forms, redact sensitive text, and compress the final public PDF.",
+      ru: "Закрепите формы, скройте чувствительный текст и сожмите итоговый публичный PDF.",
+    },
+    accentClass: "from-sky-500/15 to-cyan-500/10",
+    toolSlugs: ["flatten-pdf", "redact-pdf", "compress-pdf"],
+  },
+  {
+    id: "image-extract-workflow",
+    title: {
+      en: "Extract content from PDF",
+      ru: "Извлечь контент из PDF",
+    },
+    description: {
+      en: "Extract all images and export text content from your PDF document.",
+      ru: "Извлеките все изображения и текстовый контент из PDF-документа.",
+    },
+    accentClass: "from-pink-500/15 to-rose-500/10",
+    toolSlugs: ["extract-images", "pdf-to-text"],
+  },
+  {
+    id: "anonymize-pdf",
+    title: {
+      en: "Anonymize a document",
+      ru: "Анонимизировать документ",
+    },
+    description: {
+      en: "Clear metadata, redact sensitive content, and compress the final file.",
+      ru: "Очистите метаданные, скройте чувствительный текст и сожмите итоговый файл.",
+    },
+    accentClass: "from-amber-500/15 to-yellow-500/10",
+    toolSlugs: ["pdf-metadata", "redact-pdf", "compress-pdf"],
+  },
+  {
+    id: "print-ready",
+    title: {
+      en: "Prepare for print",
+      ru: "Подготовить к печати",
+    },
+    description: {
+      en: "Crop margins, add page numbers, and compress before sending to print.",
+      ru: "Обрежьте поля, добавьте нумерацию и сожмите перед отправкой в печать.",
+    },
+    accentClass: "from-teal-500/15 to-cyan-500/10",
+    toolSlugs: ["crop-pdf", "pdf-page-numbers", "compress-pdf"],
   },
 ];
 

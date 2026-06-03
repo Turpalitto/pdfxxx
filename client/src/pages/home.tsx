@@ -12,7 +12,6 @@ import {
   ArrowUpRight,
   CheckCircle2,
   Layers3,
-  Wand2,
 } from "lucide-react";
 import { ToolCard } from "@/components/tool-card";
 import { categories, categoryColors, getCategoryLabel, getLaunchReadyTools } from "@/lib/tools";
@@ -22,6 +21,7 @@ import { getToolTranslation } from "@/lib/tool-translations";
 import { cn } from "@/lib/utils";
 import { preloadToolRoute } from "@/lib/route-preload";
 import { getRecentTools, getWorkflowPlaybooks } from "@/lib/tool-experience";
+import { useLazyRender } from "@/hooks/use-lazy-render";
 
 export default function Home() {
   const search = useSearch();
@@ -40,6 +40,7 @@ export default function Home() {
     activeCategory === "all"
       ? allTools
       : allTools.filter((tool) => tool.category === activeCategory);
+  const { visibleCount, sentinelRef } = useLazyRender(filteredTools.length);
   const previewTools = allTools.slice(0, 4);
   const workflowPlaybooks = getWorkflowPlaybooks(lang);
   const trustSignals = [
@@ -132,12 +133,6 @@ export default function Home() {
     },
   ];
 
-  const stats = [
-    lang === "ru" ? "100% бесплатно" : "100% free",
-    lang === "ru" ? "Безопасно" : "Secure",
-    lang === "ru" ? "Без регистрации" : "No registration",
-  ];
-
   const categoryList = [
     { id: "all", label: lang === "ru" ? "Все инструменты" : "All tools" },
     ...categories.map((cat) => ({ id: cat.id, label: getCategoryLabel(cat.id, lang) })),
@@ -146,36 +141,39 @@ export default function Home() {
   return (
     <>
       <section className="relative overflow-hidden">
-        <div className="relative mx-auto max-w-7xl px-4 pb-10 pt-8 sm:px-6 sm:pb-12 sm:pt-10 lg:px-8">
-          <div className="grid items-stretch gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-[linear-gradient(180deg,rgba(241,237,227,0)_0%,rgba(241,237,227,0.88)_40%,rgba(241,237,227,1)_100%)]" />
+        <div className="relative mx-auto max-w-7xl px-4 pb-8 pt-10 sm:px-6 sm:pb-10 sm:pt-12 lg:px-8">
+          <div className="grid items-stretch gap-12 lg:gap-20 lg:grid-cols-[58%_42%]">
             <motion.div
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55 }}
-              className="premium-surface premium-grid flex min-h-[520px] flex-col justify-between rounded-[34px] p-7 text-center sm:p-9 lg:text-left"
+              className="flex min-h-[520px] flex-col justify-between py-6 text-center sm:py-8 lg:py-10 lg:text-left"
             >
               <div>
-                <div className="premium-kicker mb-5 inline-flex items-center gap-2 rounded-full border border-border bg-white/45 px-4 py-2 text-xs font-semibold text-primary shadow-sm backdrop-blur-sm">
+                <div className="premium-kicker mb-6 inline-flex items-center gap-2 text-xs font-semibold text-primary/80">
                   <Sparkles className="h-4 w-4" />
                   <span>{lang === "ru" ? "Редакторский стиль · тихая премиальность" : "Editorial style · quiet premium"}</span>
                 </div>
 
-                <h1 className="paper-title text-5xl font-bold leading-[0.96] text-foreground sm:text-6xl lg:text-[5.4rem]">
-                  {lang === "ru" ? "PDF-сервис с ощущением" : "PDF tools with a"}
-                  <br />
+                <h1
+                  className="paper-title font-bold text-foreground"
+                  style={{ fontSize: "clamp(54px, 6vw, 92px)", lineHeight: 0.94, maxWidth: 780 }}
+                >
+                  {lang === "ru" ? "PDF-сервис с ощущением" : "PDF tools with a"}{" "}
                   <span className="text-primary">{lang === "ru" ? "дорогой бумажной среды." : "premium paper feel."}</span>
                 </h1>
 
-                <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-muted-foreground sm:text-lg lg:mx-0">
+                <p className="mx-auto mt-6 max-w-[52rem] text-base leading-8 text-muted-foreground sm:text-lg lg:mx-0">
                   {lang === "ru"
                     ? "Спокойная палитра, мягкий off-white, деликатные зелёные акценты и карточки как листы плотной дизайнерской бумаги. PDFX не кричит, а внушает доверие."
                     : "A calm palette, soft off-white surfaces, delicate green accents, and cards that feel like dense design paper. PDFX stays quiet and trustworthy."}
                 </p>
 
-                <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row lg:justify-start">
+                <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row lg:items-center lg:justify-start">
                   <Link
                     href="/#tools"
-                    className="inline-flex h-12 items-center gap-2 rounded-full bg-[#234138] px-7 text-[15px] font-semibold text-[#f7f3ea] shadow-[0_12px_30px_rgba(35,65,56,0.22)] transition-transform hover:-translate-y-0.5 hover:bg-[#31584f]"
+                    className="inline-flex h-12 items-center gap-2 rounded-xl bg-[#234138] px-7 text-[15px] font-semibold text-[#f7f3ea] shadow-[0_12px_30px_rgba(35,65,56,0.22)] transition-transform hover:-translate-y-0.5 hover:bg-[#31584f]"
                   >
                     <Upload className="h-5 w-5" />
                     {lang === "ru" ? "Все инструменты" : "All tools"}
@@ -184,7 +182,7 @@ export default function Home() {
                     href="/tools/merge-pdf"
                     onMouseEnter={() => preloadToolRoute("merge-pdf")}
                     onFocus={() => preloadToolRoute("merge-pdf")}
-                    className="inline-flex h-12 items-center gap-2 rounded-full border border-border bg-white/55 px-7 text-[15px] font-semibold text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-white/75"
+                    className="inline-flex h-12 items-center gap-2 rounded-xl border border-border bg-white/55 px-7 text-[15px] font-semibold text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-white/75"
                   >
                     {lang === "ru" ? "Смотреть сценарий" : "View workflow"}
                     <ArrowRight className="h-4 w-4" />
@@ -192,13 +190,10 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="mt-8 grid gap-3 sm:grid-cols-3">
-                {stats.map((stat) => (
-                  <div key={stat} className="rounded-[22px] border border-border bg-white/45 px-4 py-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
-                    <strong className="paper-title block text-2xl font-bold text-foreground">{stat.split(" ")[0]}</strong>
-                    <span className="mt-1 block text-sm leading-5 text-muted-foreground">{stat.replace(stat.split(" ")[0], "").trim() || stat}</span>
-                  </div>
-                ))}
+              <div className="mt-9 text-sm font-medium text-muted-foreground">
+                {lang === "ru"
+                  ? "100% бесплатно • Без регистрации • Безопасная обработка"
+                  : "100% free • No registration • Secure processing"}
               </div>
             </motion.div>
 
@@ -206,30 +201,9 @@ export default function Home() {
               initial={{ opacity: 0, y: 20, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.6, delay: 0.08 }}
-              className="premium-surface relative mx-auto flex min-h-[520px] w-full items-center justify-center rounded-[34px] p-6"
+              className="relative mx-auto flex min-h-[520px] w-full items-start justify-center pt-8 sm:pt-10 lg:justify-end lg:pt-12"
             >
-              <div className="absolute right-8 top-8 hidden rounded-full border border-border bg-white/45 px-4 py-3 text-foreground shadow-sm backdrop-blur-md sm:block">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <CheckCircle2 className="h-4 w-4 text-teal-500" />
-                  {lang === "ru" ? "Быстрый старт без лишних шагов" : "Start instantly without extra steps"}
-                </div>
-              </div>
-
-              <div className="absolute -left-3 bottom-10 hidden rounded-full border border-border bg-white/50 px-4 py-3 text-foreground shadow-sm backdrop-blur-md sm:block">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-full bg-[#cfdacb] p-2">
-                    <Wand2 className="h-4 w-4 text-primary" />
-                  </div>
-                  <div>
-                    <div className="premium-kicker text-xs text-muted-foreground">
-                      {lang === "ru" ? "Популярно" : "Popular"}
-                    </div>
-                    <div className="text-sm font-semibold">{lang === "ru" ? "PDF в Word и JPG" : "PDF to Word and JPG"}</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="relative z-[1] w-full max-w-[470px] rotate-[-2deg] rounded-[30px] border border-border bg-[#efe8db] p-3 shadow-[0_18px_50px_rgba(54,47,35,0.08)]">
+              <div className="relative z-[1] w-full max-w-[410px] rotate-[-2deg] rounded-[30px] border border-border bg-[#efe8db] p-3 shadow-[0_18px_50px_rgba(54,47,35,0.08)] opacity-90 lg:scale-[0.92]">
                 <div className="rotate-[2deg] rounded-[28px] border border-border bg-[linear-gradient(180deg,rgba(249,246,239,0.96),rgba(237,231,220,0.94))] p-5 shadow-[0_18px_50px_rgba(54,47,35,0.08)]">
                   <div className="flex items-center justify-between rounded-[20px] border border-border bg-white/45 px-4 py-3 text-foreground">
                     <div>
@@ -253,7 +227,7 @@ export default function Home() {
                           {lang === "ru" ? "Запустите нужный инструмент в один клик" : "Launch the right tool in one click"}
                         </p>
                       </div>
-                      <span className="rounded-full bg-[#e5ecdf] px-3 py-1 text-xs font-semibold text-primary">
+                      <span className="text-xs font-semibold text-primary/70">
                         {lang === "ru" ? "Онлайн" : "Online"}
                       </span>
                     </div>
@@ -319,8 +293,8 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="tools" className="relative z-10 pb-14 pt-6 sm:pb-16">
-        <div className="premium-surface mx-auto max-w-7xl rounded-[34px] px-5 py-10 sm:px-7 sm:py-12 lg:px-8">
+      <section id="tools" className="relative z-10 -mt-12 pb-14 pt-0 sm:-mt-16 sm:pb-16">
+        <div className="mx-auto max-w-7xl px-4 pb-10 pt-6 sm:px-6 sm:pb-12 lg:px-8">
           {recentTools.length > 0 && (
             <div className="pdfx-panel-muted mb-10 rounded-xl p-5 sm:p-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -390,18 +364,21 @@ export default function Home() {
             ))}
           </div>
 
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredTools.map((tool, index) => (
+<div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredTools.slice(0, visibleCount).map((tool, index) => (
               <motion.div
                 key={tool.slug}
                 layout
                 initial={{ opacity: 0, y: 18 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.24, delay: index * 0.02 }}
+                transition={{ duration: 0.24, delay: Math.min(index, 12) * 0.02 }}
               >
                 <ToolCard tool={tool} />
               </motion.div>
             ))}
+            {visibleCount < filteredTools.length && (
+              <div ref={sentinelRef} className="col-span-full h-4" />
+            )}
           </div>
         </div>
       </section>

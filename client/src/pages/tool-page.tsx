@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+﻿import { useState, useCallback, useEffect } from "react";
 import { useRoute, Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLang } from "@/lib/lang-context";
@@ -10,13 +10,9 @@ import {
   AlertCircle,
   RefreshCw,
   Lock,
-  Scissors,
-  RotateCw,
-  Hash,
-  AlignLeft,
-  Droplets,
   ArrowRight,
   ShieldCheck,
+  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,9 +20,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileUpload } from "@/components/file-upload";
 import { ProgressRing } from "@/components/progress-ring";
+import { KeyboardHelpDialog } from "@/components/keyboard-help";
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
+import { useRecentFiles } from "@/hooks/use-recent-files";
 import { ToolCard } from "@/components/tool-card";
 import { getToolBySlug, tools, categoryColors, isToolLaunchReady } from "@/lib/tools";
 import { getToolTranslation } from "@/lib/tool-translations";
@@ -68,6 +66,36 @@ import {
   formatBytes,
   getPdfPageCount,
   parsePageSelection,
+  invertColors,
+  toSinglePage,
+  removeImages,
+  getPdfFormFields,
+  fillPdfForm,
+  type PdfFormField,
+  splitByChapters,
+  bookletImposition,
+  scannerEffect,
+  cropPdf,
+  getPdfMetadata,
+  setPdfMetadata,
+  comparePdf,
+  removeBlankPages,
+  resizePages,
+  grayscalePdf,
+  pdfBookmarks,
+  autoRedactPdf,
+  nUpPdf,
+  splitBySize,
+  overlayPdf,
+  sanitizePdf,
+  extractFormFields,
+  convertToPdfA,
+  addBlankPages,
+  pdfToMarkdown,
+  addBackground,
+  pdfDiff,
+  pdfToAudio as pdfToAudioFn,
+  pdfToPptx,
 } from "@/lib/pdf-utils";
 import { cn } from "@/lib/utils";
 import { getWorkflowSuggestionsForTool, rememberRecentTool } from "@/lib/tool-experience";
@@ -109,7 +137,6 @@ export default function ToolPage() {
       "applicationCategory": "UtilitiesApplication",
       "operatingSystem": "Web Browser",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-      "aggregateRating": { "@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "14200" },
       "inLanguage": ["en","ru","es","fr","de","zh","ja","ko","ar","hi","pt","it","tr","pl","nl","uk","vi","id","th","cs"],
     } : undefined,
   });
@@ -143,8 +170,71 @@ export default function ToolPage() {
   const [redactSearchText, setRedactSearchText] = useState("");
   const [resultText, setResultText] = useState<string | null>(null);
   const [resultHtml, setResultHtml] = useState<string | null>(null);
+  const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
   const [imageScale, setImageScale] = useState<"1" | "2" | "3">("2");
   const [ocrLanguage, setOcrLanguage] = useState(lang === "ru" ? "rus" : "eng");
+  // scanner-effect
+  const [scannerIntensity, setScannerIntensity] = useState(0.5);
+  // form-fill
+  const [formFields, setFormFields] = useState<PdfFormField[]>([]);
+  const [formValues, setFormValues] = useState<Record<string, string>>({});
+  const [formLoading, setFormLoading] = useState(false);
+  // crop-pdf
+  const [cropTop, setCropTop] = useState("0");
+  const [cropRight, setCropRight] = useState("0");
+  const [cropBottom, setCropBottom] = useState("0");
+  const [cropLeft, setCropLeft] = useState("0");
+  const [cropAutoMode, setCropAutoMode] = useState(false);
+  // pdf-metadata
+  const [metadataFields, setMetadataFields] = useState<Record<string, string>>({});
+  const [metadataLoaded, setMetadataLoaded] = useState(false);
+  // compare-pdf
+  const [compareFile2, setCompareFile2] = useState<File | null>(null);
+  // remove-blank-pages
+  const [blankThreshold, setBlankThreshold] = useState(240);
+  // resize-pages
+  const [resizeTarget, setResizeTarget] = useState<"a4" | "a3" | "letter" | "legal" | "a5">("a4");
+  // grayscale-pdf (no extra state needed)
+  // pdf-bookmarks (no extra state needed)
+  // auto-redact
+  const [redactEmails, setRedactEmails] = useState(true);
+  const [redactPhones, setRedactPhones] = useState(true);
+  const [redactSsn, setRedactSsn] = useState(false);
+  const [redactIban, setRedactIban] = useState(false);
+  const [redactCustomRegex, setRedactCustomRegex] = useState("");
+  // n-up-pdf
+  const [nUpValue, setNUpValue] = useState<2 | 4>(2);
+  // split-by-size
+  const [splitMaxMb, setSplitMaxMb] = useState("5");
+  // overlay-pdf
+  const [overlayFile2, setOverlayFile2] = useState<File | null>(null);
+  const [overlayOpacity, setOverlayOpacity] = useState([0.5]);
+  // add-background
+  const [bgColor, setBgColor] = useState("#ffffcc");
+  const [bgOpacity, setBgOpacity] = useState([15]);
+  // pdf-diff
+  const [diffFile2, setDiffFile2] = useState<File | null>(null);
+  // pdf-to-audio
+  const [audioLang, setAudioLang] = useState("en-US");
+  const [audioRate, setAudioRate] = useState([1]);
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  useKeyboardShortcuts(
+    {
+      help: () => setHelpOpen((v) => !v),
+      process: () => { if (state === "idle" && files.length > 0) process(); },
+      download: () => { if (state === "done" && resultBytes) handleDownload(); },
+    },
+    state !== "processing"
+  );
+
+  const { addRecentFile } = useRecentFiles();
+
+  useEffect(() => {
+    if (files.length > 0 && slug) {
+      addRecentFile({ name: files[0].name, size: files[0].size, lastOpened: Date.now(), slug });
+    }
+  }, [files[0]?.name, files[0]?.size, slug]);
 
   const ocrLanguageOptions = [
     { value: "eng", label: lang === "ru" ? "Английский" : "English" },
@@ -189,6 +279,42 @@ export default function ToolPage() {
     return raw;
   }, [files.length, lang, slug, t.tool.errorOccurred]);
 
+  const generatePreview = useCallback(async (pdfBytes: Uint8Array) => {
+    try {
+      console.log('[DEBUG] generatePreview called with', pdfBytes.length, 'bytes');
+      
+      const pdfjs = await import("pdfjs-dist");
+      
+      // Use the same approach as Stirling-PDF for worker path
+      if (!pdfjs.GlobalWorkerOptions.workerSrc) {
+        pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+          "pdfjs-dist/build/pdf.worker.min.mjs",
+          import.meta.url
+        ).toString();
+      }
+      
+      const loadingTask = pdfjs.getDocument({ data: pdfBytes });
+      const pdf = await loadingTask.promise;
+      console.log('[DEBUG] PDF loaded, pages:', pdf.numPages);
+      
+      const page = await pdf.getPage(1);
+      const viewport = page.getViewport({ scale: 1.5 });
+      const canvas = document.createElement("canvas");
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      
+      await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+      const dataUrl = canvas.toDataURL("image/png");
+      console.log('[DEBUG] Preview generated, dataUrl length:', dataUrl.length);
+      setPreviewDataUrl(dataUrl);
+    } catch (err) {
+      console.error("Preview generation failed:", err);
+      setPreviewDataUrl(null);
+    }
+  }, []);
+
   const handleFiles = useCallback(
     (newFiles: File[]) => {
       if (tool?.multiple) {
@@ -205,6 +331,21 @@ export default function ToolPage() {
 
   const removeFile = useCallback((index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
+    setState("idle");
+    setError(null);
+    setResultBytes(null);
+    setResultText(null);
+    setResultHtml(null);
+  }, []);
+
+  const moveFile = useCallback((index: number, direction: -1 | 1) => {
+    setFiles((prev) => {
+      const next = [...prev];
+      const newIndex = index + direction;
+      if (newIndex < 0 || newIndex >= next.length) return prev;
+      [next[index], next[newIndex]] = [next[newIndex], next[index]];
+      return next;
+    });
   }, []);
 
   const reset = useCallback(() => {
@@ -363,6 +504,164 @@ export default function ToolPage() {
         case "ocr-pdf":
           result = await ocrPdf(files[0], ocrLanguage, setProgress);
           break;
+        case "invert-colors":
+          result = await invertColors(files[0], setProgress);
+          break;
+        case "to-single-page":
+          result = await toSinglePage(files[0], setProgress);
+          break;
+        case "remove-images":
+          result = await removeImages(files[0]);
+          break;
+        case "form-fill":
+          result = await fillPdfForm(files[0], formValues);
+          break;
+        case "split-by-chapters": {
+          const parts = await splitByChapters(files[0], setProgress);
+          if (parts.length === 1) {
+            result = parts[0].bytes;
+          } else {
+            const JSZip = (await import("jszip")).default;
+            const zip = new JSZip();
+            parts.forEach(({ name, bytes: b }) => zip.file(name, b));
+            result = await zip.generateAsync({ type: "uint8array" });
+          }
+          break;
+        }
+        case "booklet-imposition":
+          result = await bookletImposition(files[0], setProgress);
+          break;
+        case "scanner-effect":
+          result = await scannerEffect(files[0], scannerIntensity, setProgress);
+          break;
+        case "crop-pdf":
+          result = await cropPdf(files[0], {
+            topMm: parseFloat(cropTop) || 0,
+            rightMm: parseFloat(cropRight) || 0,
+            bottomMm: parseFloat(cropBottom) || 0,
+            leftMm: parseFloat(cropLeft) || 0,
+            autoCrop: cropAutoMode,
+          });
+          break;
+        case "pdf-metadata": {
+          if (!metadataLoaded) {
+            const meta = await getPdfMetadata(files[0]);
+            setMetadataFields(meta);
+            setMetadataLoaded(true);
+            setState("idle");
+            setProgress(0);
+            return;
+          }
+          result = await setPdfMetadata(files[0], metadataFields);
+          break;
+        }
+        case "compare-pdf": {
+          if (!compareFile2) {
+            setError(lang === "ru" ? "Выберите второй PDF для сравнения." : "Select a second PDF to compare.");
+            setState("error");
+            return;
+          }
+          result = await comparePdf(files[0], compareFile2);
+          break;
+        }
+        case "remove-blank-pages":
+          result = await removeBlankPages(files[0], blankThreshold, setProgress);
+          break;
+        case "resize-pages":
+          result = await resizePages(files[0], resizeTarget, setProgress);
+          break;
+        case "grayscale-pdf":
+          result = await grayscalePdf(files[0], setProgress);
+          break;
+        case "pdf-bookmarks": {
+          const text = await pdfBookmarks(files[0]);
+          setResultText(text);
+          result = new Uint8Array(new TextEncoder().encode(text));
+          break;
+        }
+        case "sanitize-pdf":
+          result = await sanitizePdf(files[0]);
+          break;
+        case "extract-forms": {
+          const json = await extractFormFields(files[0]);
+          setResultText(json);
+          result = new Uint8Array(new TextEncoder().encode(json));
+          break;
+        }
+        case "pdf-to-pdfa":
+          result = await convertToPdfA(files[0]);
+          break;
+        case "add-blank-pages": {
+          const positions = pagesToExtract.split(",").map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n >= 0);
+          result = await addBlankPages(files[0], positions);
+          break;
+        }
+        case "auto-redact":
+          result = await autoRedactPdf(files[0], {
+            emails: redactEmails,
+            phones: redactPhones,
+            ssn: redactSsn,
+            iban: redactIban,
+            customRegex: redactCustomRegex || undefined,
+          }, setProgress);
+          break;
+        case "n-up-pdf":
+          result = await nUpPdf(files[0], nUpValue, setProgress);
+          break;
+        case "split-by-size": {
+          const maxMb = parseFloat(splitMaxMb) || 5;
+          result = await splitBySize(files[0], maxMb, setProgress);
+          break;
+        }
+        case "overlay-pdf": {
+          if (!overlayFile2) {
+            setError(lang === "ru" ? "Выберите PDF для наложения." : "Select a PDF to overlay.");
+            setState("error");
+            return;
+          }
+          result = await overlayPdf(files[0], overlayFile2, overlayOpacity[0], setProgress);
+          break;
+        }
+        case "extract-images": {
+          const images = await pdfToImages(files[0], "png", 2);
+          const origName = files[0].name.replace(/\.[^.]+$/, "");
+          result = await pdfImagesAsZip(images, "png", origName);
+          break;
+        }
+        case "pdf-to-markdown": {
+          const md = await pdfToMarkdown(files[0]);
+          setResultText(md);
+          result = new Uint8Array(new TextEncoder().encode(md));
+          break;
+        }
+        case "add-background": {
+          const hex = bgColor.replace("#", "");
+          const r = parseInt(hex.substring(0, 2), 16);
+          const g = parseInt(hex.substring(2, 4), 16);
+          const b = parseInt(hex.substring(4, 6), 16);
+          result = await addBackground(files[0], { r, g, b }, bgOpacity[0] / 100);
+          break;
+        }
+        case "pdf-diff": {
+          if (!diffFile2) {
+            setError(lang === "ru" ? "Выберите второй PDF для сравнения." : "Select a second PDF to compare.");
+            setState("error");
+            return;
+          }
+          result = await pdfDiff(files[0], diffFile2, setProgress);
+          break;
+        }
+        case "pdf-to-audio": {
+          const text = await pdfToText(files[0]);
+          pdfToAudioFn(text, audioLang, audioRate[0]);
+          setState("idle");
+          setProgress(0);
+          return;
+        }
+        case "pdf-to-pptx": {
+          result = await pdfToPptx(files[0], setProgress);
+          break;
+        }
         default:
           throw new Error(t.tool.proOnlyError);
       }
@@ -371,6 +670,10 @@ export default function ToolPage() {
       setResultBytes(result);
       setResultSize(result?.length ?? null);
       setState("done");
+      
+      if (result && tool?.outputExt === "pdf") {
+        generatePreview(result).catch(() => {});
+      }
     } catch (err: any) {
       setError(normalizeToolError(err));
       setState("error");
@@ -380,14 +683,22 @@ export default function ToolPage() {
     pagesToDelete, pagesToExtract, compressionLevel,
     watermarkText, watermarkOpacity, watermarkPosition, pageNumPosition, pageNumFormat,
     headerText, footerText, freeTextContent,
-    password, signatureText, redactSearchText, imageScale, ocrLanguage, t, lang, setProgress, normalizeToolError,
+    password, signatureText, redactSearchText, imageScale, ocrLanguage,
+    cropTop, cropRight, cropBottom, cropLeft, cropAutoMode, metadataFields, metadataLoaded,
+    compareFile2, blankThreshold, resizeTarget,
+    redactEmails, redactPhones, redactSsn, redactIban, redactCustomRegex,
+    nUpValue, splitMaxMb, overlayFile2, overlayOpacity, scannerIntensity, formValues,
+    bgColor, bgOpacity, diffFile2, audioLang, audioRate,
+    t, lang, setProgress, normalizeToolError,
+    generatePreview,
   ]);
 
   const handleDownload = useCallback(() => {
     if (!tool) return;
     const origName = files[0]?.name?.replace(/\.[^.]+$/, "") || "output";
-    if (resultText !== null && (slug === "pdf-to-text")) {
-      downloadText(resultText, `${origName}-pdfx.txt`);
+    if (resultText !== null && (slug === "pdf-to-text" || slug === "pdf-bookmarks" || slug === "extract-forms" || slug === "pdf-to-markdown")) {
+      const ext = slug === "extract-forms" ? "json" : slug === "pdf-to-markdown" ? "md" : "txt";
+      downloadText(resultText, `${origName}-pdfx.${ext}`);
       return;
     }
     if (resultHtml !== null && slug === "pdf-to-html") {
@@ -395,12 +706,25 @@ export default function ToolPage() {
       return;
     }
     if (!resultBytes) return;
-    if (slug === "pdf-to-jpg" || slug === "pdf-to-png") {
+    if (slug === "pdf-to-pptx") {
+      downloadBlob(resultBytes, `${origName}-pdfx.pptx`, "application/vnd.openxmlformats-officedocument.presentationml.presentation");
+      return;
+    }
+    if (slug === "pdf-to-jpg" || slug === "pdf-to-png" || slug === "extract-images") {
       downloadBlob(resultBytes, `${origName}-pdfx-images.zip`, "application/zip");
       return;
     }
     if (slug === "split-pdf" && (splitMode === "all" || splitMode === "every-n")) {
       downloadBlob(resultBytes, `${origName}-split.zip`, "application/zip");
+      return;
+    }
+    if (slug === "split-by-size") {
+      const isZip = resultBytes[0] === 0x50 && resultBytes[1] === 0x4B;
+      downloadBlob(resultBytes, isZip ? `${origName}-split-by-size.zip` : `${origName}-pdfx.pdf`, isZip ? "application/zip" : "application/pdf");
+      return;
+    }
+    if (slug === "split-by-chapters") {
+      downloadBlob(resultBytes, `${origName}-chapters.zip`, "application/zip");
       return;
     }
     const mimeType =
@@ -411,6 +735,28 @@ export default function ToolPage() {
           : "application/pdf";
     downloadBlob(resultBytes, `${origName}-pdfx.${tool.outputExt || "pdf"}`, mimeType);
   }, [resultBytes, resultText, resultHtml, files, tool, slug, splitMode]);
+
+  // ВАЖНО: хуки должны вызываться безусловно, ДО любых ранних return,
+  // иначе при переходе между launch-ready и не-launch-ready инструментами
+  // React падает с "Rendered fewer hooks than expected".
+  useEffect(() => {
+    if (tool) rememberRecentTool(tool.slug);
+  }, [tool?.slug]);
+
+  // form-fill: auto-load fields when file is uploaded
+  useEffect(() => {
+    if (slug !== "form-fill" || files.length === 0) return;
+    setFormLoading(true);
+    setFormFields([]);
+    setFormValues({});
+    getPdfFormFields(files[0]).then((fields) => {
+      setFormFields(fields);
+      const init: Record<string, string> = {};
+      fields.forEach(f => { init[f.name] = f.value ?? ""; });
+      setFormValues(init);
+      setFormLoading(false);
+    }).catch(() => setFormLoading(false));
+  }, [slug, files]);
 
   if (!tool) {
     return (
@@ -460,10 +806,6 @@ export default function ToolPage() {
     .filter((t) => t.category === tool.category && t.slug !== slug && isToolLaunchReady(t))
     .slice(0, 4);
   const workflowSuggestions = getWorkflowSuggestionsForTool(tool.slug, lang);
-
-  useEffect(() => {
-    rememberRecentTool(tool.slug);
-  }, [tool.slug]);
 
   return (
     <div className="min-h-screen">
@@ -515,8 +857,11 @@ export default function ToolPage() {
                 }}
                 files={files}
                 onRemoveFile={removeFile}
+                onMoveFile={moveFile}
+                onReorderFiles={setFiles}
                 label={tool.accept?.includes(".pdf") ? t.tool.dropPdf : t.tool.chooseFile}
                 description={`${tool.multiple ? t.tool.multipleFiles : t.tool.singleFile} • ${t.tool.maxSize} ${maxSizeMb}MB`}
+                slug={slug}
               />
 
               {slug === "text-to-pdf" && files.length === 0 && (
@@ -639,6 +984,597 @@ export default function ToolPage() {
                   />
                 </div>
               )}
+
+              {slug === "crop-pdf" && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input type="checkbox" checked={cropAutoMode} onChange={(e) => setCropAutoMode(e.target.checked)} className="rounded" />
+                      <span className="font-medium">{lang === "ru" ? "Авто-обрезка по содержимому" : "Auto-crop to content"}</span>
+                    </label>
+                  </div>
+                  {!cropAutoMode && (
+                    <>
+                      <p className="text-xs text-muted-foreground">
+                        {lang === "ru" ? "Укажите отступы обрезки в миллиметрах для каждой стороны:" : "Set crop margins in millimeters for each side:"}
+                      </p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-sm font-medium mb-1.5 block">{lang === "ru" ? "Сверху (мм)" : "Top (mm)"}</Label>
+                          <Input type="number" min="0" value={cropTop} onChange={(e) => setCropTop(e.target.value)} />
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium mb-1.5 block">{lang === "ru" ? "Справа (мм)" : "Right (mm)"}</Label>
+                          <Input type="number" min="0" value={cropRight} onChange={(e) => setCropRight(e.target.value)} />
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium mb-1.5 block">{lang === "ru" ? "Снизу (мм)" : "Bottom (mm)"}</Label>
+                          <Input type="number" min="0" value={cropBottom} onChange={(e) => setCropBottom(e.target.value)} />
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium mb-1.5 block">{lang === "ru" ? "Слева (мм)" : "Left (mm)"}</Label>
+                          <Input type="number" min="0" value={cropLeft} onChange={(e) => setCropLeft(e.target.value)} />
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  {cropAutoMode && (
+                    <p className="text-xs text-muted-foreground">
+                      {lang === "ru" ? "Автоматически обрезает пустые поля вокруг содержимого каждой страницы." : "Automatically trims blank margins around content on each page."}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {slug === "pdf-metadata" && metadataLoaded && (
+                <div className="space-y-3">
+                  {["title", "author", "subject", "keywords", "creator"].map((field) => (
+                    <div key={field}>
+                      <Label className="text-sm font-medium mb-1.5 block capitalize">{field}</Label>
+                      <Input
+                        value={metadataFields[field] || ""}
+                        onChange={(e) => setMetadataFields({ ...metadataFields, [field]: e.target.value })}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {slug === "compare-pdf" && (
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-sm font-medium mb-1.5 block">
+                      {lang === "ru" ? "Второй PDF для сравнения" : "Second PDF to compare"}
+                    </Label>
+                    {compareFile2 ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground truncate">{compareFile2.name}</span>
+                        <Button variant="outline" size="sm" onClick={() => setCompareFile2(null)}>
+                          {lang === "ru" ? "Убрать" : "Remove"}
+                        </Button>
+                      </div>
+                    ) : (
+                      <label className="flex items-center justify-center gap-2 px-4 py-2 border border-dashed rounded-md cursor-pointer hover:bg-accent/50 transition-colors">
+                        <Upload className="w-4 h-4" />
+                        <span className="text-sm">{lang === "ru" ? "Выбрать второй PDF" : "Choose second PDF"}</span>
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) setCompareFile2(f);
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {slug === "remove-blank-pages" && (
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-sm font-medium mb-1.5 block">
+                      {lang === "ru" ? "Порог яркости (0–255)" : "Brightness threshold (0–255)"}
+                    </Label>
+                    <Slider
+                      min={200}
+                      max={255}
+                      step={5}
+                      value={[blankThreshold]}
+                      onValueChange={([v]) => setBlankThreshold(v)}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {lang === "ru" ? "Страницы, где >95% пикселей ярче порога, считаются пустыми." : "Pages where >95% of pixels are brighter than the threshold are considered blank."}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {slug === "resize-pages" && (
+                <div>
+                  <Label className="text-sm font-medium mb-1.5 block">
+                    {lang === "ru" ? "Целевой размер" : "Target size"}
+                  </Label>
+                  <Select value={resizeTarget} onValueChange={(v) => setResizeTarget(v as any)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="a4">A4 (210 × 297 мм)</SelectItem>
+                      <SelectItem value="a3">A3 (297 × 420 мм)</SelectItem>
+                      <SelectItem value="a5">A5 (148 × 210 мм)</SelectItem>
+                      <SelectItem value="letter">{lang === "ru" ? "Letter (216 × 279 мм)" : "Letter (8.5 × 11 in)"}</SelectItem>
+                      <SelectItem value="legal">{lang === "ru" ? "Legal (216 × 356 мм)" : "Legal (8.5 × 14 in)"}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {slug === "grayscale-pdf" && (
+                <div
+                  className="flex items-start gap-3 rounded-lg p-3 text-sm"
+                  style={{ background: "rgba(100,116,139,0.08)", border: "1px solid rgba(100,116,139,0.2)" }}
+                >
+                  <span className="mt-0.5 text-slate-400">ℹ</span>
+                  <span className="text-muted-foreground">
+                    {lang === "ru"
+                      ? "Все страницы будут конвертированы в оттенки серого. Цветные элементы станут чёрно-белыми."
+                      : "All pages will be converted to grayscale. Color elements will become black and white."}
+                  </span>
+                </div>
+              )}
+
+              {slug === "pdf-bookmarks" && (
+                <div
+                  className="flex items-start gap-3 rounded-lg p-3 text-sm"
+                  style={{ background: "rgba(72,145,104,0.08)", border: "1px solid rgba(72,145,104,0.2)" }}
+                >
+                  <span className="mt-0.5 text-emerald-400">ℹ</span>
+                  <span className="text-muted-foreground">
+                    {lang === "ru"
+                      ? "Нажмите «Обработать», чтобы извлечь закладки и оглавление из PDF."
+                      : "Click Process to extract bookmarks and table of contents from the PDF."}
+                  </span>
+                </div>
+              )}
+
+              {slug === "auto-redact" && (
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    {lang === "ru" ? "Выберите типы данных для автоматического скрытия:" : "Select data types to auto-redact:"}
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={redactEmails} onChange={(e) => setRedactEmails(e.target.checked)} className="rounded" />
+                      {lang === "ru" ? "Email" : "Emails"}
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={redactPhones} onChange={(e) => setRedactPhones(e.target.checked)} className="rounded" />
+                      {lang === "ru" ? "Телефоны" : "Phones"}
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={redactSsn} onChange={(e) => setRedactSsn(e.target.checked)} className="rounded" />
+                      SSN
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={redactIban} onChange={(e) => setRedactIban(e.target.checked)} className="rounded" />
+                      IBAN
+                    </label>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium mb-1.5 block">
+                      {lang === "ru" ? "Свой regex (необязательно)" : "Custom regex (optional)"}
+                    </Label>
+                    <Input
+                      value={redactCustomRegex}
+                      onChange={(e) => setRedactCustomRegex(e.target.value)}
+                      placeholder={lang === "ru" ? "например: \\d{4}" : "e.g. \\d{4}"}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {slug === "n-up-pdf" && (
+                <div>
+                  <Label className="text-sm font-medium mb-1.5 block">
+                    {lang === "ru" ? "Страниц на лист" : "Pages per sheet"}
+                  </Label>
+                  <Select value={String(nUpValue)} onValueChange={(v) => setNUpValue(Number(v) as 2 | 4)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="2">2 {lang === "ru" ? "страницы" : "pages"}</SelectItem>
+                      <SelectItem value="4">4 {lang === "ru" ? "страницы" : "pages"}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {slug === "split-by-size" && (
+                <div>
+                  <Label className="text-sm font-medium mb-1.5 block">
+                    {lang === "ru" ? "Максимальный размер части (МБ)" : "Max part size (MB)"}
+                  </Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={splitMaxMb}
+                    onChange={(e) => setSplitMaxMb(e.target.value)}
+                    placeholder="5"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {lang === "ru" ? "PDF будет разделён на части, каждая не больше указанного размера." : "The PDF will be split into parts, each under the specified size."}
+                  </p>
+                </div>
+              )}
+
+              {slug === "overlay-pdf" && (
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-sm font-medium mb-1.5 block">
+                      {lang === "ru" ? "PDF для наложения" : "PDF to overlay"}
+                    </Label>
+                    {overlayFile2 ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground truncate">{overlayFile2.name}</span>
+                        <Button variant="outline" size="sm" onClick={() => setOverlayFile2(null)}>
+                          {lang === "ru" ? "Убрать" : "Remove"}
+                        </Button>
+                      </div>
+                    ) : (
+                      <label className="flex items-center justify-center gap-2 px-4 py-2 border border-dashed rounded-md cursor-pointer hover:bg-accent/50 transition-colors">
+                        <Upload className="w-4 h-4" />
+                        <span className="text-sm">{lang === "ru" ? "Выбрать PDF для наложения" : "Choose overlay PDF"}</span>
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) setOverlayFile2(f);
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">
+                      {lang === "ru" ? "Прозрачность" : "Opacity"}: {Math.round(overlayOpacity[0] * 100)}%
+                    </Label>
+                    <Slider
+                      min={10}
+                      max={100}
+                      step={5}
+                      value={[overlayOpacity[0] * 100]}
+                      onValueChange={([v]) => setOverlayOpacity([v / 100])}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {slug === "add-blank-pages" && (
+                <div>
+                  <Label className="text-sm font-medium mb-1.5 block">
+                    {lang === "ru" ? "Позиции вставки (0 = начало, через запятую)" : "Insert positions (0 = beginning, comma-separated)"}
+                  </Label>
+                  <Input
+                    value={pagesToExtract}
+                    onChange={(e) => setPagesToExtract(e.target.value)}
+                    placeholder="0, 3, 5"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {lang === "ru" ? "Например: 0,3,5 — вставит пустые страницы перед 1-й, после 3-й и после 5-й." : "E.g. 0,3,5 — inserts blank pages before page 1, after page 3, and after page 5."}
+                  </p>
+                </div>
+              )}
+
+              {slug === "extract-images" && (
+                <div
+                  className="flex items-start gap-3 rounded-lg p-3 text-sm"
+                  style={{ background: "rgba(236,72,153,0.08)", border: "1px solid rgba(236,72,153,0.2)" }}
+                >
+                  <span className="mt-0.5 text-pink-400">ℹ</span>
+                  <span className="text-muted-foreground">
+                    {lang === "ru"
+                      ? "Все страницы будут отрендерены как PNG и упакованы в ZIP-архив."
+                      : "All pages will be rendered as PNG and packed into a ZIP archive."}
+                  </span>
+                </div>
+              )}
+
+              {slug === "sanitize-pdf" && (
+                <div
+                  className="flex items-start gap-3 rounded-lg p-3 text-sm"
+                  style={{ background: "rgba(249,115,22,0.08)", border: "1px solid rgba(249,115,22,0.2)" }}
+                >
+                  <span className="mt-0.5 text-orange-400">🛡️</span>
+                  <span className="text-muted-foreground">
+                    {lang === "ru"
+                      ? "Удаляются: заголовок, автор, тема, ключевые слова, продюсер, создатель. JavaScript и встроенные скрипты также удаляются."
+                      : "Removes: title, author, subject, keywords, producer, creator. JavaScript and embedded scripts are also stripped."}
+                  </span>
+                </div>
+              )}
+
+              {slug === "pdf-to-pdfa" && (
+                <div
+                  className="flex items-start gap-3 rounded-lg p-3 text-sm"
+                  style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.2)" }}
+                >
+                  <span className="mt-0.5 text-blue-400">ℹ</span>
+                  <span className="text-muted-foreground">
+                    {lang === "ru"
+                      ? "Конвертирует PDF в формат PDF/A-1b для долгосрочного архивирования. Метаданные очищаются, объекты оптимизируются."
+                      : "Converts PDF to PDF/A-1b format for long-term archiving. Metadata is cleaned and objects are optimized."}
+                  </span>
+                </div>
+              )}
+
+              {slug === "extract-forms" && (
+                <div
+                  className="flex items-start gap-3 rounded-lg p-3 text-sm"
+                  style={{ background: "rgba(6,182,212,0.08)", border: "1px solid rgba(6,182,212,0.2)" }}
+                >
+                  <span className="mt-0.5 text-cyan-400">ℹ</span>
+                  <span className="text-muted-foreground">
+                    {lang === "ru"
+                      ? "Извлекает данные всех полей форм из PDF и экспортирует в JSON."
+                      : "Extracts all form field data from the PDF and exports as JSON."}
+                  </span>
+                </div>
+              )}
+
+              {slug === "pdf-to-markdown" && (
+                <div
+                  className="flex items-start gap-3 rounded-lg p-3 text-sm"
+                  style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)" }}
+                >
+                  <span className="mt-0.5 text-green-500">📝</span>
+                  <span className="text-muted-foreground">
+                    {lang === "ru"
+                      ? "Извлекает текст из PDF с заголовками, списками и структурой страницы."
+                      : "Extracts text from PDF with headings, lists, and page structure."}
+                  </span>
+                </div>
+              )}
+
+              {slug === "add-background" && (
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-sm font-medium mb-1.5 block">
+                      {lang === "ru" ? "Цвет фона" : "Background color"}
+                    </Label>
+                    <input
+                      type="color"
+                      value={bgColor}
+                      onChange={(e) => setBgColor(e.target.value)}
+                      className="w-12 h-8 rounded border cursor-pointer"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">
+                      {lang === "ru" ? "Непрозрачность" : "Opacity"}: {bgOpacity[0]}%
+                    </Label>
+                    <Slider
+                      min={5}
+                      max={100}
+                      step={5}
+                      value={bgOpacity}
+                      onValueChange={(v) => setBgOpacity(v)}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {slug === "pdf-diff" && (
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-sm font-medium mb-1.5 block">
+                      {lang === "ru" ? "Второй PDF для сравнения" : "Second PDF to compare"}
+                    </Label>
+                    {diffFile2 ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground truncate">{diffFile2.name}</span>
+                        <Button variant="outline" size="sm" onClick={() => setDiffFile2(null)}>
+                          {lang === "ru" ? "Убрать" : "Remove"}
+                        </Button>
+                      </div>
+                    ) : (
+                      <label className="flex items-center justify-center gap-2 px-4 py-2 border border-dashed rounded-md cursor-pointer hover:bg-accent/50 transition-colors">
+                        <Upload className="w-4 h-4" />
+                        <span className="text-sm">{lang === "ru" ? "Выбрать второй PDF" : "Choose second PDF"}</span>
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) setDiffFile2(f);
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {slug === "pdf-to-audio" && (
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-sm font-medium mb-1.5 block">
+                      {lang === "ru" ? "Язык" : "Language"}
+                    </Label>
+                    <Select value={audioLang} onValueChange={setAudioLang}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="en-US">English (US)</SelectItem>
+                        <SelectItem value="en-GB">English (UK)</SelectItem>
+                        <SelectItem value="ru-RU">Русский</SelectItem>
+                        <SelectItem value="de-DE">Deutsch</SelectItem>
+                        <SelectItem value="fr-FR">Français</SelectItem>
+                        <SelectItem value="es-ES">Español</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">
+                      {lang === "ru" ? "Скорость" : "Speed"}: {audioRate[0].toFixed(1)}x
+                    </Label>
+                    <Slider
+                      min={0.5}
+                      max={2}
+                      step={0.1}
+                      value={audioRate}
+                      onValueChange={(v) => setAudioRate(v)}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {slug === "pdf-to-pptx" && (
+                <div
+                  className="flex items-start gap-3 rounded-lg p-3 text-sm"
+                  style={{ background: "rgba(249,115,22,0.08)", border: "1px solid rgba(249,115,22,0.2)" }}
+                >
+                  <span className="mt-0.5 text-orange-400">📊</span>
+                  <span className="text-muted-foreground">
+                    {lang === "ru"
+                      ? "Каждая страница PDF станет слайдом в презентации PowerPoint."
+                      : "Each PDF page will become a slide in the PowerPoint presentation."}
+                  </span>
+                </div>
+              )}
+              {/* ==================== INVERT COLORS ==================== */}
+              {slug === "invert-colors" && (
+                <div className="flex items-start gap-3 rounded-lg p-3 text-sm" style={{ background: "rgba(100,116,139,0.08)", border: "1px solid rgba(100,116,139,0.2)" }}>
+                  <span className="mt-0.5 text-slate-400">🌙</span>
+                  <span className="text-muted-foreground">
+                    {lang === "ru"
+                      ? "Инвертирует все цвета в PDF — создаёт версию для тёмного фона или снижает нагрузку на глаза."
+                      : "Inverts all colors in the PDF to create a dark-mode version or reduce eye strain."}
+                  </span>
+                </div>
+              )}
+
+              {/* ==================== TO SINGLE PAGE ==================== */}
+              {slug === "to-single-page" && (
+                <div className="flex items-start gap-3 rounded-lg p-3 text-sm" style={{ background: "rgba(20,184,166,0.08)", border: "1px solid rgba(20,184,166,0.2)" }}>
+                  <span className="mt-0.5 text-teal-400">📜</span>
+                  <span className="text-muted-foreground">
+                    {lang === "ru"
+                      ? "Объединяет все страницы в одну длинную непрерывную страницу — удобно для веб-публикации или скролл-просмотра."
+                      : "Combines all pages into one tall continuous page — great for web publishing or scrollable viewing."}
+                  </span>
+                </div>
+              )}
+
+              {/* ==================== REMOVE IMAGES ==================== */}
+              {slug === "remove-images" && (
+                <div className="flex items-start gap-3 rounded-lg p-3 text-sm" style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.2)" }}>
+                  <span className="mt-0.5 text-rose-400">🚫</span>
+                  <span className="text-muted-foreground">
+                    {lang === "ru"
+                      ? "Удаляет все изображения (XObject Image) из PDF, оставляя текст и векторную графику без изменений."
+                      : "Removes all images (XObject Image resources) from the PDF while keeping text and vector graphics intact."}
+                  </span>
+                </div>
+              )}
+
+              {/* ==================== FORM FILL ==================== */}
+              {slug === "form-fill" && (
+                <div className="space-y-3">
+                  {formLoading && (
+                    <p className="text-sm text-muted-foreground">{lang === "ru" ? "Загрузка полей формы…" : "Loading form fields…"}</p>
+                  )}
+                  {!formLoading && formFields.length === 0 && files.length > 0 && (
+                    <p className="text-sm text-muted-foreground">{lang === "ru" ? "Поля формы не найдены в этом PDF." : "No form fields found in this PDF."}</p>
+                  )}
+                  {formFields.map((field) => (
+                    <div key={field.name} className="space-y-1">
+                      <Label className="text-sm font-medium">{field.name}</Label>
+                      {field.type === "checkbox" ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={formValues[field.name] === "true"}
+                            onChange={(e) => setFormValues(v => ({ ...v, [field.name]: e.target.checked ? "true" : "false" }))}
+                            className="w-4 h-4"
+                          />
+                          <span className="text-sm text-muted-foreground">{lang === "ru" ? "Отмечен" : "Checked"}</span>
+                        </div>
+                      ) : field.type === "select" || field.type === "radio" ? (
+                        <Select value={formValues[field.name] || ""} onValueChange={(v) => setFormValues(fv => ({ ...fv, [field.name]: v }))}>
+                          <SelectTrigger><SelectValue placeholder={field.name} /></SelectTrigger>
+                          <SelectContent>
+                            {(field.options || []).map(opt => (
+                              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input
+                          value={formValues[field.name] || ""}
+                          onChange={(e) => setFormValues(v => ({ ...v, [field.name]: e.target.value }))}
+                          placeholder={field.value || field.name}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* ==================== SPLIT BY CHAPTERS ==================== */}
+              {slug === "split-by-chapters" && (
+                <div className="flex items-start gap-3 rounded-lg p-3 text-sm" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)" }}>
+                  <span className="mt-0.5 text-amber-400">📖</span>
+                  <span className="text-muted-foreground">
+                    {lang === "ru"
+                      ? "Разбивает PDF на отдельные файлы по закладкам верхнего уровня. Если закладок нет — возвращает исходный файл."
+                      : "Splits PDF into separate files at top-level bookmark boundaries. If no bookmarks exist, returns the original file."}
+                  </span>
+                </div>
+              )}
+
+              {/* ==================== BOOKLET IMPOSITION ==================== */}
+              {slug === "booklet-imposition" && (
+                <div className="flex items-start gap-3 rounded-lg p-3 text-sm" style={{ background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)" }}>
+                  <span className="mt-0.5 text-indigo-400">📚</span>
+                  <span className="text-muted-foreground">
+                    {lang === "ru"
+                      ? "Переупорядочивает страницы для печати в виде брошюры. Страницы размещаются попарно на листах формата A3 (2×A4) для сложения и скрепления."
+                      : "Reorders pages for booklet printing. Pages are arranged in pairs on A3-sized sheets (2×A4) for folding and stapling."}
+                  </span>
+                </div>
+              )}
+
+              {/* ==================== SCANNER EFFECT ==================== */}
+              {slug === "scanner-effect" && (
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">
+                      {lang === "ru" ? "Интенсивность эффекта" : "Effect intensity"}: {Math.round(scannerIntensity * 100)}%
+                    </Label>
+                    <Slider
+                      min={10}
+                      max={100}
+                      step={5}
+                      value={[scannerIntensity * 100]}
+                      onValueChange={([v]) => setScannerIntensity(v / 100)}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {lang === "ru"
+                        ? "Добавляет желтоватый тон бумаги, шум и небольшое размытие — имитирует отсканированный документ."
+                        : "Adds paper yellowing, noise and slight blur — simulates a scanned physical document."}
+                    </p>
+                  </div>
+                </div>
+              )}
+
 
               {slug === "compress-pdf" && (
                 <div
@@ -940,6 +1876,23 @@ export default function ToolPage() {
                           )}</span>
                         </div>
                       )}
+                      
+                      {/* Preview */}
+                      {previewDataUrl && (
+                        <div className="w-full mt-4 p-4 rounded-lg border border-border bg-card">
+                          <h4 className="text-sm font-medium mb-3 text-muted-foreground">
+                            {lang === "ru" ? "Предпросмотр результата (первая страница)" : "Result Preview (first page)"}
+                          </h4>
+                          <div className="flex justify-center">
+                            <img 
+                              src={previewDataUrl} 
+                              alt="Preview" 
+                              className="max-w-full h-auto rounded shadow-lg"
+                              style={{ maxHeight: "400px" }}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </motion.div>
                   ) : state === "error" ? (
                     <motion.div
@@ -1098,6 +2051,7 @@ export default function ToolPage() {
           </div>
         </div>
       </div>
+      <KeyboardHelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
     </div>
   );
 }

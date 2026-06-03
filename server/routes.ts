@@ -1,12 +1,9 @@
 import type { Express } from "express";
 import { type Server } from "http";
-import { storage } from "./storage";
 
 const BASE_URL = "https://pdfx.tools";
 
-const LANG_CODES = [
-  "en","ru","es","fr","de","it","pt","zh","ja","ko","ar","tr","hi","pl","nl","uk","vi","id","th","cs"
-];
+const LANG_CODES = ["en", "ru"];
 
 const TOOL_SLUGS = [
   "pdf-to-word",

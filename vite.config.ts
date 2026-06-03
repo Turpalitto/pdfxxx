@@ -2,11 +2,74 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
   plugins: [
     react(),
     runtimeErrorOverlay(),
+    VitePWA({
+      registerType: "autoUpdate",
+      injectRegister: "auto",
+      includeAssets: ["favicon.png", "fonts/**/*"],
+      manifest: {
+        name: "PDFX — PDF Tools",
+        short_name: "PDFX",
+        description:
+          "Free browser-based PDF toolkit. Merge, split, compress, convert, and edit PDF files without uploading to a server.",
+        start_url: "/",
+        scope: "/",
+        display: "standalone",
+        orientation: "any",
+        background_color: "#0a0a0a",
+        theme_color: "#0a0a0a",
+        lang: "en",
+        categories: ["utilities", "productivity"],
+        icons: [
+          {
+            src: "/favicon.png",
+            sizes: "128x128",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: "/favicon.png",
+            sizes: "128x128",
+            type: "image/png",
+            purpose: "maskable",
+          },
+        ],
+      },
+      workbox: {
+        // PDF/UI чанки крупные (chunkSizeWarningLimit 1800kb) — поднимаем лимит precache
+        maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
+        globPatterns: [
+          "**/*.{js,css,html,ico,png,svg,woff,woff2,wasm}",
+        ],
+        // SPA: любые навигации отдаём из index.html
+        navigateFallback: "/index.html",
+        // Tesseract.js тянет core/lang-данные с CDN — кэшируем для офлайн-OCR
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) =>
+              /(unpkg\.com|cdn\.jsdelivr\.net|tessdata)/.test(url.href),
+            handler: "CacheFirst",
+            options: {
+              cacheName: "pdfx-cdn-cache",
+              expiration: {
+                maxEntries: 40,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
+      },
+      devOptions: {
+        // не включаем SW в dev — избегаем агрессивного кэширования при hot reload
+        enabled: false,
+      },
+    }),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [

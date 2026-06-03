@@ -7,3 +7,15 @@ vite.config.ts.*
 dev-server*.log
 test-results/
 playwright-report/
+.playwright-mcp/
+
+# E2E fixtures (generated dynamically)
+tests/e2e/fixtures/
+
+# IDE/editor local state
+.vscode/
+.idea/
+.cursor/
+.zed/
+.fleet/
+.history/

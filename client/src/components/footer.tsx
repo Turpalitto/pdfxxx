@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { FileText, Mail, Facebook, Twitter, Instagram, Linkedin } from "lucide-react";
+import { FileText, Mail } from "lucide-react";
 import { categories, getCategoryLabel } from "@/lib/tools";
 import { useLang } from "@/lib/lang-context";
 import { loadContactPage, loadHomePage, loadPricingPage, loadPrivacyPage, loadTermsPage } from "@/lib/route-preload";
@@ -92,20 +92,6 @@ export function Footer() {
           <p className="text-sm text-muted-foreground">
             &copy; {new Date().getFullYear()} PDFX. {lang === "ru" ? "Все права защищены." : "All rights reserved."}
           </p>
-          <div className="flex gap-3">
-            <a href="#" className="flex h-10 w-10 items-center justify-center rounded-full bg-white/40 transition-colors hover:bg-white/65 hover:text-foreground">
-              <Facebook className="w-5 h-5" />
-            </a>
-            <a href="#" className="flex h-10 w-10 items-center justify-center rounded-full bg-white/40 transition-colors hover:bg-white/65 hover:text-foreground">
-              <Twitter className="w-5 h-5" />
-            </a>
-            <a href="#" className="flex h-10 w-10 items-center justify-center rounded-full bg-white/40 transition-colors hover:bg-white/65 hover:text-foreground">
-              <Instagram className="w-5 h-5" />
-            </a>
-            <a href="#" className="flex h-10 w-10 items-center justify-center rounded-full bg-white/40 transition-colors hover:bg-white/65 hover:text-foreground">
-              <Linkedin className="w-5 h-5" />
-            </a>
-          </div>
         </div>
       </div>
     </footer>

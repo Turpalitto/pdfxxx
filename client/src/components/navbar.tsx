@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X, FileText, ChevronDown, Globe, Moon, Sun } from "lucide-react";
+import { Menu, X, FileText, ChevronDown, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLang } from "@/lib/lang-context";
-import { useTheme } from "@/lib/theme";
 import { LANGUAGES, type LangCode } from "@/lib/i18n";
 import { categories, getCategoryLabel } from "@/lib/tools";
 import { cn } from "@/lib/utils";
@@ -11,7 +10,6 @@ import { loadContactPage, loadHomePage, loadPricingPage } from "@/lib/route-prel
 
 export function Navbar() {
   const { lang, setLang, t } = useLang();
-  const { theme, toggleTheme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
@@ -19,7 +17,6 @@ export function Navbar() {
   const langRef = useRef<HTMLDivElement>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
   const isPricing = (location as string) === "/pricing";
-  const isDark = theme === "dark";
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -54,7 +51,7 @@ export function Navbar() {
             <span className="paper-title text-xl font-bold leading-none text-foreground">
               PDF<span className="text-primary">X</span>
             </span>
-            <span className="hidden text-xs leading-none text-muted-foreground sm:block">calm tools for document work</span>
+            <span className="hidden text-xs leading-none text-muted-foreground sm:block">{lang === "ru" ? "спокойные инструменты для документов" : "calm tools for document work"}</span>
           </span>
         </Link>
 
@@ -107,25 +104,12 @@ export function Navbar() {
 
         {/* Right side */}
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="inline-flex h-10 items-center gap-2 rounded-full border border-border bg-white/45 px-3 text-sm font-medium text-muted-foreground shadow-sm transition-colors hover:bg-white/70 hover:text-foreground"
-            aria-label={isDark ? "Switch to light mode" : "Switch to night mode"}
-            title={isDark ? "Light mode" : "Night mode"}
-          >
-            <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-primary">
-              {isDark ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
-            </span>
-            <span className="hidden lg:inline">{isDark ? "Light" : "Night"}</span>
-          </button>
-
           {/* Language selector */}
           <div ref={langRef} className="relative">
             <button
               onClick={() => setLangOpen((open) => !open)}
             className="hidden items-center gap-1.5 rounded-full px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-white/50 hover:text-foreground md:flex"
-              aria-label="Change language"
+              aria-label={lang === "ru" ? "Сменить язык" : "Change language"}
             >
               <Globe className="w-4 h-4" />
               <span className="text-sm font-medium">{currentLang.nativeName}</span>
@@ -176,7 +160,7 @@ export function Navbar() {
             variant="ghost"
           className="rounded-full text-muted-foreground hover:bg-white/55 hover:text-foreground md:hidden"
             onClick={() => setMenuOpen((open) => !open)}
-            aria-label="Toggle menu"
+            aria-label={lang === "ru" ? "Меню" : "Toggle menu"}
           >
             {menuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
           </Button>

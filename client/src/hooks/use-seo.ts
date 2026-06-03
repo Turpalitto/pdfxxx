@@ -8,10 +8,14 @@ export interface SeoMeta {
   title: string;
   description: string;
   path?: string;
+  image?: string;
   schemaOrg?: Record<string, unknown>;
 }
 
-export function useSeo({ title, description, path = "/", schemaOrg }: SeoMeta) {
+const DEFAULT_OG_IMAGE = `${BASE_URL}/favicon.png`;
+
+export function useSeo({ title, description, path = "/", image, schemaOrg }: SeoMeta) {
+  const ogImage = image || DEFAULT_OG_IMAGE;
   useEffect(() => {
     document.title = title;
 
@@ -19,8 +23,10 @@ export function useSeo({ title, description, path = "/", schemaOrg }: SeoMeta) {
     setMeta("property", "og:title", title);
     setMeta("property", "og:description", description);
     setMeta("property", "og:url", `${BASE_URL}${path}`);
+    setMeta("property", "og:image", ogImage);
     setMeta("name", "twitter:title", title);
     setMeta("name", "twitter:description", description);
+    setMeta("name", "twitter:image", ogImage);
 
     setLink("canonical", `${BASE_URL}${path}`);
 

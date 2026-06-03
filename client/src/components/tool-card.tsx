@@ -22,11 +22,13 @@ export function ToolCard({ tool }: ToolCardProps) {
       href={`/tools/${tool.slug}`}
       onMouseEnter={() => preloadToolRoute(tool.slug)}
       onFocus={() => preloadToolRoute(tool.slug)}
+      className="block w-full min-w-0"
     >
       <motion.div
-        whileHover={{ scale: 1.01, y: -3 }}
-        whileTap={{ scale: 0.98 }}
-        className="paper-tool-card group grid min-h-[232px] cursor-pointer content-start gap-4 rounded-[22px] p-5 transition-all duration-300"
+        // Keep hover motion but avoid layout overflow in narrow grids/sidebars.
+        whileHover={{ y: -2 }}
+        whileTap={{ scale: 0.995 }}
+        className="paper-tool-card group grid min-h-[232px] w-full min-w-0 cursor-pointer content-start gap-4 rounded-[22px] p-5 transition-all duration-300"
         data-testid={`card-tool-${tool.slug}`}
       >
         <div className="relative z-[1] flex items-center justify-between gap-3">
@@ -62,16 +64,16 @@ export function ToolCard({ tool }: ToolCardProps) {
           </span>
         </div>
 
-        <div className="relative z-[1]">
-          <h3 className="mb-2 text-lg font-semibold leading-snug text-foreground transition-colors group-hover:text-primary">
+        <div className="relative z-[1] min-w-0">
+          <h3 className="mb-2 text-lg font-semibold leading-snug text-foreground transition-colors group-hover:text-primary line-clamp-2">
             {name}
           </h3>
-          <p className="line-clamp-3 text-sm leading-6 text-muted-foreground">{description}</p>
+          <p className="line-clamp-3 text-sm leading-6 text-muted-foreground break-words">{description}</p>
         </div>
 
-        <div className="relative z-[1] mt-auto flex items-center justify-between gap-3 text-xs text-muted-foreground">
-          <span className="line-clamp-1">{getCategoryLabel(tool.category, lang)}</span>
-          <span className="rounded-full border border-border bg-white/45 px-2.5 py-1">
+        <div className="relative z-[1] mt-auto flex items-center justify-between gap-3 text-xs text-muted-foreground min-w-0">
+          <span className="line-clamp-1 truncate">{getCategoryLabel(tool.category, lang)}</span>
+          <span className="rounded-full border border-border bg-white/45 px-2.5 py-1 flex-shrink-0">
             {tool.pro ? "Pro" : isReady ? "Ready" : "Soon"}
           </span>
         </div>

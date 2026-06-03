@@ -33,41 +33,41 @@ export default function PrivacyPage() {
     <div className="min-h-screen">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12">
         <div className="mb-6">
-          <Link href="/" className="text-sm text-slate-400 hover:text-white transition-colors">
+          <Link href="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
             {isRu ? "← На главную" : "← Back home"}
           </Link>
         </div>
-        <div className="rounded-3xl border border-white/10 bg-slate-950/60 p-8 md:p-10">
+        <div className="rounded-3xl border border-border bg-card p-8 md:p-10">
           <div className="flex items-center gap-3 mb-6">
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-300">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/15 text-primary">
               <Shield className="size-6" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-white">{isRu ? "Политика конфиденциальности" : "Privacy Policy"}</h1>
-              <p className="text-slate-400 mt-1">{isRu ? "Последнее обновление: 13 марта 2026" : "Last updated: March 13, 2026"}</p>
+              <h1 className="text-3xl font-bold text-foreground">{isRu ? "Политика конфиденциальности" : "Privacy Policy"}</h1>
+              <p className="text-muted-foreground mt-1">{isRu ? "Последнее обновление: 13 марта 2026" : "Last updated: March 13, 2026"}</p>
             </div>
           </div>
 
           <div className="grid md:grid-cols-3 gap-4 mb-8">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <LockKeyhole className="size-5 text-emerald-300 mb-2" />
-              <p className="text-sm text-slate-300">{isRu ? "Файлы по умолчанию остаются на устройстве." : "Files stay on your device by default."}</p>
+            <div className="rounded-2xl border border-border bg-muted/50 p-4">
+              <LockKeyhole className="size-5 text-primary mb-2" />
+              <p className="text-sm text-muted-foreground">{isRu ? "Файлы по умолчанию остаются на устройстве." : "Files stay on your device by default."}</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <EyeOff className="size-5 text-sky-300 mb-2" />
-              <p className="text-sm text-slate-300">{isRu ? "Мы не читаем содержимое ваших PDF." : "We do not inspect the contents of your PDFs."}</p>
+            <div className="rounded-2xl border border-border bg-muted/50 p-4">
+              <EyeOff className="size-5 text-sky-400 mb-2" />
+              <p className="text-sm text-muted-foreground">{isRu ? "Мы не читаем содержимое ваших PDF." : "We do not inspect the contents of your PDFs."}</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <Shield className="size-5 text-violet-300 mb-2" />
-              <p className="text-sm text-slate-300">{isRu ? "Маркетинговые обещания приведены к фактическим возможностям продукта." : "Marketing copy is aligned with the product's actual capabilities."}</p>
+            <div className="rounded-2xl border border-border bg-muted/50 p-4">
+              <Shield className="size-5 text-violet-400 mb-2" />
+              <p className="text-sm text-muted-foreground">{isRu ? "Маркетинговые обещания приведены к фактическим возможностям продукта." : "Marketing copy is aligned with the product's actual capabilities."}</p>
             </div>
           </div>
 
           <div className="space-y-6">
             {sections.map(([title, body]) => (
               <section key={title}>
-                <h2 className="text-xl font-semibold text-white mb-2">{title}</h2>
-                <p className="text-slate-300 leading-7">{body}</p>
+                <h2 className="text-xl font-semibold text-foreground mb-2">{title}</h2>
+                <p className="text-muted-foreground leading-7">{body}</p>
               </section>
             ))}
           </div>
