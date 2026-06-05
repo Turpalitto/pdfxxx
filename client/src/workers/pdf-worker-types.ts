@@ -10,7 +10,10 @@
  *
  * Маршрутизируются из tool-page (через runPdfTask с fallback): grayscalePdf,
  * invertColors, pdfToImages, scannerEffect, removeBlankPages, nUpPdf,
- * toSinglePage, bookletImposition.
+ * toSinglePage, bookletImposition, comparePdf, autoRedactPdf, pdfDiff.
+ *
+ * Для двухфайловых операций (comparePdf, pdfDiff) второй файл передаётся в
+ * args[0] — структурное клонирование File поддерживается postMessage.
  *
  * pdfToPptx (pptxgenjs зависит от DOM) и ocrPdf (tesseract.js создаёт
  * вложенные воркеры) объявлены здесь, но пока выполняются в main thread —
@@ -25,6 +28,9 @@ export type WorkerOp =
   | "nUpPdf"
   | "toSinglePage"
   | "bookletImposition"
+  | "comparePdf"
+  | "autoRedactPdf"
+  | "pdfDiff"
   | "pdfToPptx"
   | "ocrPdf";
 

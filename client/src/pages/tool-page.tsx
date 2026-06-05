@@ -406,6 +406,7 @@ export default function ToolPage() {
       const realProgressSlugs = new Set([
         "redact-pdf", "grayscale-pdf", "invert-colors", "scanner-effect",
         "remove-blank-pages", "n-up-pdf", "to-single-page", "booklet-imposition",
+        "compare-pdf", "auto-redact", "pdf-diff",
       ]);
       if (!realProgressSlugs.has(slug)) {
         simulateProgress(10, 85);
@@ -609,7 +610,12 @@ export default function ToolPage() {
             setState("error");
             return;
           }
-          result = await comparePdf(files[0], compareFile2);
+          const file2 = compareFile2;
+          result = await runPdfTask(
+            "comparePdf",
+            () => comparePdf(files[0], file2, setProgress),
+            { file: files[0], args: [file2], onProgress: setProgress, signal: controller.signal }
+          );
           break;
         }
         case "remove-blank-pages":
@@ -652,15 +658,21 @@ export default function ToolPage() {
           result = await addBlankPages(files[0], positions);
           break;
         }
-        case "auto-redact":
-          result = await autoRedactPdf(files[0], {
+        case "auto-redact": {
+          const redactOptions = {
             emails: redactEmails,
             phones: redactPhones,
             ssn: redactSsn,
             iban: redactIban,
             customRegex: redactCustomRegex || undefined,
-          }, setProgress);
+          };
+          result = await runPdfTask(
+            "autoRedactPdf",
+            () => autoRedactPdf(files[0], redactOptions, setProgress),
+            { file: files[0], args: [redactOptions], onProgress: setProgress, signal: controller.signal }
+          );
           break;
+        }
         case "n-up-pdf":
           result = await runPdfTask(
             "nUpPdf",
@@ -712,7 +724,12 @@ export default function ToolPage() {
             setState("error");
             return;
           }
-          result = await pdfDiff(files[0], diffFile2, setProgress);
+          const file2 = diffFile2;
+          result = await runPdfTask(
+            "pdfDiff",
+            () => pdfDiff(files[0], file2, setProgress),
+            { file: files[0], args: [file2], onProgress: setProgress, signal: controller.signal }
+          );
           break;
         }
         case "pdf-to-audio": {
@@ -1132,6 +1149,7 @@ export default function ToolPage() {
                           type="file"
                           accept=".pdf"
                           className="hidden"
+                          data-testid="input-compare-file2"
                           onChange={(e) => {
                             const f = e.target.files?.[0];
                             if (f) setCompareFile2(f);
@@ -1461,6 +1479,7 @@ export default function ToolPage() {
                           type="file"
                           accept=".pdf"
                           className="hidden"
+                          data-testid="input-diff-file2"
                           onChange={(e) => {
                             const f = e.target.files?.[0];
                             if (f) setDiffFile2(f);

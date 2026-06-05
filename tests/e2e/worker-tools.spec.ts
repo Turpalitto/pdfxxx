@@ -25,6 +25,12 @@ let multiPagePdfPath = "";
 // Heavier fixture for the cancel test — enough pages that scanner-effect is
 // still running when we click Cancel.
 let heavyPdfPath = "";
+// Second file for the two-file tools (compare-pdf / pdf-diff) — different text
+// so there is an actual difference to render/mark.
+let secondPdfPath = "";
+// Fixture containing an email address — exercises auto-redact's canvas
+// redaction path (redactEmails is on by default) inside the worker.
+let redactPdfPath = "";
 
 test.beforeAll(async () => {
   const dir = mkdtempSync(join(tmpdir(), "pdfx-worker-"));
@@ -74,6 +80,44 @@ test.beforeAll(async () => {
     const bytes = await doc.save();
     heavyPdfPath = join(dir, "heavy.pdf");
     writeFileSync(heavyPdfPath, bytes);
+  }
+
+  // --- second fixture (compare-pdf / pdf-diff) ---
+  {
+    const doc = await PDFDocument.create();
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    for (let i = 0; i < 5; i++) {
+      const page = doc.addPage([595, 842]);
+      page.drawText(`Page ${i + 1} — DIFFERENT content for comparison`, {
+        x: 60,
+        y: 760,
+        size: 20,
+        font,
+        color: rgb(0, 0, 0),
+      });
+    }
+    const bytes = await doc.save();
+    secondPdfPath = join(dir, "second.pdf");
+    writeFileSync(secondPdfPath, bytes);
+  }
+
+  // --- redact fixture (auto-redact) ---
+  {
+    const doc = await PDFDocument.create();
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    for (let i = 0; i < 3; i++) {
+      const page = doc.addPage([595, 842]);
+      page.drawText(`Page ${i + 1} — contact: john.doe@example.com`, {
+        x: 60,
+        y: 760,
+        size: 18,
+        font,
+        color: rgb(0, 0, 0),
+      });
+    }
+    const bytes = await doc.save();
+    redactPdfPath = join(dir, "redact.pdf");
+    writeFileSync(redactPdfPath, bytes);
   }
 });
 
@@ -164,5 +208,57 @@ test.describe("cancel aborts an in-flight worker job", () => {
     // try-again instead, done state would show download).
     await expect(page.getByTestId("button-process")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("button-download")).toHaveCount(0);
+  });
+});
+
+test.describe("two-file worker tools produce a result in the browser", () => {
+  const TWO_FILE_TOOLS: { slug: string; secondInputTestId: string }[] = [
+    { slug: "compare-pdf", secondInputTestId: "input-compare-file2" },
+    { slug: "pdf-diff", secondInputTestId: "input-diff-file2" },
+  ];
+
+  for (const tool of TWO_FILE_TOOLS) {
+    test(`${tool.slug} completes and yields a download`, async ({ page }) => {
+      const fallbackWarnings: string[] = [];
+      page.on("console", (msg) => {
+        if (msg.text().includes("falling back to main thread")) {
+          fallbackWarnings.push(msg.text());
+        }
+      });
+
+      await page.goto(`/tools/${tool.slug}`);
+      await expect(page.getByTestId("dropzone-file-upload")).toBeVisible();
+
+      // First file via the main dropzone, second via the tool-specific input.
+      await upload(page, multiPagePdfPath);
+      await page.getByTestId(tool.secondInputTestId).setInputFiles(secondPdfPath);
+
+      await page.getByTestId("button-process").click();
+
+      await expect(page.getByTestId("button-download")).toBeVisible({ timeout: 45_000 });
+      expect(fallbackWarnings, fallbackWarnings.join("\n")).toHaveLength(0);
+    });
+  }
+});
+
+test.describe("auto-redact runs its canvas path in the worker", () => {
+  test("auto-redact completes and yields a download", async ({ page }) => {
+    const fallbackWarnings: string[] = [];
+    page.on("console", (msg) => {
+      if (msg.text().includes("falling back to main thread")) {
+        fallbackWarnings.push(msg.text());
+      }
+    });
+
+    await page.goto("/tools/auto-redact");
+    await expect(page.getByTestId("dropzone-file-upload")).toBeVisible();
+
+    // redactEmails is on by default; the fixture contains an email, so the
+    // worker exercises the render-and-mask canvas path (not just page copy).
+    await upload(page, redactPdfPath);
+    await page.getByTestId("button-process").click();
+
+    await expect(page.getByTestId("button-download")).toBeVisible({ timeout: 45_000 });
+    expect(fallbackWarnings, fallbackWarnings.join("\n")).toHaveLength(0);
   });
 });

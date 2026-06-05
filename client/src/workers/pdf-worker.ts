@@ -60,6 +60,20 @@ ctx.onmessage = async (e: MessageEvent<WorkerRequest>) => {
       case "bookletImposition":
         result = await pdfUtils.bookletImposition(file, onProgress);
         break;
+      case "comparePdf":
+        // Второй файл приходит в args[0] (structured-clone File).
+        result = await pdfUtils.comparePdf(file, args[0] as File, onProgress);
+        break;
+      case "autoRedactPdf":
+        result = await pdfUtils.autoRedactPdf(
+          file,
+          args[0] as Parameters<typeof pdfUtils.autoRedactPdf>[1],
+          onProgress
+        );
+        break;
+      case "pdfDiff":
+        result = await pdfUtils.pdfDiff(file, args[0] as File, onProgress);
+        break;
       case "pdfToPptx":
         result = await pdfUtils.pdfToPptx(file, onProgress);
         break;

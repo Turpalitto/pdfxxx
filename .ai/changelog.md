@@ -4,6 +4,30 @@
 
 ---
 
+## [2026-06-05] — Web Workers Round 19: comparePdf / autoRedactPdf / pdfDiff в воркер
+
+### Перенесено (через `runPdfTask` + fallback)
+- `comparePdf` (compare-pdf), `autoRedactPdf` (auto-redact), `pdfDiff` (pdf-diff). Все три — с main-thread fallback и поддержкой Cancel.
+
+### Изменено
+- `pdf-worker-types.ts` / `pdf-worker.ts`: добавлены 3 op. Для двухфайловых операций (compare/diff) второй файл передаётся в `args[0]` (structured-clone File), без изменения протокола.
+- `pdf-utils.ts`:
+  - `comparePdf` — добавлен `onProgress`; `document.createElement("canvas")`/`toDataURL`+`atob` заменены на canvas-абстракцию (`createRenderCanvas`/`canvasToJpegBytes`/`releaseCanvas`) — работает в воркере.
+  - `autoRedactPdf` — canvas переведён на абстракцию; **исправлен предсуществующий баг**: буфер копировался (`bytes.slice(0)`) уже ПОСЛЕ `getDocument`, который детачит его (pdfjs transfer) → pdf-lib получал пустой буфер. Теперь копия снимается ДО `getDocument` (паттерн из `ocrPdf`).
+  - `pdfDiff` — без изменений тела (нет canvas, file1 перечитывается заново — worker-safe).
+- `tool-page.tsx`: 3 слага через `runPdfTask` + signal; добавлены в `realProgressSlugs`; на двух input'ах второго файла — `data-testid` (`input-compare-file2`, `input-diff-file2`) для e2e.
+
+### E2E
+- `worker-tools.spec.ts` расширен: two-file (compare-pdf, pdf-diff — загрузка второго файла) + auto-redact (фикстура с email, чтобы пройти canvas-путь редактирования). Без fallback-warning. **14/14 зелёные.**
+
+### Осталось в main thread (нужны вложенные воркеры)
+- `pdfToPptx` (pptxgenjs/DOM) и `ocrPdf` (tesseract) — отдельный этап.
+
+### Проверки
+- `npx tsc --noEmit` → 0 ошибок; `npm test` → 39/39; `npm run build` → успех; e2e → 14/14.
+
+---
+
 ## [2026-06-05] — E2E-верификация worker-пути (браузер) + фикс blank-page багов
 
 ### Добавлено

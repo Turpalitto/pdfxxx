@@ -2258,7 +2258,11 @@ export async function setPdfMetadata(
 // ============================================================
 // COMPARE PDF — side-by-side comparison → single PDF
 // ============================================================
-export async function comparePdf(file1: File, file2: File): Promise<Uint8Array> {
+export async function comparePdf(
+  file1: File,
+  file2: File,
+  onProgress?: (p: number) => void
+): Promise<Uint8Array> {
   const pdfjs = await loadPdfJs();
   const bytes1 = new Uint8Array(await file1.arrayBuffer());
   const bytes2 = new Uint8Array(await file2.arrayBuffer());
@@ -2270,16 +2274,15 @@ export async function comparePdf(file1: File, file2: File): Promise<Uint8Array> 
   const dstDoc = await PDFDocument.create();
 
   for (let i = 1; i <= maxPages; i++) {
+    onProgress?.(Math.round(((i - 1) / maxPages) * 100));
     if (i % 3 === 0) await yieldToUI();
     const renderPage = async (doc: any, pageNum: number) => {
       try {
         const page = await doc.getPage(pageNum);
         const vp = page.getViewport({ scale: 1.5 });
-        const canvas = document.createElement("canvas");
-        canvas.width = vp.width;
-        canvas.height = vp.height;
-        const ctx = canvas.getContext("2d")!;
-        await page.render({ canvasContext: ctx, viewport: vp, canvas }).promise;
+        // Canvas-абстракция: OffscreenCanvas в воркере, HTMLCanvasElement в main.
+        const { canvas, ctx } = createRenderCanvas(vp.width, vp.height);
+        await page.render({ canvasContext: ctx as CanvasRenderingContext2D, viewport: vp, canvas: canvas as HTMLCanvasElement }).promise;
         return { canvas, width: vp.width / 1.5, height: vp.height / 1.5 };
       } catch {
         return null;
@@ -2299,16 +2302,16 @@ export async function comparePdf(file1: File, file2: File): Promise<Uint8Array> 
     const dstPage = dstDoc.addPage([totalWidth, pageHeight]);
 
     if (r1) {
-      const jpegUrl = r1.canvas.toDataURL("image/jpeg", 0.92);
-      const jpegBytes = Uint8Array.from(atob(jpegUrl.split(",")[1]), (c) => c.charCodeAt(0));
+      const jpegBytes = await canvasToJpegBytes(r1.canvas, 0.92);
       const img = await dstDoc.embedJpg(jpegBytes);
       dstPage.drawImage(img, { x: 0, y: 0, width: w1, height: h1 });
+      releaseCanvas(r1.canvas);
     }
     if (r2) {
-      const jpegUrl = r2.canvas.toDataURL("image/jpeg", 0.92);
-      const jpegBytes = Uint8Array.from(atob(jpegUrl.split(",")[1]), (c) => c.charCodeAt(0));
+      const jpegBytes = await canvasToJpegBytes(r2.canvas, 0.92);
       const img = await dstDoc.embedJpg(jpegBytes);
       dstPage.drawImage(img, { x: w1 + 20, y: 0, width: w2, height: h2 });
+      releaseCanvas(r2.canvas);
     }
   }
   return dstDoc.save();
@@ -2512,9 +2515,12 @@ export async function autoRedactPdf(
   const pdfjs = await loadPdfJs();
   const { PDFDocument } = await import("pdf-lib");
   const bytes = new Uint8Array(await file.arrayBuffer());
+  // Копируем буфер ДО getDocument: pdfjs передаёт data в свой воркер как
+  // transferable и детачит исходный буфер — иначе pdf-lib ниже получит пустой.
+  const pdfLibBytes = bytes.slice(0);
   const srcDoc = await pdfjs.getDocument({ data: bytes }).promise;
   const pageCount = srcDoc.numPages;
-  const pdfLib = await PDFDocument.load(bytes.slice(0), { ignoreEncryption: true });
+  const pdfLib = await PDFDocument.load(pdfLibBytes, { ignoreEncryption: true });
   const resultPdf = await PDFDocument.create();
   const renderScale = 1.5;
 
@@ -2556,11 +2562,8 @@ export async function autoRedactPdf(
 
     // Render page to canvas (handles rotation automatically via pdfjs viewport)
     const viewport = page.getViewport({ scale: renderScale });
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(viewport.width);
-    canvas.height = Math.round(viewport.height);
-    const ctx = canvas.getContext("2d")!;
-    await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+    const { canvas, ctx } = createRenderCanvas(viewport.width, viewport.height);
+    await page.render({ canvasContext: ctx as CanvasRenderingContext2D, viewport, canvas: canvas as HTMLCanvasElement }).promise;
 
     // Draw black rectangles over all matching text items using viewport coordinates
     ctx.fillStyle = "#000000";
@@ -2617,12 +2620,13 @@ export async function autoRedactPdf(
     // Embed the redacted canvas back into the PDF.
     // Размер страницы из viewport (учитывает /Rotate), а не getSize() —
     // иначе на ротированных страницах маски смещаются с текста.
-    const imgBytes = dataUrlToBytes(canvas.toDataURL("image/jpeg", 0.92));
+    const imgBytes = await canvasToJpegBytes(canvas, 0.92);
     const img = await resultPdf.embedJpg(imgBytes);
     const pageW = viewport.width / renderScale;
     const pageH = viewport.height / renderScale;
     const newPage = resultPdf.addPage([pageW, pageH]);
     newPage.drawImage(img, { x: 0, y: 0, width: pageW, height: pageH });
+    releaseCanvas(canvas);
   }
 
 return resultPdf.save();
