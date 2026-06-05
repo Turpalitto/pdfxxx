@@ -4,6 +4,67 @@
 
 ---
 
+## [2026-06-05] — E2E-верификация worker-пути (браузер) + фикс blank-page багов
+
+### Добавлено
+- `tests/e2e/worker-tools.spec.ts` — браузерный e2e (Playwright, chromium-desktop) для 8 worker-инструментов: каждый даёт download без warning «falling back to main thread»; проверка, что реально спавнится выделенный `pdf-worker`; проверка, что Cancel прерывает задачу и возвращает в idle.
+
+### Результат верификации
+- Worker-путь подтверждён в браузере: воркер спавнится, fallback не срабатывает, Cancel работает. **11/11 e2e зелёные.**
+
+### Исправлено (предсуществующие баги контента, не связаны с миграцией; вскрыты фикстурой с пустой страницей)
+- `pdf-utils.ts`: `embedPages()` бросал `Can't embed page with missing Contents` на странице без content-stream. Добавлен helper `pageHasContents()`; `toSinglePage` и `bookletImposition` теперь пропускают (не рисуют) пустые/padding-страницы вместо падения. Геометрия страниц сохранена.
+  - Особенно важно для `bookletImposition`: padding до кратности 4 через `addPage()` создавал пустые страницы → падал на любом PDF с числом страниц не кратным 4.
+- `pdf-utils.ts`: `removeBlankPages` падал с «No PDF header found» — `pdfjs.getDocument({data: bytes})` детачит буфер, а затем `PDFDocument.load(bytes)` получал пустой буфер. Теперь bytes перечитываются из файла для pdf-lib.
+
+### Проверки
+- `npx tsc --noEmit` → 0 ошибок; `npm test` → 39/39; `npm run build` → успех; e2e → 11/11.
+
+---
+
+## [2026-06-04] — Web Workers: перенос ещё 5 функций
+
+### Добавлено (перенесены в воркер через `runPdfTask` + fallback)
+- `scannerEffect` (scanner-effect), `removeBlankPages` (remove-blank-pages), `nUpPdf` (n-up-pdf), `toSinglePage` (to-single-page), `bookletImposition` (booklet-imposition).
+- Для всех сохранён fallback в main thread, реальный прогресс и корректная отмена (Cancel → terminate воркера).
+
+### Изменено
+- `pdf-utils.ts`: `scannerEffect`, `removeBlankPages`, `nUpPdf` переведены с `document.createElement("canvas")`/`toDataURL` на canvas-абстракцию (`createRenderCanvas`/`canvasToJpegBytes`/`releaseCanvas`) — поведение main thread 1:1. `toSinglePage` и `bookletImposition` правок не требовали (чистый pdf-lib).
+- `tool-page.tsx`: 5 кейсов переведены на `runPdfTask`; список `realProgressSlugs` исключает их из симуляции прогресса.
+- `pdf-worker-types.ts` / `pdf-worker.ts`: добавлены 5 операций в `WorkerOp` и switch.
+
+### Осталось в main thread (намеренно)
+- `pdfToPptx` (pptxgenjs/DOM) и `ocrPdf` (tesseract вложенные воркеры) — отдельный этап.
+
+### Проверки
+- `npm run check` → 0 ошибок; `npm test` → 39/39; `npm run build` → успех (воркер-чанк `pdf-worker-*.js`, SW precache обновлён).
+
+---
+
+## [2026-06-04] — Web Workers для тяжёлых PDF-операций + кнопка «Отменить»
+
+### Добавлено
+- **Архитектура Web Workers** (`client/src/workers/`):
+  - `pdf-worker-types.ts` — протокол сообщений (WorkerRequest/Response, ProgressMessage, ops).
+  - `pdf-worker.ts` — воркер, импортирует функции из `pdf-utils` как есть, шлёт прогресс/результат/ошибку. Uint8Array возвращается через transferable buffer.
+  - `worker-client.ts` — main-thread обёртка `runPdfTask(op, fallback, opts)`: прокидывает прогресс, поддерживает отмену (`AbortSignal` → `worker.terminate()`), и **автоматический fallback** в main thread при недоступности/сбое воркера (корректность гарантирована).
+- **Canvas-абстракция** (`pdf-utils.ts`): `createRenderCanvas` / `canvasToJpegBytes` / `canvasToDataUrl` / `releaseCanvas` — в воркере используют `OffscreenCanvas`, в main thread поведение 1:1 (HTMLCanvasElement + toDataURL). Это позволяет одному и тому же коду работать в обоих контекстах.
+- **Перенесены в воркер**: `grayscalePdf`, `invertColors`, `pdfToImages` (инструменты grayscale-pdf, invert-colors, pdf-to-jpg, pdf-to-png, extract-images). UI больше не подвисает на этих операциях.
+- **Кнопка «Отменить» / «Cancel»** (`tool-page.tsx`): показывается только при `state === "processing"`. Воркер-операции прерываются мгновенно (terminate); main-thread операции не прерываются кооперативно, но результат отбрасывается по `signal.aborted`.
+
+### Изменено
+- `vite.config.ts`: добавлен `worker: { format: "es" }` — воркер тянет dynamic `import()` из pdf-utils (code-splitting), что несовместимо с дефолтным `iife`.
+
+### Не перенесено (намеренно, инфра готова)
+- `pdfToPptx` (pptxgenjs зависит от DOM) и `ocrPdf` (tesseract.js создаёт вложенные воркеры) пока выполняются в main thread — требуют проверки совместимости.
+
+### Проверки
+- `npm run check` (tsc) → 0 ошибок.
+- `npm test` (vitest) → 39/39 пройдено.
+- `npm run build` → успешно, воркер-чанк `pdf-worker-*.js` эмитится, SW precache обновлён.
+
+---
+
 ## [2026-06-03] — Аудит-фиксы редактора: H8, H9
 
 ### Исправлено

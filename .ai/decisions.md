@@ -165,6 +165,32 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 
 ---
 
+## ADR-010 — Web Workers с canvas-абстракцией и fallback
+
+**Дата:** 2026-06-04
+**Статус:** ✅ Принято
+
+**Решение:** Тяжёлые pdfjs-операции (grayscale, invert, pdfToImages) выполняются в Web Worker (`client/src/workers/`). Один и тот же код `pdf-utils` работает и в воркере, и в main thread за счёт canvas-абстракции (`createRenderCanvas` → `OffscreenCanvas` в воркере, `HTMLCanvasElement` на main thread).
+
+**Причины:**
+- Тяжёлые операции блокировали UI thread (известный техдолг).
+- Дублировать функции под воркер — плохо; абстракция canvas позволяет переиспользовать существующий код.
+- `worker-client.runPdfTask` даёт прогресс, отмену и **fallback**: если воркер недоступен (нет OffscreenCanvas/Worker) или упал — операция повторяется в main thread. Воркер — оптимизация UX, а не единственный путь, поэтому корректность гарантирована.
+
+**Последствия:**
+- Требуется `worker: { format: "es" }` в `vite.config.ts` (воркер использует dynamic import → code-splitting, несовместимый с `iife`).
+- Браузеры без OffscreenCanvas автоматически идут по main-thread пути.
+- Отмена воркер-операции = `worker.terminate()` + пересоздание воркера на следующий запуск (надёжно прерывает синхронные циклы pdfjs/pdf-lib).
+
+**Перенесено в воркер (на 2026-06-04):** grayscalePdf, invertColors, pdfToImages, scannerEffect, removeBlankPages, nUpPdf, toSinglePage, bookletImposition.
+
+**Ограничения:**
+- `pdfToPptx` (pptxgenjs зависит от DOM) и `ocrPdf` (tesseract.js создаёт вложенные воркеры) пока не перенесены — инфраструктура (WorkerOp, switch в pdf-worker) уже их поддерживает.
+
+**Правило:** Чтобы перенести новую функцию в воркер — (1) убрать прямой `document.createElement("canvas")` в пользу `createRenderCanvas`/`canvasTo*`, (2) добавить op в `WorkerOp` и `switch` в `pdf-worker.ts`, (3) вызвать через `runPdfTask(op, () => oldFn(...), {...})` с fallback на старую функцию.
+
+---
+
 ## Шаблон нового ADR
 
 ```markdown

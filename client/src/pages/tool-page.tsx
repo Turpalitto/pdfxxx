@@ -1,4 +1,4 @@
-﻿import { useState, useCallback, useEffect } from "react";
+﻿import { useState, useCallback, useEffect, useRef } from "react";
 import { useRoute, Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLang } from "@/lib/lang-context";
@@ -13,6 +13,7 @@ import {
   ArrowRight,
   ShieldCheck,
   Upload,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -97,6 +98,7 @@ import {
   pdfToAudio as pdfToAudioFn,
   pdfToPptx,
 } from "@/lib/pdf-utils";
+import { runPdfTask, WorkerAbortError } from "@/workers/worker-client";
 import { cn } from "@/lib/utils";
 import { getWorkflowSuggestionsForTool, rememberRecentTool } from "@/lib/tool-experience";
 import { preloadToolRoute } from "@/lib/route-preload";
@@ -362,11 +364,26 @@ export default function ToolPage() {
     setPagesToExtract("");
   }, []);
 
+  // AbortController текущей обработки — для кнопки «Отменить».
+  // Воркер-операции прерываются мгновенно (terminate); main-thread операции
+  // не прерываются кооперативно, но результат отбрасывается по signal.aborted.
+  const abortRef = useRef<AbortController | null>(null);
+
+  const handleCancel = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setState("idle");
+    setProgress(0);
+  }, []);
+
   const process = useCallback(async () => {
     if (!tool || (files.length === 0 && slug !== "text-to-pdf")) {
       setError(t.tool.selectFile);
       return;
     }
+
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     setState("processing");
     setProgress(10);
@@ -378,10 +395,21 @@ export default function ToolPage() {
         const steps = 8;
         const step = (end - start) / steps;
         for (let i = 1; i <= steps; i++) {
-          setTimeout(() => setProgress(start + Math.round(step * i)), i * 200);
+          setTimeout(() => {
+            // не двигаем прогресс после отмены/завершения
+            if (!controller.signal.aborted) setProgress(start + Math.round(step * i));
+          }, i * 200);
         }
       };
-      if (slug !== "redact-pdf") simulateProgress(10, 85);
+      // Эти операции сообщают реальный прогресс (из воркера/onProgress) —
+      // симуляция прогресса им не нужна, иначе индикатор «дёргается».
+      const realProgressSlugs = new Set([
+        "redact-pdf", "grayscale-pdf", "invert-colors", "scanner-effect",
+        "remove-blank-pages", "n-up-pdf", "to-single-page", "booklet-imposition",
+      ]);
+      if (!realProgressSlugs.has(slug)) {
+        simulateProgress(10, 85);
+      }
 
       switch (slug) {
         case "merge-pdf":
@@ -496,7 +524,11 @@ export default function ToolPage() {
         case "pdf-to-png": {
           const fmt = slug === "pdf-to-jpg" ? "jpg" : "png";
           const scale = parseInt(imageScale) || 2;
-          const images = await pdfToImages(files[0], fmt, scale);
+          const images = await runPdfTask<{ dataUrl: string; page: number }[]>(
+            "pdfToImages",
+            () => pdfToImages(files[0], fmt, scale),
+            { file: files[0], args: [fmt, scale], signal: controller.signal }
+          );
           const origName = files[0].name.replace(/\.[^.]+$/, "");
           result = await pdfImagesAsZip(images, fmt, origName);
           break;
@@ -505,10 +537,18 @@ export default function ToolPage() {
           result = await ocrPdf(files[0], ocrLanguage, setProgress);
           break;
         case "invert-colors":
-          result = await invertColors(files[0], setProgress);
+          result = await runPdfTask(
+            "invertColors",
+            () => invertColors(files[0], setProgress),
+            { file: files[0], onProgress: setProgress, signal: controller.signal }
+          );
           break;
         case "to-single-page":
-          result = await toSinglePage(files[0], setProgress);
+          result = await runPdfTask(
+            "toSinglePage",
+            () => toSinglePage(files[0], setProgress),
+            { file: files[0], onProgress: setProgress, signal: controller.signal }
+          );
           break;
         case "remove-images":
           result = await removeImages(files[0]);
@@ -529,10 +569,18 @@ export default function ToolPage() {
           break;
         }
         case "booklet-imposition":
-          result = await bookletImposition(files[0], setProgress);
+          result = await runPdfTask(
+            "bookletImposition",
+            () => bookletImposition(files[0], setProgress),
+            { file: files[0], onProgress: setProgress, signal: controller.signal }
+          );
           break;
         case "scanner-effect":
-          result = await scannerEffect(files[0], scannerIntensity, setProgress);
+          result = await runPdfTask(
+            "scannerEffect",
+            () => scannerEffect(files[0], scannerIntensity, setProgress),
+            { file: files[0], args: [scannerIntensity], onProgress: setProgress, signal: controller.signal }
+          );
           break;
         case "crop-pdf":
           result = await cropPdf(files[0], {
@@ -565,13 +613,21 @@ export default function ToolPage() {
           break;
         }
         case "remove-blank-pages":
-          result = await removeBlankPages(files[0], blankThreshold, setProgress);
+          result = await runPdfTask(
+            "removeBlankPages",
+            () => removeBlankPages(files[0], blankThreshold, setProgress),
+            { file: files[0], args: [blankThreshold], onProgress: setProgress, signal: controller.signal }
+          );
           break;
         case "resize-pages":
           result = await resizePages(files[0], resizeTarget, setProgress);
           break;
         case "grayscale-pdf":
-          result = await grayscalePdf(files[0], setProgress);
+          result = await runPdfTask(
+            "grayscalePdf",
+            () => grayscalePdf(files[0], setProgress),
+            { file: files[0], onProgress: setProgress, signal: controller.signal }
+          );
           break;
         case "pdf-bookmarks": {
           const text = await pdfBookmarks(files[0]);
@@ -606,7 +662,11 @@ export default function ToolPage() {
           }, setProgress);
           break;
         case "n-up-pdf":
-          result = await nUpPdf(files[0], nUpValue, setProgress);
+          result = await runPdfTask(
+            "nUpPdf",
+            () => nUpPdf(files[0], nUpValue, setProgress),
+            { file: files[0], args: [nUpValue], onProgress: setProgress, signal: controller.signal }
+          );
           break;
         case "split-by-size": {
           const maxMb = parseFloat(splitMaxMb) || 5;
@@ -623,7 +683,11 @@ export default function ToolPage() {
           break;
         }
         case "extract-images": {
-          const images = await pdfToImages(files[0], "png", 2);
+          const images = await runPdfTask<{ dataUrl: string; page: number }[]>(
+            "pdfToImages",
+            () => pdfToImages(files[0], "png", 2),
+            { file: files[0], args: ["png", 2], signal: controller.signal }
+          );
           const origName = files[0].name.replace(/\.[^.]+$/, "");
           result = await pdfImagesAsZip(images, "png", origName);
           break;
@@ -666,6 +730,9 @@ export default function ToolPage() {
           throw new Error(t.tool.proOnlyError);
       }
 
+      // Операцию отменили, пока она доделывалась — отбрасываем результат.
+      if (controller.signal.aborted) return;
+
       setProgress(100);
       setResultBytes(result);
       setResultSize(result?.length ?? null);
@@ -675,8 +742,12 @@ export default function ToolPage() {
         generatePreview(result).catch(() => {});
       }
     } catch (err: any) {
+      // Отмена — это не ошибка: UI уже переведён в idle в handleCancel.
+      if (err instanceof WorkerAbortError || controller.signal.aborted) return;
       setError(normalizeToolError(err));
       setState("error");
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
     }
   }, [
     tool, files, slug, splitStart, splitEnd, splitMode, splitEveryN, rotation,
@@ -1827,6 +1898,16 @@ export default function ToolPage() {
                           </span>
                         )}
                       </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCancel}
+                        className="gap-2 ml-auto"
+                        data-testid="button-cancel"
+                      >
+                        <X className="w-4 h-4" />
+                        {lang === "ru" ? "Отменить" : "Cancel"}
+                      </Button>
                     </motion.div>
                   ) : state === "done" ? (
                     <motion.div

@@ -1,4 +1,4 @@
-﻿import { PDFDocument, rgb, StandardFonts, degrees, BlendMode } from "pdf-lib";
+﻿import { PDFDocument, rgb, StandardFonts, degrees, BlendMode, PDFName, type PDFPage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { PDF as SecurePDF } from "@libpdf/core";
 
@@ -44,6 +44,63 @@ function dataUrlToBytes(dataUrl: string): Uint8Array {
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return bytes;
+}
+
+// ============================================================
+// CANVAS ABSTRACTION — работает и в main thread, и в Web Worker
+// В worker нет document → используем OffscreenCanvas. На main thread
+// поведение сохраняется 1:1 (HTMLCanvasElement + toDataURL).
+// Это позволяет переносить тяжёлые pdfjs-функции в worker без дублирования.
+// ============================================================
+type AnyCanvas = HTMLCanvasElement | OffscreenCanvas;
+type AnyCtx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+
+function createRenderCanvas(width: number, height: number): { canvas: AnyCanvas; ctx: AnyCtx } {
+  const w = Math.max(1, Math.floor(width));
+  const h = Math.max(1, Math.floor(height));
+  // В worker document отсутствует — рендерим в OffscreenCanvas.
+  if (typeof document === "undefined" && typeof OffscreenCanvas !== "undefined") {
+    const canvas = new OffscreenCanvas(w, h);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Failed to get 2D context (OffscreenCanvas).");
+    return { canvas, ctx };
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Failed to get 2D context.");
+  return { canvas, ctx };
+}
+
+async function canvasToJpegBytes(canvas: AnyCanvas, quality = 0.92): Promise<Uint8Array> {
+  // OffscreenCanvas не имеет toDataURL — только convertToBlob.
+  if (typeof (canvas as OffscreenCanvas).convertToBlob === "function") {
+    const blob = await (canvas as OffscreenCanvas).convertToBlob({ type: "image/jpeg", quality });
+    return new Uint8Array(await blob.arrayBuffer());
+  }
+  return dataUrlToBytes((canvas as HTMLCanvasElement).toDataURL("image/jpeg", quality));
+}
+
+async function canvasToDataUrl(canvas: AnyCanvas, mime: string, quality = 0.92): Promise<string> {
+  if (typeof (canvas as OffscreenCanvas).convertToBlob === "function") {
+    const blob = await (canvas as OffscreenCanvas).convertToBlob({ type: mime, quality });
+    const buf = new Uint8Array(await blob.arrayBuffer());
+    let bin = "";
+    const chunk = 0x8000;
+    for (let i = 0; i < buf.length; i += chunk) {
+      // Array.from(ArrayLike) — без итерации типизированного массива (target < es2015)
+      bin += String.fromCharCode.apply(null, Array.from(buf.subarray(i, i + chunk)) as number[]);
+    }
+    return `data:${mime};base64,${btoa(bin)}`;
+  }
+  return (canvas as HTMLCanvasElement).toDataURL(mime, quality);
+}
+
+function releaseCanvas(canvas: AnyCanvas) {
+  // Освобождение памяти холста между итерациями (одинаково для обоих типов).
+  canvas.width = 0;
+  canvas.height = 0;
 }
 
 async function loadImageElement(src: string): Promise<HTMLImageElement> {
@@ -1267,17 +1324,13 @@ export async function pdfToImages(
         ? scale * Math.sqrt(maxArea / (base.width * base.height))
         : scale;
       const viewport = page.getViewport({ scale: safeScale });
-      const canvas = document.createElement("canvas");
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      const ctx = canvas.getContext("2d")!;
-      await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+      const { canvas, ctx } = createRenderCanvas(viewport.width, viewport.height);
+      await page.render({ canvasContext: ctx as CanvasRenderingContext2D, viewport, canvas: canvas as HTMLCanvasElement }).promise;
       const mimeType = format === "jpg" ? "image/jpeg" : "image/png";
-      const dataUrl = canvas.toDataURL(mimeType, 0.92);
+      const dataUrl = await canvasToDataUrl(canvas, mimeType, 0.92);
       results.push({ dataUrl, page: i });
       // Освобождаем память страницы и холста перед следующей итерацией
-      canvas.width = 0;
-      canvas.height = 0;
+      releaseCanvas(canvas);
       page.cleanup();
     }
   } finally {
@@ -1730,11 +1783,8 @@ for (let i = 1; i <= pageCount; i++) {
     if (i % 3 === 0) await yieldToUI();
     const page = await srcDoc.getPage(i);
     const vp = page.getViewport({ scale: 1.5 });
-    const canvas = document.createElement("canvas");
-    canvas.width = vp.width;
-    canvas.height = vp.height;
-    const ctx = canvas.getContext("2d")!;
-    await page.render({ canvasContext: ctx, viewport: vp, canvas }).promise;
+    const { canvas, ctx } = createRenderCanvas(vp.width, vp.height);
+    await page.render({ canvasContext: ctx as CanvasRenderingContext2D, viewport: vp, canvas: canvas as HTMLCanvasElement }).promise;
     // Invert pixels
     const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const d = imgData.data;
@@ -1744,8 +1794,7 @@ for (let i = 1; i <= pageCount; i++) {
       d[j + 2] = 255 - d[j + 2];
     }
     ctx.putImageData(imgData, 0, 0);
-    const jpegUrl = canvas.toDataURL("image/jpeg", 0.92);
-    const jpegBytes = Uint8Array.from(atob(jpegUrl.split(",")[1]), (c) => c.charCodeAt(0));
+    const jpegBytes = await canvasToJpegBytes(canvas, 0.92);
     const jpgImg = await dstDoc.embedJpg(jpegBytes);
     const { width: pw, height: ph } = page.getViewport({ scale: 1 });
     const dstPage = dstDoc.addPage([pw, ph]);
@@ -1757,6 +1806,15 @@ for (let i = 1; i <= pageCount; i++) {
 // ============================================================
 // TO SINGLE PAGE — stack all pages into one tall page
 // ============================================================
+// pdf-lib's embedPages() throws "Can't embed page with missing Contents" on
+// pages that have no content stream — i.e. truly blank pages, or padding pages
+// created via addPage() that were never drawn on. Such pages embed as nothing
+// anyway, so callers below skip them rather than crash. This keeps the page
+// geometry intact (the blank page still occupies its slot, just undrawn).
+function pageHasContents(page: PDFPage): boolean {
+  return page.node.get(PDFName.of("Contents")) !== undefined;
+}
+
 export async function toSinglePage(
   file: File,
   onProgress?: (p: number) => void
@@ -1781,7 +1839,15 @@ export async function toSinglePage(
   }
 
   const singlePage = dstDoc.addPage([maxWidth, totalHeight]);
-  const embedded = await dstDoc.embedPages(srcDoc.getPages());
+  // Embed only pages that have a content stream; blank pages are left undrawn
+  // but still occupy their vertical space below.
+  const srcPages = srcDoc.getPages();
+  const embeddable = srcPages.filter(pageHasContents);
+  const embeddedList = await dstDoc.embedPages(embeddable);
+  let ei = 0;
+  const embeddedByIndex = srcPages.map((p) =>
+    pageHasContents(p) ? embeddedList[ei++] : null
+  );
   let yOffset = totalHeight;
 
   for (let i = 0; i < pageCount; i++) {
@@ -1789,7 +1855,8 @@ export async function toSinglePage(
     const { w, h } = pageSizes[i];
     yOffset -= h;
     const xOffset = (maxWidth - w) / 2; // center if narrower
-    singlePage.drawPage(embedded[i], { x: xOffset, y: yOffset, width: w, height: h });
+    const emb = embeddedByIndex[i];
+    if (emb) singlePage.drawPage(emb, { x: xOffset, y: yOffset, width: w, height: h });
   }
   return dstDoc.save();
 }
@@ -1995,11 +2062,20 @@ export async function bookletImposition(
   for (let i = 0; i < order.length; i += 2) {
     onProgress?.(Math.round((i / order.length) * 100));
     const sheet = dstDoc.addPage([sheetW, pageH]);
-    const embedded = await dstDoc.embedPages([allPages[order[i]], allPages[order[i + 1]]]);
+    const leftSrc = allPages[order[i]];
+    const rightSrc = allPages[order[i + 1]];
+    // Padding pages (added via addPage above) and blank pages have no content
+    // stream — skip embedding them so embedPages() doesn't throw; their half of
+    // the sheet is simply left blank.
+    const toEmbed = [leftSrc, rightSrc].filter(pageHasContents);
+    const embedded = toEmbed.length ? await dstDoc.embedPages(toEmbed) : [];
+    let k = 0;
     // Left page
-    sheet.drawPage(embedded[0], { x: 0, y: 0, width: pageW, height: pageH });
+    if (pageHasContents(leftSrc))
+      sheet.drawPage(embedded[k++], { x: 0, y: 0, width: pageW, height: pageH });
     // Right page
-    sheet.drawPage(embedded[1], { x: pageW, y: 0, width: pageW, height: pageH });
+    if (pageHasContents(rightSrc))
+      sheet.drawPage(embedded[k++], { x: pageW, y: 0, width: pageW, height: pageH });
   }
   return dstDoc.save();
 }
@@ -2024,11 +2100,8 @@ for (let i = 1; i <= pageCount; i++) {
     if (i % 3 === 0) await yieldToUI();
     const page = await srcDoc.getPage(i);
     const vp = page.getViewport({ scale: 1.5 });
-    const canvas = document.createElement("canvas");
-    canvas.width = vp.width;
-    canvas.height = vp.height;
-    const ctx = canvas.getContext("2d")!;
-await page.render({ canvasContext: ctx, viewport: vp, canvas }).promise;
+    const { canvas, ctx } = createRenderCanvas(vp.width, vp.height);
+await page.render({ canvasContext: ctx as CanvasRenderingContext2D, viewport: vp, canvas: canvas as HTMLCanvasElement }).promise;
     const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const d = imgData.data;
 
@@ -2045,8 +2118,7 @@ await page.render({ canvasContext: ctx, viewport: vp, canvas }).promise;
     }
     ctx.putImageData(imgData, 0, 0);
 
-const jpegUrl = canvas.toDataURL("image/jpeg", 0.88);
-    const jpegBytes = Uint8Array.from(atob(jpegUrl.split(",")[1]), (c) => c.charCodeAt(0));
+    const jpegBytes = await canvasToJpegBytes(canvas, 0.88);
     const jpgImg = await dstDoc.embedJpg(jpegBytes);
     const { width: pw, height: ph } = page.getViewport({ scale: 1 });
     const dstPage = dstDoc.addPage([pw, ph]);
@@ -2276,11 +2348,8 @@ export async function removeBlankPages(
 
     // No text — render and check pixels
     const vp = page.getViewport({ scale: 1 });
-    const canvas = document.createElement("canvas");
-    canvas.width = vp.width;
-    canvas.height = vp.height;
-    const ctx = canvas.getContext("2d")!;
-    await page.render({ canvasContext: ctx, viewport: vp, canvas }).promise;
+    const { canvas, ctx } = createRenderCanvas(vp.width, vp.height);
+    await page.render({ canvasContext: ctx as CanvasRenderingContext2D, viewport: vp, canvas: canvas as HTMLCanvasElement }).promise;
     const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const d = imgData.data;
     let brightPixels = 0;
@@ -2292,6 +2361,7 @@ export async function removeBlankPages(
     if (brightPixels / totalPixels < 0.95) {
       nonBlankPages.push(i);
     }
+    releaseCanvas(canvas);
   }
 
   if (nonBlankPages.length === 0) {
@@ -2299,7 +2369,10 @@ export async function removeBlankPages(
   }
 
   const { PDFDocument } = await import("pdf-lib");
-  const srcDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+  // pdfjs.getDocument({ data: bytes }) above transfers/detaches the underlying
+  // ArrayBuffer, leaving `bytes` empty — re-read from the file for pdf-lib.
+  const srcBytes = new Uint8Array(await file.arrayBuffer());
+  const srcDoc = await PDFDocument.load(srcBytes, { ignoreEncryption: true });
   const dstDoc = await PDFDocument.create();
   const indices = nonBlankPages.map(p => p - 1);
   const embedded = await dstDoc.embedPages(
@@ -2379,11 +2452,8 @@ export async function grayscalePdf(
     if (i % 3 === 0) await yieldToUI();
     const page = await srcDoc.getPage(i);
     const vp = page.getViewport({ scale: 1.5 });
-    const canvas = document.createElement("canvas");
-    canvas.width = vp.width;
-    canvas.height = vp.height;
-    const ctx = canvas.getContext("2d")!;
-    await page.render({ canvasContext: ctx, viewport: vp, canvas }).promise;
+    const { canvas, ctx } = createRenderCanvas(vp.width, vp.height);
+    await page.render({ canvasContext: ctx as CanvasRenderingContext2D, viewport: vp, canvas: canvas as HTMLCanvasElement }).promise;
 
     const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const d = imgData.data;
@@ -2395,8 +2465,7 @@ export async function grayscalePdf(
     }
     ctx.putImageData(imgData, 0, 0);
 
-    const jpegUrl = canvas.toDataURL("image/jpeg", 0.92);
-    const jpegBytes = Uint8Array.from(atob(jpegUrl.split(",")[1]), (c) => c.charCodeAt(0));
+    const jpegBytes = await canvasToJpegBytes(canvas, 0.92);
     const jpgImg = await dstDoc.embedJpg(jpegBytes);
     const { width: pw, height: ph } = page.getViewport({ scale: 1 });
     const dstPage = dstDoc.addPage([pw, ph]);
@@ -2592,15 +2661,12 @@ export async function nUpPdf(
 
       const srcPage = await srcDoc.getPage(srcPageNum);
       const vp = srcPage.getViewport({ scale: 1.5 });
-      const canvas = document.createElement("canvas");
-      canvas.width = vp.width;
-      canvas.height = vp.height;
-      const ctx = canvas.getContext("2d")!;
-      await srcPage.render({ canvasContext: ctx, viewport: vp, canvas }).promise;
+      const { canvas, ctx } = createRenderCanvas(vp.width, vp.height);
+      await srcPage.render({ canvasContext: ctx as CanvasRenderingContext2D, viewport: vp, canvas: canvas as HTMLCanvasElement }).promise;
 
-      const jpegUrl = canvas.toDataURL("image/jpeg", 0.92);
-      const jpegBytes = Uint8Array.from(atob(jpegUrl.split(",")[1]), (c) => c.charCodeAt(0));
+      const jpegBytes = await canvasToJpegBytes(canvas, 0.92);
       const jpgImg = await dstDoc.embedJpg(jpegBytes);
+      releaseCanvas(canvas);
 
       const col = slot % cols;
       const row = Math.floor(slot / cols);

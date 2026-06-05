@@ -90,6 +90,12 @@ export default defineConfig({
     },
   },
   root: path.resolve(import.meta.dirname, "client"),
+  // PDF-воркер (client/src/workers/pdf-worker.ts) тянет dynamic import() из
+  // pdf-utils → code-splitting. Дефолтный worker.format "iife" его не
+  // поддерживает, поэтому собираем воркеры как ES-модули.
+  worker: {
+    format: "es",
+  },
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,

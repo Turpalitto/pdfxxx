@@ -1,7 +1,7 @@
 ﻿# PDFX — Tasks & Technical Debt
 
 > Обновляется AI-агентами после каждой значимой задачи.  
-> Last updated: 2026-05-30
+> Last updated: 2026-06-05
 
 ---
 
@@ -11,6 +11,13 @@
 
 ## ✅ Решено
 
+- [x] **Web Workers (Round 17, 2026-06-04)** — инфраструктура `client/src/workers/` (pdf-worker-types, pdf-worker, worker-client) + canvas-абстракция в pdf-utils. Перенесены grayscalePdf/invertColors/pdfToImages. Кнопка «Отменить»/«Cancel» в tool-page. `worker.format: "es"` в vite.config. check/test/build — все зелёные. См. ADR-010.
+- [x] **Web Workers Round 18 (2026-06-04)** — перенесены ещё 5 функций через `runPdfTask`+fallback: scannerEffect, removeBlankPages, nUpPdf, toSinglePage, bookletImposition. check/test/build — зелёные.
+  - [ ] **Следующий шаг**: `pdfToPptx` (проверить pptxgenjs в worker) и `ocrPdf` (tesseract вложенные воркеры) — выше риск, отдельный этап.
+  - [ ] Кандидаты на перенос далее: pdfDiff, comparePdf, autoRedactPdf, redactPdf (canvas-зависимы, средний риск).
+- [x] **E2E-верификация worker-пути (2026-06-05)** — `tests/e2e/worker-tools.spec.ts` (Playwright): 8 worker-инструментов дают download без fallback-warning, выделенный `pdf-worker` реально спавнится, Cancel прерывает задачу. 11/11 зелёные. Подтверждено, что Round 17–18 миграция работает в браузере, а не только на уровне check/test/build.
+- [x] **BUG: embedPages на пустых страницах (2026-06-05)** — `toSinglePage`/`bookletImposition` падали с `Can't embed page with missing Contents` на странице без content-stream (booklet — на любом PDF с числом страниц не кратным 4 из-за padding). Добавлен helper `pageHasContents()`, пустые/padding-страницы пропускаются. Предсуществующий баг, не связан с миграцией.
+- [x] **BUG: removeBlankPages «No PDF header found» (2026-06-05)** — pdfjs детачил буфер `bytes`, затем `PDFDocument.load(bytes)` получал пустой буфер. bytes перечитываются из файла для pdf-lib.
 - [x] **Тема light-only** — подтверждено пользователем (2026-06-03): тёмная тема не нужна, остаётся light-only. e2e-тест приведён в соответствие.
 
 ---
@@ -176,7 +183,7 @@
 - [ ] Keyboard shortcuts help popup
 
 ### Технические улучшения
-- [ ] Web Workers для тяжёлых операций
+- [x] Web Workers для тяжёлых операций (Round 17, 2026-06-04) — инфра + grayscale/invert/pdfToImages, остальное в backlog
 - [x] Service Worker + PWA (vite-plugin-pwa уже настроен)
 - [x] Виртуализация списка инструментов на главной (useLazyRender)
 - [x] Ленивая загрузка tool-page.tsx (уже dynamic import)
