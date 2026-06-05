@@ -1,3 +1,4 @@
+import "./lib/map-polyfill";
 import { createRoot } from "react-dom/client";
 import "@fontsource/noto-sans/latin-400.css";
 import "@fontsource/noto-sans/latin-500.css";

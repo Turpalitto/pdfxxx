@@ -11,6 +11,7 @@
 
 ## ✅ Решено
 
+- [x] **BUG: pdfjs `getOrInsertComputed is not a function` (2026-06-05)** — в реальном браузере инструменты падали (проявилось на `pdf-to-pptx`): pdfjs-dist 5.5.207 (modern build) вызывает `Map.prototype.getOrInsertComputed` (TC39 upsert-предложение), которого нет в стабильных браузерах и Node 24. Не ловилось e2e, т.к. Playwright-Chromium новее и имеет метод. Фикс: side-effect полифилл `client/src/lib/map-polyfill.ts` (Map/WeakMap `getOrInsert`/`getOrInsertComputed`, no-op при нативной поддержке), импортируется первым в `main.tsx` и `workers/pdf-worker.ts`. tsc 0 · build OK · worker-tools e2e 16/16. Финальное подтверждение — ретест в браузере пользователя.
 - [x] **Web Workers (Round 17, 2026-06-04)** — инфраструктура `client/src/workers/` (pdf-worker-types, pdf-worker, worker-client) + canvas-абстракция в pdf-utils. Перенесены grayscalePdf/invertColors/pdfToImages. Кнопка «Отменить»/«Cancel» в tool-page. `worker.format: "es"` в vite.config. check/test/build — все зелёные. См. ADR-010.
 - [x] **Web Workers Round 18 (2026-06-04)** — перенесены ещё 5 функций через `runPdfTask`+fallback: scannerEffect, removeBlankPages, nUpPdf, toSinglePage, bookletImposition. check/test/build — зелёные.
   - [x] **Следующий шаг выполнен (Round 21)**: `pdfToPptx` перенесён в воркер; `ocrPdf` оставлен на main thread (вложенные воркеры tesseract нежизнеспособны).

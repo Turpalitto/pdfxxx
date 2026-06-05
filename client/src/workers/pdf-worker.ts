@@ -13,6 +13,7 @@
 // Отмена операции выполняется на стороне main thread через worker.terminate()
 // (см. worker-client.ts) — это надёжно прерывает pdfjs/pdf-lib в любой точке.
 
+import "../lib/map-polyfill";
 import * as pdfUtils from "../lib/pdf-utils";
 import type { WorkerRequest, WorkerResponse } from "./pdf-worker-types";
 

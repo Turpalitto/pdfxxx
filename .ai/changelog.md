@@ -4,6 +4,23 @@
 
 ---
 
+## [2026-06-05] — Bugfix: полифилл `Map.prototype.getOrInsertComputed` для pdfjs
+
+### Проблема
+- В реальном браузере пользователя инструменты падали с `this.#methodPromises.getOrInsertComputed is not a function` (проявилось на `pdf-to-pptx`).
+- Причина: pdfjs-dist 5.5.207 (modern build) внутренне вызывает `Map.prototype.getOrInsertComputed` — метод TC39-предложения "Map.prototype.getOrInsert" (upsert), которого ещё **нет** в стабильных браузерах (и даже в Node 24 — проверено: `undefined`). `#methodPromises` живёт в `WorkerTransport` (API-сторона pdfjs, `api.js`), кэширует вызовы вроде `getMetadata`/`getOptionalContentConfig`.
+- Почему не поймали раньше: Playwright-Chromium новее браузера пользователя и **имеет** этот метод → e2e зелёные, реальный браузер падает.
+
+### Исправлено
+- Новый side-effect полифилл `client/src/lib/map-polyfill.ts` — добавляет `getOrInsert`/`getOrInsertComputed` для `Map`/`WeakMap`, если их нет (по семантике предложения, non-enumerable). На рантаймах с нативной поддержкой — no-op.
+- Импортируется **первым** в обоих контекстах, где исполняется pdfjs-транспорт: `main.tsx` (main thread) и `workers/pdf-worker.ts` (наш воркер — там идёт транспорт для pptx/compare/redact/…). Сабворкер pdfjs (`pdf.worker.mjs`) не использует `#methodPromises` → патч ему не нужен.
+
+### Проверки
+- `npx tsc --noEmit` → 0; семантика полифилла проверена в Node (compute-once на miss, не перезаписывает на hit, non-enumerable); `npm run build` → успех; worker-tools e2e → 16/16 (без регрессий).
+- Примечание: e2e подтверждает «нет регрессий», но **не** «фикс работает» — Playwright-Chromium имеет нативный метод. Финальное подтверждение — ретест в реальном браузере пользователя.
+
+---
+
 ## [2026-06-05] — Web Workers Round 21: pdfToPptx в воркер; ocrPdf остаётся на main thread
 
 ### Перенесено
