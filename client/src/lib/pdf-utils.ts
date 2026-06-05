@@ -3009,15 +3009,12 @@ export async function pdfToPptx(
     if (i % 2 === 0) await yieldToUI();
     const page = await srcDoc.getPage(i);
     const vp = page.getViewport({ scale: 2 });
-    const canvas = document.createElement("canvas");
-    canvas.width = vp.width;
-    canvas.height = vp.height;
-    const ctx = canvas.getContext("2d")!;
-    await page.render({ canvasContext: ctx, viewport: vp, canvas }).promise;
+    const { canvas, ctx } = createRenderCanvas(vp.width, vp.height);
+    await page.render({ canvasContext: ctx as CanvasRenderingContext2D, viewport: vp, canvas: canvas as HTMLCanvasElement }).promise;
 
     // JPEG вместо PNG: для страниц с текстом PNG в разы тяжелее и копится в
     // pptx до финальной записи — на больших файлах даёт OOM/гигантский .pptx.
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    const dataUrl = await canvasToDataUrl(canvas, "image/jpeg", 0.85);
     const slide = pptx.addSlide();
     slide.addImage({
       data: dataUrl,
@@ -3027,8 +3024,7 @@ export async function pdfToPptx(
       h: "100%",
     });
     // Освобождаем холст и страницу перед следующей итерацией
-    canvas.width = 0;
-    canvas.height = 0;
+    releaseCanvas(canvas);
     page.cleanup();
   }
 

@@ -285,3 +285,26 @@ test.describe("redact-pdf rasterises matching pages in the worker", () => {
     expect(fallbackWarnings, fallbackWarnings.join("\n")).toHaveLength(0);
   });
 });
+
+test.describe("pdf-to-pptx runs in the worker (pptxgenjs has no DOM dependency)", () => {
+  // ocrPdf is deliberately NOT covered here: tesseract.js spawns nested workers
+  // that fail inside our module worker, so OCR stays on the main thread (the
+  // worker path always fell back — verified via a one-off probe).
+  test("pdf-to-pptx completes and yields a download", async ({ page }) => {
+    const fallbackWarnings: string[] = [];
+    page.on("console", (msg) => {
+      if (msg.text().includes("falling back to main thread")) {
+        fallbackWarnings.push(msg.text());
+      }
+    });
+
+    await page.goto("/tools/pdf-to-pptx");
+    await expect(page.getByTestId("dropzone-file-upload")).toBeVisible();
+
+    await upload(page, multiPagePdfPath);
+    await page.getByTestId("button-process").click();
+
+    await expect(page.getByTestId("button-download")).toBeVisible({ timeout: 45_000 });
+    expect(fallbackWarnings, fallbackWarnings.join("\n")).toHaveLength(0);
+  });
+});

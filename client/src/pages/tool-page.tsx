@@ -539,6 +539,10 @@ export default function ToolPage() {
           break;
         }
         case "ocr-pdf":
+          // OCR остаётся на main thread: tesseract создаёт вложенные воркеры,
+          // которые не запускаются внутри нашего module-воркера (проверено e2e —
+          // worker-путь всегда уходил в fallback). Прямой вызов без доомного
+          // worker-спавна.
           result = await ocrPdf(files[0], ocrLanguage, setProgress);
           break;
         case "invert-colors":
@@ -744,7 +748,11 @@ export default function ToolPage() {
           return;
         }
         case "pdf-to-pptx": {
-          result = await pdfToPptx(files[0], setProgress);
+          result = await runPdfTask(
+            "pdfToPptx",
+            () => pdfToPptx(files[0], setProgress),
+            { file: files[0], onProgress: setProgress, signal: controller.signal }
+          );
           break;
         }
         default:

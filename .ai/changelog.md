@@ -4,6 +4,27 @@
 
 ---
 
+## [2026-06-05] — Web Workers Round 21: pdfToPptx в воркер; ocrPdf остаётся на main thread
+
+### Перенесено
+- `pdfToPptx` (pdf-to-pptx) — через `runPdfTask` + fallback + Cancel. Canvas переведён на абстракцию (`createRenderCanvas`/`canvasToDataUrl`/`releaseCanvas`). **Эмпирически подтверждено e2e: worker-путь работает, fallback не срабатывает** — pptxgenjs не зависит от DOM в части addImage(dataURL)+write.
+
+### Проверено и НЕ перенесено (осознанно)
+- `ocrPdf` (ocr-pdf) — остаётся на main thread. Probe-тест показал: tesseract.js создаёт вложенные воркеры, которые не стартуют внутри нашего module-воркера → worker-путь **всегда уходил в fallback**. Оставить в воркере = доомный спавн + fallback на каждом OCR (хуже по UX). Функция и canvas откатаны к исходному виду; op/case `ocrPdf` в протоколе остаются как задел (не используются).
+
+### Изменено
+- `pdf-utils.ts`: `pdfToPptx` — canvas-абстракция.
+- `tool-page.tsx`: `pdf-to-pptx` через `runPdfTask`; для `ocr-pdf` оставлен прямой вызов + комментарий, почему.
+- `worker-tools.spec.ts`: +тест pdf-to-pptx (worker-путь, без fallback).
+
+### Итог по миграции в Web Worker
+- Все canvas-зависимые PDF-инструменты вынесены в воркер (Rounds 17–21). Единственное исключение — OCR (вложенные воркеры tesseract нежизнеспособны в module-воркере).
+
+### Проверки
+- `npx tsc --noEmit` → 0 ошибок; `npm test` → 39/39; `npm run build` → успех; worker-tools e2e → 16/16; полный e2e baseline (оба проекта) → 41 passed / 3 skipped.
+
+---
+
 ## [2026-06-05] — Web Workers Round 20: redactPdf в воркер
 
 ### Перенесено (через `runPdfTask` + fallback)
