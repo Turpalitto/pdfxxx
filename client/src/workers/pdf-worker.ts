@@ -74,6 +74,9 @@ ctx.onmessage = async (e: MessageEvent<WorkerRequest>) => {
       case "pdfDiff":
         result = await pdfUtils.pdfDiff(file, args[0] as File, onProgress);
         break;
+      case "redactPdf":
+        result = await pdfUtils.redactPdf(file, args[0] as string, onProgress);
+        break;
       case "pdfToPptx":
         result = await pdfUtils.pdfToPptx(file, onProgress);
         break;

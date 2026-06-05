@@ -31,6 +31,7 @@ export type WorkerOp =
   | "comparePdf"
   | "autoRedactPdf"
   | "pdfDiff"
+  | "redactPdf"
   | "pdfToPptx"
   | "ocrPdf";
 

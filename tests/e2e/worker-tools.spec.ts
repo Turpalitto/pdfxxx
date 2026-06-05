@@ -262,3 +262,26 @@ test.describe("auto-redact runs its canvas path in the worker", () => {
     expect(fallbackWarnings, fallbackWarnings.join("\n")).toHaveLength(0);
   });
 });
+
+test.describe("redact-pdf rasterises matching pages in the worker", () => {
+  test("redact-pdf completes and yields a download", async ({ page }) => {
+    const fallbackWarnings: string[] = [];
+    page.on("console", (msg) => {
+      if (msg.text().includes("falling back to main thread")) {
+        fallbackWarnings.push(msg.text());
+      }
+    });
+
+    await page.goto("/tools/redact-pdf");
+    await expect(page.getByTestId("dropzone-file-upload")).toBeVisible();
+
+    await upload(page, redactPdfPath);
+    // "contact" appears on every page of the redact fixture, so matching pages
+    // are rendered and masked — exercising the canvas path inside the worker.
+    await page.getByTestId("input-redact-text").fill("contact");
+    await page.getByTestId("button-process").click();
+
+    await expect(page.getByTestId("button-download")).toBeVisible({ timeout: 45_000 });
+    expect(fallbackWarnings, fallbackWarnings.join("\n")).toHaveLength(0);
+  });
+});

@@ -919,17 +919,12 @@ export async function redactPdf(
     }
 
     const viewport = page.getViewport({ scale: renderScale });
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(viewport.width);
-    canvas.height = Math.round(viewport.height);
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
-      throw new Error("Canvas rendering is not available in this browser.");
-    }
+    // Canvas-абстракция: OffscreenCanvas в воркере, HTMLCanvasElement в main.
+    const { canvas, ctx } = createRenderCanvas(viewport.width, viewport.height);
 
     try {
       await withTimeout(
-        page.render({ canvasContext: ctx, viewport, canvas }).promise,
+        page.render({ canvasContext: ctx as CanvasRenderingContext2D, viewport, canvas: canvas as HTMLCanvasElement }).promise,
         20_000,
         "Page rendering timed out"
       );
@@ -990,7 +985,7 @@ export async function redactPdf(
       );
     }
 
-    const imgBytes = dataUrlToBytes(canvas.toDataURL("image/jpeg", 0.9));
+    const imgBytes = await canvasToJpegBytes(canvas, 0.9);
     const img = await resultPdf.embedJpg(imgBytes);
     // Размер страницы берём из viewport (учитывает /Rotate), а НЕ из getSize()
     // (сырой MediaBox без rotation) — иначе ротированный растр вжимается в
@@ -999,6 +994,7 @@ export async function redactPdf(
     const pageH = viewport.height / renderScale;
     const newPage = resultPdf.addPage([pageW, pageH]);
     newPage.drawImage(img, { x: 0, y: 0, width: pageW, height: pageH });
+    releaseCanvas(canvas);
   }
 
   onProgress?.(98);

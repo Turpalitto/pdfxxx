@@ -4,6 +4,27 @@
 
 ---
 
+## [2026-06-05] — Web Workers Round 20: redactPdf в воркер
+
+### Перенесено (через `runPdfTask` + fallback)
+- `redactPdf` (redact-pdf) — последний canvas-зависимый кандидат. Main-thread fallback + Cancel. `searchText` передаётся в `args[0]`.
+
+### Изменено
+- `pdf-worker-types.ts` / `pdf-worker.ts`: +1 op `redactPdf`.
+- `pdf-utils.ts`: `redactPdf` — `document.createElement("canvas")`/`toDataURL` заменены на canvas-абстракцию (`createRenderCanvas`/`canvasToJpegBytes`/`releaseCanvas`). Буферы уже копировались до `getDocument` — detach-бага не было.
+- `tool-page.tsx`: `redact-pdf` через `runPdfTask` + signal (раньше — прямой вызов). Уже был в `realProgressSlugs`.
+
+### E2E
+- `worker-tools.spec.ts`: +тест redact-pdf (ввод `input-redact-text`, текст есть на каждой странице фикстуры → проходит canvas-путь растеризации). Без fallback-warning. **15/15 зелёные.**
+
+### Осталось в main thread (нужны вложенные воркеры)
+- `pdfToPptx` (pptxgenjs/DOM) и `ocrPdf` (tesseract) — отдельный этап.
+
+### Проверки
+- `npx tsc --noEmit` → 0 ошибок; `npm test` → 39/39; `npm run build` → успех; e2e → 15/15.
+
+---
+
 ## [2026-06-05] — Web Workers Round 19: comparePdf / autoRedactPdf / pdfDiff в воркер
 
 ### Перенесено (через `runPdfTask` + fallback)

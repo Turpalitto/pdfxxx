@@ -495,7 +495,11 @@ export default function ToolPage() {
           result = await signPdf(files[0], signatureText);
           break;
         case "redact-pdf":
-          result = await redactPdf(files[0], redactSearchText, setProgress);
+          result = await runPdfTask(
+            "redactPdf",
+            () => redactPdf(files[0], redactSearchText, setProgress),
+            { file: files[0], args: [redactSearchText], onProgress: setProgress, signal: controller.signal }
+          );
           break;
         case "word-to-pdf":
           result = await wordToPdf(files[0]);
