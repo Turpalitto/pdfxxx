@@ -182,8 +182,16 @@ export function measureEditorTextWidth(
   editor: Pick<import("./edit-pdf-types").ActiveTextEditor, "fontStyle" | "fontWeight" | "fontSize" | "fontFamily">
 ) {
   ctx.font = buildEditorFontString(editor);
+  // Canvas measureText collapses trailing whitespace out of the advance width,
+  // so a line ending in spaces measures the same as without them. The inline
+  // editor auto-fits its width to this value and clips overflow, making typed
+  // trailing spaces invisible. Re-add the trailing run explicitly.
+  const spaceWidth = ctx.measureText(" ").width;
   const lines = text.split("\n");
-  const widestLine = lines.reduce((max, line) => Math.max(max, ctx.measureText(line || " ").width), 0);
+  const widestLine = lines.reduce((max, line) => {
+    const trailing = line.length - line.replace(/[ \t]+$/, "").length;
+    return Math.max(max, ctx.measureText(line || " ").width + trailing * spaceWidth);
+  }, 0);
   return widestLine;
 }
 
