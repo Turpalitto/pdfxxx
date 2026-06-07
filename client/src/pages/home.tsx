@@ -14,7 +14,7 @@ import {
   Layers3,
 } from "lucide-react";
 import { ToolCard } from "@/components/tool-card";
-import { categories, categoryColors, getCategoryLabel, getLaunchReadyTools } from "@/lib/tools";
+import { categories, categoryColors, getCategoryLabel, getLaunchReadyTools, getPopularTools } from "@/lib/tools";
 import { useLang } from "@/lib/lang-context";
 import { useSeo } from "@/hooks/use-seo";
 import { getToolTranslation } from "@/lib/tool-translations";
@@ -42,6 +42,7 @@ export default function Home() {
       : allTools.filter((tool) => tool.category === activeCategory);
   const { visibleCount, sentinelRef } = useLazyRender(filteredTools.length);
   const previewTools = allTools.slice(0, 4);
+  const popularTools = getPopularTools();
   const workflowPlaybooks = getWorkflowPlaybooks(lang);
   const trustSignals = [
     {
@@ -325,6 +326,38 @@ export default function Home() {
             </div>
           )}
 
+          {activeCategory === "all" && popularTools.length > 0 && (
+            <div className="pdfx-panel-muted mb-10 rounded-xl p-5 sm:p-6">
+              <div className="flex flex-col gap-2">
+                <p className="premium-kicker text-xs font-semibold text-primary">
+                  {lang === "ru" ? "Выбор большинства" : "What most people use"}
+                </p>
+                <h2 className="paper-title text-3xl font-bold text-foreground">
+                  {lang === "ru" ? "Популярные инструменты" : "Popular tools"}
+                </h2>
+                <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+                  {lang === "ru"
+                    ? "10 самых востребованных инструментов — с них начинает большинство пользователей."
+                    : "The 10 most-used tools — where most people start."}
+                </p>
+              </div>
+
+              <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                {popularTools.map((tool, index) => (
+                  <div key={`popular-${tool.slug}`} className="relative">
+                    <span
+                      className="absolute -left-1.5 -top-1.5 z-[2] grid size-6 place-items-center rounded-full bg-[#234138] text-[11px] font-bold text-[#f7f3ea] shadow-sm dark:bg-slate-100 dark:text-slate-950"
+                      aria-hidden="true"
+                    >
+                      {index + 1}
+                    </span>
+                    <ToolCard tool={tool} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -368,10 +401,9 @@ export default function Home() {
             {filteredTools.slice(0, visibleCount).map((tool, index) => (
               <motion.div
                 key={tool.slug}
-                layout
-                initial={{ opacity: 0, y: 18 }}
+                initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.24, delay: Math.min(index, 12) * 0.02 }}
+                transition={{ duration: 0.2, delay: Math.min(index, 8) * 0.015, ease: "easeOut" }}
               >
                 <ToolCard tool={tool} />
               </motion.div>

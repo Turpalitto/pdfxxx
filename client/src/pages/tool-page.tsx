@@ -327,6 +327,10 @@ export default function ToolPage() {
       setState("idle");
       setError(null);
       setResultBytes(null);
+      // Clear metadata cache so switching files never writes a previous file's
+      // metadata into the new one.
+      setMetadataLoaded(false);
+      setMetadataFields({});
     },
     [tool]
   );
@@ -338,6 +342,8 @@ export default function ToolPage() {
     setResultBytes(null);
     setResultText(null);
     setResultHtml(null);
+    setMetadataLoaded(false);
+    setMetadataFields({});
   }, []);
 
   const moveFile = useCallback((index: number, direction: -1 | 1) => {
@@ -362,6 +368,8 @@ export default function ToolPage() {
     setSplitPartsCount(null);
     setPagesToDelete("");
     setPagesToExtract("");
+    setMetadataLoaded(false);
+    setMetadataFields({});
   }, []);
 
   // AbortController текущей обработки — для кнопки «Отменить».
@@ -428,9 +436,10 @@ export default function ToolPage() {
             setSplitPartsCount(parts.length);
             result = await splitResultsToZip(parts, origName);
           } else {
+            const totalPages = await getPdfPageCount(files[0]);
             const start = parseInt(splitStart) || 1;
-            const pageCount = parseInt(splitEnd) || 999;
-            const results = await splitPdf(files[0], [{ start, end: pageCount }]);
+            const end = parseInt(splitEnd) || totalPages;
+            const results = await splitPdf(files[0], [{ start, end }]);
             setSplitPartsCount(1);
             result = results[0];
           }

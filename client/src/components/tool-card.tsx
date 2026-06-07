@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
@@ -10,7 +11,7 @@ interface ToolCardProps {
   tool: Tool;
 }
 
-export function ToolCard({ tool }: ToolCardProps) {
+function ToolCardComponent({ tool }: ToolCardProps) {
   const { lang } = useLang();
   const colors = categoryColors[tool.color] || categoryColors.blue;
   const { name, description } = getToolTranslation(tool.slug, lang);
@@ -81,3 +82,7 @@ export function ToolCard({ tool }: ToolCardProps) {
     </Link>
   );
 }
+
+// Memoized: tool prop references are stable across home re-renders (category
+// switches, lazy-render growth), so cards skip needless re-renders.
+export const ToolCard = memo(ToolCardComponent);

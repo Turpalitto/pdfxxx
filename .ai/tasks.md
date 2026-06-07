@@ -1,7 +1,7 @@
 ﻿# PDFX — Tasks & Technical Debt
 
 > Обновляется AI-агентами после каждой значимой задачи.  
-> Last updated: 2026-06-05
+> Last updated: 2026-06-07
 
 ---
 
@@ -10,6 +10,8 @@
 - [ ] TD-02 Phase 5: Дальнейшая декомпозиция edit-pdf-page.tsx (~2291 строк) — выигрыш мал (каждый хук 10+ параметров)
 
 ## ✅ Решено
+
+- [x] **Топ-10 популярных + плавность UI + аудит багов (2026-06-07)** — секция «Популярные инструменты» (`getPopularTools`/`POPULAR_TOOL_SLUGS`) в первых рядах главной; `ToolCard` → `React.memo`, убран `layout`-проп каталога (быстрее/плавнее). Аудит функций (6 агентов + ручная верификация) → исправлено 10 реальных багов: утечка `loadingTask` в `extractPdfLayout`, потеря добавленных страниц в `pdfDiff`, запись чужих метаданных в `pdf-metadata`, магическое `999` в `split-pdf`, центрирование `addWatermark`, origin/clamp в `cropPdf`, сортировка глав `splitByChapters`, overflow `formatBytes`, guard'ы `pdfImagesAsZip`/`signPdf`. tsc 0 · vitest 39/39 · build OK · e2e 43 passed/3 skipped. Детали и список отклонённых ложных находок — в changelog.
 
 - [x] **BUG: pdfjs `getOrInsertComputed is not a function` (2026-06-05)** — в реальном браузере инструменты падали (проявилось на `pdf-to-pptx`): pdfjs-dist 5.5.207 (modern build) вызывает `Map.prototype.getOrInsertComputed` (TC39 upsert-предложение), которого нет в стабильных браузерах и Node 24. Не ловилось e2e, т.к. Playwright-Chromium новее и имеет метод. Фикс: side-effect полифилл `client/src/lib/map-polyfill.ts` (Map/WeakMap `getOrInsert`/`getOrInsertComputed`, no-op при нативной поддержке), импортируется первым в `main.tsx` и `workers/pdf-worker.ts`. tsc 0 · build OK · worker-tools e2e 16/16. Финальное подтверждение — ретест в браузере пользователя.
 - [x] **Web Workers (Round 17, 2026-06-04)** — инфраструктура `client/src/workers/` (pdf-worker-types, pdf-worker, worker-client) + canvas-абстракция в pdf-utils. Перенесены grayscalePdf/invertColors/pdfToImages. Кнопка «Отменить»/«Cancel» в tool-page. `worker.format: "es"` в vite.config. check/test/build — все зелёные. См. ADR-010.

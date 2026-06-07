@@ -325,7 +325,8 @@ async function extractPdfLayout(file: File): Promise<PdfLayoutPage[]> {
   const pdf = await loadingTask.promise;
   const pages: PdfLayoutPage[] = [];
 
-  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+  try {
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
     const page = await pdf.getPage(pageNumber);
     const content = await page.getTextContent();
     const items = (content.items || [])
@@ -369,6 +370,11 @@ async function extractPdfLayout(file: File): Promise<PdfLayoutPage[]> {
       .filter((line) => line.text.length > 0);
 
     pages.push({ pageNumber, lines });
+  }
+  } finally {
+    // pdfToWord/Excel/Text/Html/Markdown all route through here — release the
+    // pdfjs document and its worker port so repeated conversions don't leak.
+    await loadingTask.destroy();
   }
 
   return pages;
@@ -519,7 +525,7 @@ export async function addWatermark(
       });
     };
     if (position === "center") {
-      drawAt(width / 2 - (text.length * fontSize) / 4, height / 2);
+      drawAt(width / 2 - textWidth / 2, height / 2);
     } else if (position === "top-left") {
       drawAt(50, height - 60);
     } else if (position === "top-right") {
@@ -765,6 +771,7 @@ export async function signPdf(file: File, signatureText: string, color: [number,
     ? await embedUnicodeFont(pdf)
     : await pdf.embedFont(StandardFonts.HelveticaBoldOblique);
   const pages = pdf.getPages();
+  if (pages.length === 0) throw new Error("The PDF has no pages to sign.");
   const lastPage = pages[pages.length - 1];
   const { width, height } = lastPage.getSize();
   const fontSize = 24;
@@ -1368,6 +1375,7 @@ export async function pdfImagesAsZip(
   const zip = new JSZip();
   for (const { dataUrl, page } of images) {
     const base64 = dataUrl.split(",")[1];
+    if (!base64) continue;
     zip.file(`${baseName}-page-${page}.${format}`, base64, { base64: true });
   }
   const zipBytes = await zip.generateAsync({ type: "uint8array" });
@@ -1405,10 +1413,10 @@ export function downloadHtml(html: string, filename: string) {
 }
 
 export function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
   const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const sizes = ["B", "KB", "MB", "GB", "TB", "PB"];
+  const i = Math.min(sizes.length - 1, Math.max(0, Math.floor(Math.log(bytes) / Math.log(k))));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
@@ -1999,6 +2007,10 @@ let dest: any = item.dest;
   }
   if (chapters.length === 0) return [{ name: file.name, bytes }];
 
+  // PDF outlines aren't guaranteed to be in page order; sort so chapter
+  // ranges (start = this page, end = next chapter's page) stay valid.
+  chapters.sort((a, b) => a.page - b.page);
+
   const srcDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
   const totalPages = srcDoc.getPageCount();
   const results: { name: string; bytes: Uint8Array }[] = [];
@@ -2195,11 +2207,17 @@ export async function cropPdf(
     const leftMm = options.leftMm ?? 0;
     for (const page of pages) {
       const { width, height } = page.getSize();
+      // CropBox is in absolute page space, so offset by the MediaBox origin
+      // (non-zero on some PDFs) and clamp to keep width/height positive.
+      const mb = page.getMediaBox();
+      const cropW = width - (leftMm + rightMm) * mmToPt;
+      const cropH = height - (topMm + bottomMm) * mmToPt;
+      if (cropW <= 0 || cropH <= 0) continue;
       page.setCropBox(
-        leftMm * mmToPt,
-        bottomMm * mmToPt,
-        width - (leftMm + rightMm) * mmToPt,
-        height - (topMm + bottomMm) * mmToPt
+        mb.x + leftMm * mmToPt,
+        mb.y + bottomMm * mmToPt,
+        cropW,
+        cropH
       );
     }
   }
@@ -2942,29 +2960,38 @@ export async function pdfDiff(
       const { width, height } = pdfPage.getSize();
       pdfPage.drawRectangle({
         x: 0,
-        y: 0,
+        y: height - 20,
         width,
         height: 20,
         color: rgb(1, 0.85, 0.85),
-        opacity: 0.3,
+        opacity: 0.5,
       });
     }
   }
 
-  for (let i = doc1.numPages; i < doc2.numPages; i++) {
-    onProgress?.(80 + Math.round(((i - doc1.numPages) / Math.max(1, doc2.numPages - doc1.numPages)) * 20));
-    const pdfPage = dstDoc.getPages()[i];
-    if (pdfPage) {
-      const { width, height } = pdfPage.getSize();
-      pdfPage.drawRectangle({
+  // dstDoc was loaded from file1, so it only has doc1's pages. Pages that
+  // exist only in file2 must be copied in, otherwise additions are silently
+  // dropped from the diff output.
+  if (doc2.numPages > doc1.numPages) {
+    const file2Doc = await PDFDocument.load(bytes2, { ignoreEncryption: true });
+    const extraIndices = Array.from(
+      { length: doc2.numPages - doc1.numPages },
+      (_, k) => doc1.numPages + k
+    );
+    const copied = await dstDoc.copyPages(file2Doc, extraIndices);
+    copied.forEach((p, k) => {
+      onProgress?.(80 + Math.round(((k + 1) / copied.length) * 20));
+      dstDoc.addPage(p);
+      const { width, height } = p.getSize();
+      p.drawRectangle({
         x: 0,
-        y: 0,
+        y: height - 30,
         width,
         height: 30,
         color: rgb(0.85, 0.85, 1),
-        opacity: 0.4,
+        opacity: 0.5,
       });
-    }
+    });
   }
 
   return dstDoc.save();

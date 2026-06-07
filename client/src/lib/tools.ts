@@ -753,6 +753,27 @@ export function getRoadmapTools(): Tool[] {
   return tools.filter((tool) => !isToolLaunchReady(tool));
 }
 
+// Curated list of the most-used PDF tools, ordered by typical popularity.
+// Drives the "Popular" section shown first on the home page.
+export const POPULAR_TOOL_SLUGS: string[] = [
+  "merge-pdf",
+  "split-pdf",
+  "compress-pdf",
+  "pdf-to-word",
+  "word-to-pdf",
+  "pdf-to-jpg",
+  "images-to-pdf",
+  "edit-pdf",
+  "sign-pdf",
+  "protect-pdf",
+];
+
+export function getPopularTools(limit = 10): Tool[] {
+  return POPULAR_TOOL_SLUGS.map((slug) => getToolBySlug(slug))
+    .filter((tool): tool is Tool => Boolean(tool) && isToolLaunchReady(tool as Tool))
+    .slice(0, limit);
+}
+
 export const categoryColors: Record<string, { bg: string; text: string; border: string; gradient: string; glow: string; from: string; to: string }> = {
   blue:    { bg: "bg-blue-500/10",    text: "text-blue-400",    border: "border-blue-500/20",    gradient: "rgba(84,120,166,0.16)",  glow: "rgba(84,120,166,0.18)",  from: "#5f86b8", to: "#456f9f" },
   violet:  { bg: "bg-violet-500/10",  text: "text-violet-400",  border: "border-violet-500/20",  gradient: "rgba(132,112,166,0.16)", glow: "rgba(132,112,166,0.18)", from: "#8d78ad", to: "#725f98" },
