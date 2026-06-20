@@ -305,3 +305,214 @@ describe("pdfToAudio signature", () => {
     expect(typeof mod.pdfToAudio).toBe("function");
   });
 });
+
+// --- pdf-to-office fidelity helpers (#2 Phase A) ---
+
+describe("detectFontStyle", () => {
+  it("detects bold from embedded font names", async () => {
+    const { detectFontStyle } = await import("@/lib/pdf-utils");
+    expect(detectFontStyle("ABCDEE+Arial-BoldMT")).toEqual({ bold: true, italic: false });
+    expect(detectFontStyle("Helvetica-Black")).toEqual({ bold: true, italic: false });
+  });
+
+  it("detects italic / oblique", async () => {
+    const { detectFontStyle } = await import("@/lib/pdf-utils");
+    expect(detectFontStyle("TimesNewRoman-Italic")).toEqual({ bold: false, italic: true });
+    expect(detectFontStyle("Helvetica-Oblique")).toEqual({ bold: false, italic: true });
+  });
+
+  it("detects bold-italic together", async () => {
+    const { detectFontStyle } = await import("@/lib/pdf-utils");
+    expect(detectFontStyle("Arial-BoldItalicMT")).toEqual({ bold: true, italic: true });
+  });
+
+  it("returns false for plain / unknown fonts", async () => {
+    const { detectFontStyle } = await import("@/lib/pdf-utils");
+    expect(detectFontStyle("Arial")).toEqual({ bold: false, italic: false });
+    expect(detectFontStyle(undefined)).toEqual({ bold: false, italic: false });
+    expect(detectFontStyle("")).toEqual({ bold: false, italic: false });
+  });
+});
+
+describe("lineAlignment", () => {
+  it("returns left for a line hugging the left margin", async () => {
+    const { lineAlignment } = await import("@/lib/pdf-utils");
+    expect(lineAlignment(40, 300, 600)).toBe("left");
+  });
+
+  it("returns center for symmetric margins", async () => {
+    const { lineAlignment } = await import("@/lib/pdf-utils");
+    expect(lineAlignment(200, 400, 600)).toBe("center");
+  });
+
+  it("returns right for a small right margin and large left margin", async () => {
+    const { lineAlignment } = await import("@/lib/pdf-utils");
+    expect(lineAlignment(400, 590, 600)).toBe("right");
+  });
+
+  it("degrades to left when page width is unknown", async () => {
+    const { lineAlignment } = await import("@/lib/pdf-utils");
+    expect(lineAlignment(100, 200, 0)).toBe("left");
+  });
+});
+
+describe("clusterColumns", () => {
+  it("collapses near-equal x positions into a single column anchor", async () => {
+    const { clusterColumns } = await import("@/lib/pdf-utils");
+    const cols = clusterColumns([50, 52, 48, 300, 301, 299], 10);
+    expect(cols).toHaveLength(2);
+    expect(cols[0]).toBeCloseTo(50, 0);
+    expect(cols[1]).toBeCloseTo(300, 0);
+  });
+
+  it("keeps distinct columns apart and stays sorted", async () => {
+    const { clusterColumns } = await import("@/lib/pdf-utils");
+    const cols = clusterColumns([400, 50, 200], 10);
+    expect(cols).toEqual([50, 200, 400]);
+  });
+
+  it("returns empty for no input", async () => {
+    const { clusterColumns } = await import("@/lib/pdf-utils");
+    expect(clusterColumns([], 10)).toEqual([]);
+  });
+});
+
+describe("assignToColumn", () => {
+  it("maps an x to the nearest column index", async () => {
+    const { assignToColumn } = await import("@/lib/pdf-utils");
+    const columns = [50, 200, 400];
+    expect(assignToColumn(48, columns)).toBe(0);
+    expect(assignToColumn(210, columns)).toBe(1);
+    expect(assignToColumn(395, columns)).toBe(2);
+  });
+
+  it("falls back to 0 when there are no columns", async () => {
+    const { assignToColumn } = await import("@/lib/pdf-utils");
+    expect(assignToColumn(123, [])).toBe(0);
+  });
+});
+
+describe("detectTableRegions", () => {
+  it("detects a multi-row aligned table", async () => {
+    const { detectTableRegions } = await import("@/lib/pdf-utils");
+    const cellsPerLine = [
+      [{ x: 50 }, { x: 200 }, { x: 350 }],
+      [{ x: 51 }, { x: 201 }, { x: 349 }],
+      [{ x: 49 }, { x: 199 }, { x: 351 }],
+    ];
+    const regions = detectTableRegions(cellsPerLine, 14);
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({ start: 0, end: 2 });
+    expect(regions[0].columns).toHaveLength(3);
+  });
+
+  it("ignores prose (single-cell lines)", async () => {
+    const { detectTableRegions } = await import("@/lib/pdf-utils");
+    const cellsPerLine = [[{ x: 50 }], [{ x: 50 }], [{ x: 50 }]];
+    expect(detectTableRegions(cellsPerLine, 14)).toEqual([]);
+  });
+
+  it("requires at least two consecutive tabular rows", async () => {
+    const { detectTableRegions } = await import("@/lib/pdf-utils");
+    const cellsPerLine = [[{ x: 50 }, { x: 200 }], [{ x: 50 }]];
+    expect(detectTableRegions(cellsPerLine, 14)).toEqual([]);
+  });
+
+  it("splits regions broken by a non-tabular line", async () => {
+    const { detectTableRegions } = await import("@/lib/pdf-utils");
+    const cellsPerLine = [
+      [{ x: 50 }, { x: 200 }],
+      [{ x: 50 }, { x: 200 }],
+      [{ x: 50 }], // breaks the run
+      [{ x: 50 }, { x: 200 }],
+      [{ x: 50 }, { x: 200 }],
+    ];
+    const regions = detectTableRegions(cellsPerLine, 14);
+    expect(regions).toHaveLength(2);
+    expect(regions[0]).toMatchObject({ start: 0, end: 1 });
+    expect(regions[1]).toMatchObject({ start: 3, end: 4 });
+  });
+
+  describe("fillColorToHex", () => {
+    it("converts RGB to hex", async () => {
+      const { fillColorToHex } = await import("@/lib/pdf-utils");
+      expect(fillColorToHex("rgb", [1, 0, 0])).toBe("ff0000");
+      expect(fillColorToHex("rgb", [0, 1, 0])).toBe("00ff00");
+      expect(fillColorToHex("rgb", [0, 0, 1])).toBe("0000ff");
+    });
+
+    it("returns undefined for black RGB (near-zero)", async () => {
+      const { fillColorToHex } = await import("@/lib/pdf-utils");
+      expect(fillColorToHex("rgb", [0, 0, 0])).toBeUndefined();
+      expect(fillColorToHex("rgb", [0.01, 0.01, 0.01])).toBeUndefined();
+    });
+
+    it("converts gray to hex", async () => {
+      const { fillColorToHex } = await import("@/lib/pdf-utils");
+      expect(fillColorToHex("gray", [0.5])).toBe("808080");
+    });
+
+    it("returns undefined for black and white gray", async () => {
+      const { fillColorToHex } = await import("@/lib/pdf-utils");
+      expect(fillColorToHex("gray", [0])).toBeUndefined();
+      expect(fillColorToHex("gray", [1])).toBeUndefined();
+    });
+
+    it("converts CMYK to hex", async () => {
+      const { fillColorToHex } = await import("@/lib/pdf-utils");
+      const hex = fillColorToHex("cmyk", [1, 0, 0, 0]);
+      expect(hex).toBe("00ffff");
+    });
+
+    it("returns undefined for black CMYK", async () => {
+      const { fillColorToHex } = await import("@/lib/pdf-utils");
+      expect(fillColorToHex("cmyk", [0, 0, 0, 1])).toBeUndefined();
+    });
+
+    it("returns undefined for empty components", async () => {
+      const { fillColorToHex } = await import("@/lib/pdf-utils");
+      expect(fillColorToHex("rgb", [])).toBeUndefined();
+    });
+  });
+
+  describe("dominantString", () => {
+    it("returns most frequent string", async () => {
+      const { dominantString } = await import("@/lib/pdf-utils");
+      expect(dominantString(["a", "b", "a"])).toBe("a");
+    });
+
+    it("returns undefined for empty array", async () => {
+      const { dominantString } = await import("@/lib/pdf-utils");
+      expect(dominantString([])).toBeUndefined();
+    });
+  });
+
+  describe("ocrRenderScale", () => {
+    it("computes scale from long side", async () => {
+      const { ocrRenderScale } = await import("@/lib/pdf-utils");
+      expect(ocrRenderScale(612, 792)).toBeCloseTo(2.27, 1);
+    });
+
+    it("clamps to max", async () => {
+      const { ocrRenderScale } = await import("@/lib/pdf-utils");
+      expect(ocrRenderScale(100, 100, 1800, 0.5, 2)).toBe(2);
+    });
+
+    it("clamps to min", async () => {
+      const { ocrRenderScale } = await import("@/lib/pdf-utils");
+      expect(ocrRenderScale(5000, 5000, 1800, 0.5, 3)).toBe(0.5);
+    });
+  });
+
+  describe("batesNumbering", () => {
+    it("is an async function accepting file and options", async () => {
+      const { batesNumbering } = await import("@/lib/pdf-utils");
+      expect(typeof batesNumbering).toBe("function");
+    });
+
+    it("defaults to prefix-empty, start 1, digits 6, bottom-right", async () => {
+      const { batesNumbering } = await import("@/lib/pdf-utils");
+      expect(batesNumbering.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+});

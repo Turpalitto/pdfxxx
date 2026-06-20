@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { FileUpload } from "@/components/file-upload";
 import { ProgressRing } from "@/components/progress-ring";
 import { KeyboardHelpDialog } from "@/components/keyboard-help";
@@ -43,6 +44,7 @@ import {
   compressPdf,
   addWatermark,
   addPageNumbers,
+  batesNumbering,
   imagesToPdf,
   textToPdf,
   addHeaderFooter,
@@ -164,6 +166,12 @@ export default function ToolPage() {
   const [pageNumPosition, setPageNumPosition] = useState<"bottom-center" | "bottom-right" | "bottom-left" | "top-center">("bottom-center");
   const [watermarkPosition, setWatermarkPosition] = useState<"center" | "top-left" | "top-right" | "bottom-left" | "bottom-right" | "tile">("center");
   const [pageNumFormat, setPageNumFormat] = useState<"number" | "x-of-y">("number");
+  const [batesPrefix, setBatesPrefix] = useState("");
+  const [batesStart, setBatesStart] = useState(1);
+  const [batesDigits, setBatesDigits] = useState(6);
+  const [batesSuffix, setBatesSuffix] = useState("");
+  const [batesPosition, setBatesPosition] = useState<"bottom-right" | "bottom-left" | "top-right" | "top-left" | "center">("bottom-right");
+  const [batesFontSize, setBatesFontSize] = useState(10);
   const [headerText, setHeaderText] = useState("");
   const [footerText, setFooterText] = useState("");
   const [freeTextContent, setFreeTextContent] = useState("");
@@ -174,7 +182,7 @@ export default function ToolPage() {
   const [resultHtml, setResultHtml] = useState<string | null>(null);
   const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
   const [imageScale, setImageScale] = useState<"1" | "2" | "3">("2");
-  const [ocrLanguage, setOcrLanguage] = useState(lang === "ru" ? "rus" : "eng");
+  const [ocrLanguages, setOcrLanguages] = useState<string[]>([lang === "ru" ? "rus" : "eng"]);
   // scanner-effect
   const [scannerIntensity, setScannerIntensity] = useState(0.5);
   // form-fill
@@ -241,13 +249,27 @@ export default function ToolPage() {
   const ocrLanguageOptions = [
     { value: "eng", label: lang === "ru" ? "Английский" : "English" },
     { value: "rus", label: lang === "ru" ? "Русский" : "Russian" },
+    { value: "ukr", label: lang === "ru" ? "Украинский" : "Ukrainian" },
     { value: "spa", label: lang === "ru" ? "Испанский" : "Spanish" },
     { value: "fra", label: lang === "ru" ? "Французский" : "French" },
     { value: "deu", label: lang === "ru" ? "Немецкий" : "German" },
     { value: "ita", label: lang === "ru" ? "Итальянский" : "Italian" },
     { value: "por", label: lang === "ru" ? "Португальский" : "Portuguese" },
+    { value: "pol", label: lang === "ru" ? "Польский" : "Polish" },
+    { value: "nld", label: lang === "ru" ? "Нидерландский" : "Dutch" },
+    { value: "tur", label: lang === "ru" ? "Турецкий" : "Turkish" },
+    { value: "ces", label: lang === "ru" ? "Чешский" : "Czech" },
     { value: "ara", label: lang === "ru" ? "Арабский" : "Arabic" },
+    { value: "chi_sim", label: lang === "ru" ? "Китайский (упр.)" : "Chinese (Simpl.)" },
+    { value: "jpn", label: lang === "ru" ? "Японский" : "Japanese" },
+    { value: "kor", label: lang === "ru" ? "Корейский" : "Korean" },
   ];
+
+  const toggleOcrLanguage = (value: string) => {
+    setOcrLanguages((prev) =>
+      prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value],
+    );
+  };
 
   const normalizeToolError = useCallback((err: unknown) => {
     const raw = err instanceof Error ? err.message : String(err || "");
@@ -474,6 +496,16 @@ export default function ToolPage() {
         case "pdf-page-numbers":
           result = await addPageNumbers(files[0], pageNumPosition, 1, pageNumFormat);
           break;
+        case "bates-numbering":
+          result = await batesNumbering(files[0], {
+            prefix: batesPrefix,
+            startNumber: batesStart,
+            digits: batesDigits,
+            suffix: batesSuffix,
+            position: batesPosition,
+            fontSize: batesFontSize,
+          });
+          break;
         case "images-to-pdf":
         case "photo-to-pdf":
           result = await imagesToPdf(files);
@@ -552,7 +584,7 @@ export default function ToolPage() {
           // которые не запускаются внутри нашего module-воркера (проверено e2e —
           // worker-путь всегда уходил в fallback). Прямой вызов без доомного
           // worker-спавна.
-          result = await ocrPdf(files[0], ocrLanguage, setProgress);
+          result = await ocrPdf(files[0], ocrLanguages.join("+") || "eng", setProgress);
           break;
         case "invert-colors":
           result = await runPdfTask(
@@ -791,8 +823,9 @@ export default function ToolPage() {
     tool, files, slug, splitStart, splitEnd, splitMode, splitEveryN, rotation,
     pagesToDelete, pagesToExtract, compressionLevel,
     watermarkText, watermarkOpacity, watermarkPosition, pageNumPosition, pageNumFormat,
+    batesPrefix, batesStart, batesDigits, batesSuffix, batesPosition, batesFontSize,
     headerText, footerText, freeTextContent,
-    password, signatureText, redactSearchText, imageScale, ocrLanguage,
+    password, signatureText, redactSearchText, imageScale, ocrLanguages,
     cropTop, cropRight, cropBottom, cropLeft, cropAutoMode, metadataFields, metadataLoaded,
     compareFile2, blankThreshold, resizeTarget,
     redactEmails, redactPhones, redactSsn, redactIban, redactCustomRegex,
@@ -833,7 +866,12 @@ export default function ToolPage() {
       return;
     }
     if (slug === "split-by-chapters") {
-      downloadBlob(resultBytes, `${origName}-chapters.zip`, "application/zip");
+      const isZip = resultBytes[0] === 0x50 && resultBytes[1] === 0x4B;
+      downloadBlob(
+        resultBytes,
+        isZip ? `${origName}-chapters.zip` : `${origName}-chapters.pdf`,
+        isZip ? "application/zip" : "application/pdf"
+      );
       return;
     }
     const mimeType =
@@ -1779,6 +1817,101 @@ export default function ToolPage() {
                 </div>
               )}
 
+              {slug === "bates-numbering" && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">
+                        {lang === "ru" ? "Префикс" : "Prefix"}
+                      </Label>
+                      <Input
+                        value={batesPrefix}
+                        onChange={(e) => setBatesPrefix(e.target.value)}
+                        placeholder="CASE-"
+                        data-testid="input-bates-prefix"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">
+                        {lang === "ru" ? "Суффикс" : "Suffix"}
+                      </Label>
+                      <Input
+                        value={batesSuffix}
+                        onChange={(e) => setBatesSuffix(e.target.value)}
+                        placeholder=""
+                        data-testid="input-bates-suffix"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">
+                        {lang === "ru" ? "Старт" : "Start"}
+                      </Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={batesStart}
+                        onChange={(e) => setBatesStart(Math.max(1, Number(e.target.value) || 1))}
+                        data-testid="input-bates-start"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">
+                        {lang === "ru" ? "Цифр" : "Digits"}
+                      </Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={10}
+                        value={batesDigits}
+                        onChange={(e) => setBatesDigits(Math.max(1, Math.min(10, Number(e.target.value) || 6)))}
+                        data-testid="input-bates-digits"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">
+                        {lang === "ru" ? "Размер" : "Size"}
+                      </Label>
+                      <Input
+                        type="number"
+                        min={6}
+                        max={72}
+                        value={batesFontSize}
+                        onChange={(e) => setBatesFontSize(Math.max(6, Math.min(72, Number(e.target.value) || 10)))}
+                        data-testid="input-bates-fontsize"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium mb-1.5 block">{t.tool.position}</Label>
+                    <Select value={batesPosition} onValueChange={(v) => setBatesPosition(v as any)}>
+                      <SelectTrigger data-testid="select-bates-position">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="bottom-right">{lang === "ru" ? "Внизу справа" : "Bottom right"}</SelectItem>
+                        <SelectItem value="bottom-left">{lang === "ru" ? "Внизу слева" : "Bottom left"}</SelectItem>
+                        <SelectItem value="top-right">{lang === "ru" ? "Вверху справа" : "Top right"}</SelectItem>
+                        <SelectItem value="top-left">{lang === "ru" ? "Вверху слева" : "Top left"}</SelectItem>
+                        <SelectItem value="center">{lang === "ru" ? "По центру" : "Center"}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div
+                    className="flex items-start gap-3 rounded-lg p-3 text-sm"
+                    style={{ background: "rgba(100,116,139,0.08)", border: "1px solid rgba(100,116,139,0.25)" }}
+                  >
+                    <span className="mt-0.5 text-slate-400">ℹ</span>
+                    <span className="text-muted-foreground">
+                      {lang === "ru"
+                        ? `Пример: ${batesPrefix || ""}${String(batesStart).padStart(batesDigits, "0")}${batesSuffix}`
+                        : `Preview: ${batesPrefix || ""}${String(batesStart).padStart(batesDigits, "0")}${batesSuffix}`}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {(slug === "protect-pdf" || slug === "unlock-pdf") && (
                 <div className="space-y-3">
                   <div>
@@ -1845,20 +1978,24 @@ export default function ToolPage() {
                 <div className="space-y-3">
                   <div>
                     <Label className="text-sm font-medium mb-1.5 block">
-                      {lang === "ru" ? "Язык OCR" : "OCR language"}
+                      {lang === "ru" ? "Языки OCR" : "OCR languages"}
                     </Label>
-                    <Select value={ocrLanguage} onValueChange={setOcrLanguage}>
-                      <SelectTrigger data-testid="select-ocr-language">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ocrLanguageOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div
+                      className="grid grid-cols-2 gap-2 rounded-lg border p-3 max-h-64 overflow-y-auto"
+                    >
+                      {ocrLanguageOptions.map((option) => (
+                        <label
+                          key={option.value}
+                          className="flex items-center gap-2 text-sm cursor-pointer"
+                        >
+                          <Checkbox
+                            checked={ocrLanguages.includes(option.value)}
+                            onCheckedChange={() => toggleOcrLanguage(option.value)}
+                          />
+                          {option.label}
+                        </label>
+                      ))}
+                    </div>
                   </div>
                   <div
                     className="flex items-start gap-3 rounded-lg p-3 text-sm"

@@ -1,4 +1,4 @@
-export type ToolType = "select" | "text" | "draw" | "image" | "sign" | "rect" | "circle" | "line" | "highlight" | "eraser";
+export type ToolType = "select" | "text" | "edit-text" | "draw" | "image" | "sign" | "rect" | "circle" | "line" | "highlight" | "eraser";
 export type DrawColor = "#1a1a1a" | "#e53e3e" | "#3182ce" | "#38a169" | "#facc15";
 export type TextAlignOption = "left" | "center" | "right" | "justify";
 
@@ -73,6 +73,9 @@ export interface ActiveTextEditor {
   backgroundColor: string;
   text: string;
   sourceObject?: any | null;
+  // White rect masking the original PDF text while editing it in place. Removed
+  // on cancel, kept on commit so the replacement renders over a clean area.
+  maskObject?: any | null;
 }
 
 export const DISPLAY_SCALE = 1.5;

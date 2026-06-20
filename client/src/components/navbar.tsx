@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X, FileText, ChevronDown, Globe } from "lucide-react";
+import { Menu, X, FileText, ChevronDown, Globe, Workflow } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLang } from "@/lib/lang-context";
 import { LANGUAGES, type LangCode } from "@/lib/i18n";
 import { categories, getCategoryLabel } from "@/lib/tools";
 import { cn } from "@/lib/utils";
-import { loadContactPage, loadHomePage, loadPricingPage } from "@/lib/route-preload";
+import { loadContactPage, loadHomePage, loadPricingPage, loadWorkflowPage } from "@/lib/route-preload";
 
 export function Navbar() {
   const { lang, setLang, t } = useLang();
@@ -17,6 +17,7 @@ export function Navbar() {
   const langRef = useRef<HTMLDivElement>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
   const isPricing = (location as string) === "/pricing";
+  const isWorkflow = (location as string) === "/workflow";
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -86,6 +87,21 @@ export function Navbar() {
               </div>
             )}
           </div>
+
+          <Link
+            href="/workflow"
+            onMouseEnter={() => void loadWorkflowPage()}
+            onFocus={() => void loadWorkflowPage()}
+            className={cn(
+              "flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors",
+              isWorkflow
+                ? "bg-white/55 text-foreground"
+                : "text-muted-foreground hover:bg-white/50 hover:text-foreground"
+            )}
+          >
+            <Workflow className="h-3.5 w-3.5" />
+            {lang === "ru" ? "Цепочки" : "Workflow"}
+          </Link>
 
           <Link
             href="/pricing"
@@ -185,6 +201,16 @@ export function Navbar() {
                 {getCategoryLabel(cat.id, lang)}
               </Link>
             ))}
+            <Link
+              href="/workflow"
+              onMouseEnter={() => void loadWorkflowPage()}
+              onFocus={() => void loadWorkflowPage()}
+              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent/70 hover:text-foreground"
+              onClick={() => setMenuOpen(false)}
+            >
+              <Workflow className="h-4 w-4" />
+              {lang === "ru" ? "Цепочки" : "Workflow"}
+            </Link>
             <Link
               href="/pricing"
               onMouseEnter={() => void loadPricingPage()}

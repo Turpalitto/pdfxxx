@@ -1,15 +1,36 @@
 ﻿# PDFX — Tasks & Technical Debt
 
 > Обновляется AI-агентами после каждой значимой задачи.  
-> Last updated: 2026-06-07
+> Last updated: 2026-06-12
 
 ---
+
+## 🎯 Roadmap «переплюнуть iLovePDF»
+
+> У PDFX уже 55+ инструментов (больше iLovePDF). Разрыв — в качестве 5 ключевых операций + экосистеме. Козырь PDFX: 100% в браузере, без загрузки на сервер.
+
+- [x] **#1 Реальное сжатие картинок в Compress PDF (2026-06-12)** — см. ниже в «Решено»
+- [~] **#2 Fidelity pdf-to-word/excel** — **Phase A+B+C+ готов (2026-06-18)**: A — типографика, B — таблицы `w:tbl`, C — цвет текста (`<w:color>`) + сканы (PNG в docx) + fontFamily (`<w:rFonts>`) + page size из PDF + spacing + smart scan detection (text density < 2%).
+- [x] **#3 Workflow-цепочки (2026-06-12)** — см. ниже в «Решено»
+- [x] **#4 Включить 10 языков + RTL** — es, fr, de, pt, zh, ja, ko, ar, hi, tr добавлены в LANGUAGES. Арабский RTL. Переводы.hero/nav уже были в translationMap, tool-translations полные. tsc 0 · vitest 56/56 · build OK.
+- [x] **SEO для 12 языков (2026-06-18)** — sitemap.xml LANG_CODES 12 + все TOOL_SLUGS, home.tsx useSeo через t.hero, hreflang динамически.
+- [x] **Новый инструмент bates-numbering (2026-06-18)** — юридическая нумерация (prefix+zero-pad+suffix), 5 позиций, переводы 12 языков.
+- [ ] **#5 Импорт из Google Drive / Dropbox**
+- [x] **#6 Усилить OCR** — адаптивный масштаб рендера (`ocrRenderScale`), мультиязычный UI (16 языков, чекбоксы). Скорость на больших страницах; точность на мелких.
 
 ## 🔄 Текущие задачи (In Progress)
 
 - [ ] TD-02 Phase 5: Дальнейшая декомпозиция edit-pdf-page.tsx (~2291 строк) — выигрыш мал (каждый хук 10+ параметров)
 
 ## ✅ Решено
+
+- [x] **#2 Fidelity pdf-to-word/excel — Phase B (2026-06-12)** — `detectTableRegions` (чистый, тестируемый: ≥2 смежных строк × ≥2 ячейки × ≥2 колонки, нетабличная строка разрывает регион) + `tableRegionToXml` эмитит `<w:tbl>` с границами/сеткой/ячейками в `pdfToWord`; нетабличные строки — прежним путём Phase A. Защита от ложных таблиц (проза/одиночные строки не срабатывают). tsc 0 · vitest 56/56 · build OK. Phase C (картинки) — далее. См. ADR-012.
+
+- [x] **#2 Fidelity pdf-to-word/excel — Phase A (2026-06-12)** — `extractPdfLayout` обогащён стилем (fontSize из transform, bold/italic из имени шрифта) и геометрией (ширина страницы, выравнивание строки). `pdfToWord` теперь эмитит размеры шрифтов, заголовки (≥1.3× медианы → bold), styled-runs и `w:jc`. `pdfToExcel` кластеризует x-границы в общие колонки (`clusterColumns`/`assignToColumn`) → таблицы выравниваются между строками. Новые чистые хелперы покрыты юнит-тестами. Browser-only, без новых пакетов. tsc 0 · vitest 52/52 · build OK. Phase B (таблицы→`w:tbl`) и C (картинки) — отложены. См. ADR-012.
+
+- [x] **#3 Workflow-цепочки (2026-06-12)** — новый движок `client/src/lib/workflow-engine.ts` (реестр `WORKFLOW_STEPS` из 14 сцепляемых PDF→PDF шагов поверх существующих функций `pdf-utils`, `bytesToFile`-адаптер, `runWorkflow` с авто-merge при >1 файле и статусами по шагам, 4 пресета) + страница `client/src/pages/workflow-page.tsx` (конструктор: upload, палитра, упорядоченный пайплайн с опциями, пресеты, прогресс, скачивание). Маршрут `/workflow` (lazy) + ссылка в navbar. Browser-only, без новых пакетов, логика инструментов не дублируется. tsc 0 · vite build OK (отдельный чанк 20.35 kB) · E2E `workflow.spec.ts` 4/4 (desktop+mobile). См. ADR-011. Остаётся ручной прогон цепочки с реальным PDF.
+
+- [x] **#1 Реальное сжатие картинок в Compress PDF (2026-06-12)** — `compressPdf` раньше делал только структурную оптимизацию (object streams), картинки не трогал → на фото/сканах выигрыш ~0. Теперь: **Smart** (low/medium) `recompressEmbeddedImages()` пережимает встроенные JPEG (DCTDecode) — даунсемпл + перекодирование, текст/вектор сохраняются; **Rasterize** (high) `rasterizeToCompressedPdf()` — страница→JPEG через pdfjs, максимум сжатия. Защиты: пропуск <8КБ, масок/прозрачности, CMYK (`jpegComponentCount` по SOF), замена только если меньше. Browser-only, без новых пакетов. tsc 0 · vite build OK. Остаётся ручной тест в браузере на фото-PDF.
 
 - [x] **BUG: пробел в инлайн-редакторе текста edit-pdf (2026-06-07)** — `measureEditorTextWidth` через canvas `measureText` отбрасывал хвостовые пробелы; авто-подгонка ширины + `overflow:hidden` у textarea клипали набранный в конце пробел («пробел не сдвигает шрифт»). Хвостовой ран пробелов/табов добавляется к измеренной ширине явно. tsc 0. Подтверждение — ретест в браузере.
 - [x] **Топ-10 популярных + плавность UI + аудит багов (2026-06-07)** — секция «Популярные инструменты» (`getPopularTools`/`POPULAR_TOOL_SLUGS`) в первых рядах главной; `ToolCard` → `React.memo`, убран `layout`-проп каталога (быстрее/плавнее). Аудит функций (6 агентов + ручная верификация) → исправлено 10 реальных багов: утечка `loadingTask` в `extractPdfLayout`, потеря добавленных страниц в `pdfDiff`, запись чужих метаданных в `pdf-metadata`, магическое `999` в `split-pdf`, центрирование `addWatermark`, origin/clamp в `cropPdf`, сортировка глав `splitByChapters`, overflow `formatBytes`, guard'ы `pdfImagesAsZip`/`signPdf`. tsc 0 · vitest 39/39 · build OK · e2e 43 passed/3 skipped. Детали и список отклонённых ложных находок — в changelog.
@@ -206,3 +227,7 @@
 | BUG-01 | ~~auto-redact неточно на ротированных страницах~~ | `pdf-utils.ts` | ✅ Исправлено: переписан на canvas-based подход |
 | BUG-02 | Find & Replace ищет только по исходному тексту | Добавленный в редакторе текст не ищется | Низкий (ожидаемое поведение) |
 | BUG-03 | ~~split-by-size ZIP для 1 части~~ | ✅ Исправлено: при 1 части возвращается исходный PDF, при нескольких — ZIP |
+| BUG-10 | ~~autoRedact split PII~~ | pdf-utils.ts | ✅ Исправлено: sliding window matching 1–3 items |
+| BUG-11 | ~~sanitizePdf не удалял JS/tracking~~ | pdf-utils.ts | ✅ Исправлено: удаление OpenAction/AA/URI/JS/EmbeddedFiles |
+| BUG-12 | ~~split-by-chapters скачивает как .zip при 1 главе~~ | tool-page.tsx | ✅ Исправлено: magic bytes check |
+| BUG-13 | ~~pdfjs memory leaks в 12 функциях~~ | pdf-utils.ts | ✅ Исправлено: try/finally + destroy() |

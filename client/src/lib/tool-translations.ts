@@ -45,6 +45,7 @@ const en: ToolTranslationMap = {
   "resize-pages": { name: "Resize Pages", description: "Resize or scale all PDF pages to a standard size: A4, A3, Letter, and more." },
   "grayscale-pdf": { name: "Grayscale PDF", description: "Convert a color PDF to grayscale for printing or archiving." },
   "pdf-bookmarks": { name: "PDF Bookmarks", description: "View and export the table of contents and bookmarks from any PDF." },
+  "bates-numbering": { name: "Bates Numbering", description: "Stamp sequential Bates identifiers (e.g. CASE-000001) on every page for legal documents." },
   "add-blank-pages": { name: "Add Blank Pages", description: "Insert blank pages at specified positions in your PDF." },
   "extract-forms": { name: "Extract Form Fields", description: "Extract form field data from PDF to JSON format." },
   "sanitize-pdf": { name: "Sanitize PDF", description: "Remove metadata, JavaScript, and tracking from your PDF for privacy." },
@@ -105,6 +106,7 @@ const ru: ToolTranslationMap = {
   "resize-pages": { name: "Изменить размер", description: "Масштабируйте все страницы PDF до стандартного размера: A4, A3, Letter и другие." },
   "grayscale-pdf": { name: "Оттенки серого", description: "Конвертируйте цветной PDF в оттенки серого для печати или архивирования." },
   "pdf-bookmarks": { name: "Закладки PDF", description: "Просматривайте и экспортируйте оглавление и закладки любого PDF." },
+  "bates-numbering": { name: "Нумерация Бейтса", description: "Ставьте последовательные идентификаторы Бейтса (напр. CASE-000001) на каждую страницу для юридических документов." },
   "add-blank-pages": { name: "Добавить пустые", description: "Вставьте пустые страницы в указанные позиции в вашем PDF." },
   "extract-forms": { name: "Извлечь формы", description: "Извлеките данные полей форм из PDF в формат JSON." },
   "sanitize-pdf": { name: "Очистить PDF", description: "Удаляйте метаданные, JavaScript и трекинг из PDF для конфиденциальности." },
@@ -156,6 +158,7 @@ const es: ToolTranslationMap = {
   "photo-to-pdf": { name: "Foto a PDF", description: "Captura con cámara o sube fotos, recorta automáticamente y convierte a PDF." },
   "pdf-page-numbers": { name: "Numeración", description: "Añade números de página a tu PDF con opciones de posición y formato." },
   "pdf-header-footer": { name: "Encabezado y pie", description: "Añade encabezados y pies de página personalizados a cada página de tu PDF." },
+  "bates-numbering": { name: "Numeración Bates", description: "Estampa identificadores Bates secuenciales (p. ej. CASE-000001) en cada página para documentos legales." },
 };
 
 const fr: ToolTranslationMap = {
@@ -187,6 +190,7 @@ const fr: ToolTranslationMap = {
   "photo-to-pdf": { name: "Photo en PDF", description: "Capturez avec la caméra ou importez des photos, recadrage auto et conversion en PDF." },
   "pdf-page-numbers": { name: "Numérotation", description: "Ajoutez des numéros de page à votre PDF avec options de position et de format." },
   "pdf-header-footer": { name: "En-tête et pied", description: "Ajoutez des en-têtes et pieds de page personnalisés à chaque page de votre PDF." },
+  "bates-numbering": { name: "Numérotation Bates", description: "Apposez des identifiants Bates séquentiels (ex. CASE-000001) sur chaque page pour les documents juridiques." },
 };
 
 const de: ToolTranslationMap = {
@@ -218,6 +222,7 @@ const de: ToolTranslationMap = {
   "photo-to-pdf": { name: "Foto zu PDF", description: "Kamera aufnehmen oder Fotos hochladen, automatisch zuschneiden und in PDF konvertieren." },
   "pdf-page-numbers": { name: "Seitenzahlen", description: "Fügen Sie Ihrem PDF Seitenzahlen mit benutzerdefinierten Positions- und Formatoptionen hinzu." },
   "pdf-header-footer": { name: "Kopf- & Fußzeile", description: "Fügen Sie jeder Seite Ihres PDFs benutzerdefinierte Kopf- und Fußzeilen hinzu." },
+  "bates-numbering": { name: "Bates-Nummerierung", description: "Stempeln Sie fortlaufende Bates-IDs (z. B. CASE-000001) auf jede Seite für juristische Dokumente." },
 };
 
 const zh: ToolTranslationMap = {
@@ -249,6 +254,7 @@ const zh: ToolTranslationMap = {
   "photo-to-pdf": { name: "照片转PDF", description: "用相机拍摄或上传照片，自动裁剪并转换为清晰的PDF。" },
   "pdf-page-numbers": { name: "页码", description: "为您的PDF添加页码，自定义位置和格式选项。" },
   "pdf-header-footer": { name: "页眉页脚", description: "为PDF的每一页添加自定义页眉和页脚。" },
+  "bates-numbering": { name: "贝茨编号", description: "在每页上加盖顺序贝茨标识符（例如 CASE-000001），用于法律文件。" },
 };
 
 const pt: ToolTranslationMap = {
@@ -280,6 +286,7 @@ const pt: ToolTranslationMap = {
   "photo-to-pdf": { name: "Foto para PDF", description: "Capture com câmera ou carregue fotos, recorte automático e converta para PDF." },
   "pdf-page-numbers": { name: "Números de página", description: "Adicione números de página ao seu PDF com opções de posição e formato." },
   "pdf-header-footer": { name: "Cabeçalho e rodapé", description: "Adicione cabeçalhos e rodapés personalizados a cada página do seu PDF." },
+  "bates-numbering": { name: "Numeração Bates", description: "Estampe identificadores Bates sequenciais (ex. CASE-000001) em cada página para documentos jurídicos." },
 };
 
 const it: ToolTranslationMap = {
@@ -404,6 +411,7 @@ const ja: ToolTranslationMap = {
   "photo-to-pdf": { name: "写真からPDF", description: "カメラで撮影または写真をアップロードし、自動トリミングしてクリーンなPDFに変換します。" },
   "pdf-page-numbers": { name: "ページ番号", description: "カスタム位置とフォーマットオプションでPDFにページ番号を追加します。" },
   "pdf-header-footer": { name: "ヘッダー・フッター", description: "PDFの各ページにカスタムヘッダーとフッターを追加します。" },
+  "bates-numbering": { name: "ベイツ番号", description: "法的文書用に各ページに連続ベイツ識別子（例：CASE-000001）を押印します。" },
 };
 
 const ko: ToolTranslationMap = {
@@ -435,6 +443,7 @@ const ko: ToolTranslationMap = {
   "photo-to-pdf": { name: "사진을 PDF로", description: "카메라로 캡처하거나 사진을 업로드하고 자동 자르기 후 PDF로 변환합니다." },
   "pdf-page-numbers": { name: "페이지 번호", description: "사용자 지정 위치 및 형식 옵션으로 PDF에 페이지 번호를 추가합니다." },
   "pdf-header-footer": { name: "머리글과 바닥글", description: "PDF의 모든 페이지에 사용자 지정 머리글과 바닥글을 추가합니다." },
+  "bates-numbering": { name: "베이츠 번호", description: "법률 문서를 위해 각 페이지에 순차적 베이츠 식별자(예: CASE-000001)를 찍습니다." },
 };
 
 const tr: ToolTranslationMap = {
@@ -466,6 +475,7 @@ const tr: ToolTranslationMap = {
   "photo-to-pdf": { name: "Fotodan PDF'ye", description: "Kamerayla çekin veya fotoğraf yükleyin, otomatik kırp ve PDF'e dönüştür." },
   "pdf-page-numbers": { name: "Sayfa Numaraları", description: "PDF'inize özel konum ve biçim seçenekleriyle sayfa numaraları ekleyin." },
   "pdf-header-footer": { name: "Üst ve Alt Bilgi", description: "PDF'inizin her sayfasına özel üst bilgiler ve alt bilgiler ekleyin." },
+  "bates-numbering": { name: "Bates Numaralandırması", description: "Yasal belgeler için her sayfaya sıralı Bates tanımlayıcıları (ör. CASE-000001) damgalayın." },
 };
 
 const ar: ToolTranslationMap = {
@@ -497,6 +507,7 @@ const ar: ToolTranslationMap = {
   "photo-to-pdf": { name: "صورة إلى PDF", description: "التقط من الكاميرا أو ارفع الصور، قص تلقائي وتحويل إلى PDF نظيف." },
   "pdf-page-numbers": { name: "أرقام الصفحات", description: "أضف أرقام الصفحات إلى PDF مع خيارات الموضع والتنسيق المخصصة." },
   "pdf-header-footer": { name: "رأس وتذييل", description: "أضف رؤوساً وتذييلات مخصصة إلى كل صفحة من PDF." },
+  "bates-numbering": { name: "ترقيم بيتس", description: "اختتم معرفات بيتس المتسلسلة (مثل CASE-000001) على كل صفحة للوثائق القانونية." },
 };
 
 const nl: ToolTranslationMap = {
@@ -559,6 +570,7 @@ const hi: ToolTranslationMap = {
   "photo-to-pdf": { name: "फोटो से PDF", description: "कैमरे से कैप्चर करें या फोटो अपलोड करें, ऑटो-क्रॉप और PDF में बदलें।" },
   "pdf-page-numbers": { name: "पृष्ठ संख्या", description: "कस्टम स्थिति और प्रारूप विकल्पों के साथ अपने PDF में पृष्ठ संख्याएं जोड़ें।" },
   "pdf-header-footer": { name: "शीर्षलेख और पाद लेख", description: "अपने PDF के प्रत्येक पृष्ठ पर कस्टम शीर्षलेख और पाद लेख जोड़ें।" },
+  "bates-numbering": { name: "बेट्स नंबरिंग", description: "कानूनी दस्तावेज़ों के लिए प्रत्येक पृष्ठ पर क्रमिक बेट्स पहचानकर्ता (जैसे CASE-000001) लगाएं।" },
 };
 
 const vi: ToolTranslationMap = {

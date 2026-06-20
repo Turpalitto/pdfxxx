@@ -28,7 +28,7 @@ export default function Home() {
   const initialCategory = new URLSearchParams(search).get("category") || "all";
   const [activeCategory, setActiveCategory] = useState(initialCategory);
   const [recentTools, setRecentTools] = useState(() => getRecentTools());
-  const { lang } = useLang();
+  const { lang, t } = useLang();
 
   useEffect(() => {
     const nextCategory = new URLSearchParams(search).get("category") || "all";
@@ -87,11 +87,8 @@ export default function Home() {
   };
 
   useSeo({
-    title: lang === "ru" ? "PDFX — PDF инструменты онлайн" : "PDFX — Online PDF tools",
-    description:
-      lang === "ru"
-        ? "Объединяйте, сжимайте, конвертируйте, защищайте и распознавайте PDF прямо в браузере."
-        : "Merge, compress, convert, protect, and OCR PDF files directly in your browser.",
+    title: `${t.hero.headline1} ${t.hero.headline2} ${t.hero.headline3} — PDFX`,
+    description: t.hero.sub,
     path: "/",
   });
 

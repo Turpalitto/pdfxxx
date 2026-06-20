@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import { type LangCode, type Translations, getTranslations, LANGUAGES } from "./i18n";
 
-const RTL_LANGS = new Set<LangCode>([]);
+const RTL_LANGS = new Set<LangCode>(["ar"]);
 
 interface LangContextType {
   lang: LangCode;

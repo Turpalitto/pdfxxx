@@ -1,4 +1,4 @@
-﻿import { PDFDocument, rgb, StandardFonts, degrees, BlendMode, PDFName, type PDFPage } from "pdf-lib";
+﻿import { PDFDocument, rgb, StandardFonts, degrees, BlendMode, PDFName, PDFRawStream, type PDFPage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { PDF as SecurePDF } from "@libpdf/core";
 
@@ -180,21 +180,39 @@ async function rasterizeImageToPngBytes(file: File): Promise<Uint8Array> {
   }
 }
 
+export type PdfTextAlignment = "left" | "center" | "right";
+
 type PdfLayoutItem = {
   text: string;
   x: number;
   y: number;
   width: number;
   height: number;
+  /** Glyph size in points, derived from the text transform. */
+  fontSize: number;
+  bold: boolean;
+  italic: boolean;
+  /** Fill color as hex string (e.g. "FF0000"), absent means default (black). */
+  color?: string;
+  /** CSS font-family from pdfjs style map, used for Word w:rFonts. */
+  fontFamily?: string;
 };
 
 type PdfLayoutLine = {
   text: string;
   items: PdfLayoutItem[];
+  /** Dominant (largest) font size on the line, in points. */
+  fontSize: number;
+  /** True when most of the line's characters are bold. */
+  bold: boolean;
+  alignment: PdfTextAlignment;
 };
 
 type PdfLayoutPage = {
   pageNumber: number;
+  /** Page width/height in points (scale-1 viewport) — used for alignment. */
+  width: number;
+  height: number;
   lines: PdfLayoutLine[];
 };
 
@@ -291,11 +309,129 @@ function lineTextFromItems(items: PdfLayoutItem[]): string {
     .trim();
 }
 
+// Cell texts only (column-x is tracked by cellsWithX, which holds the shared
+// gap heuristic). Kept for any text-only caller; delegates to avoid duplication.
 function cellsFromLine(line: PdfLayoutLine): string[] {
-  if (line.items.length === 0) return [line.text];
+  const cells = cellsWithX(line).map((cell) => cell.text);
+  return cells.length > 0 ? cells : [line.text];
+}
+
+/**
+ * Best-effort bold/italic detection from a font name/family string.
+ * pdfjs `getTextContent` does not expose weight directly, but embedded font
+ * names frequently carry it (e.g. "Arial-BoldMT", "TimesNewRoman-Italic").
+ */
+export function detectFontStyle(fontName: string | undefined): { bold: boolean; italic: boolean } {
+  const n = (fontName || "").toLowerCase();
+  const bold = /bold|black|heavy|semibold|demibold|extrabold|[^0-9](700|800|900)([^0-9]|$)/.test(n);
+  const italic = /italic|oblique/.test(n);
+  return { bold, italic };
+}
+
+/**
+ * Infer paragraph alignment from a line's horizontal bounding box relative to
+ * the page width. Margins are measured in points.
+ */
+export function lineAlignment(left: number, right: number, pageWidth: number): PdfTextAlignment {
+  if (pageWidth <= 0) return "left";
+  const leftMargin = left;
+  const rightMargin = pageWidth - right;
+  if (leftMargin < 0 || rightMargin < 0) return "left";
+  const tol = pageWidth * 0.06;
+  // Centered: comparable margins on both sides, and clearly indented from left.
+  if (Math.abs(leftMargin - rightMargin) <= tol && leftMargin > pageWidth * 0.12) {
+    return "center";
+  }
+  // Right-aligned: tiny right margin, large left margin.
+  if (rightMargin + tol < leftMargin && leftMargin > pageWidth * 0.3) {
+    return "right";
+  }
+  return "left";
+}
+
+/**
+ * Cluster a flat list of x positions (cell starts gathered across all rows on a
+ * page) into representative column anchors. Positions within `tolerance` points
+ * collapse into one column.
+ */
+export function clusterColumns(starts: number[], tolerance: number): number[] {
+  if (starts.length === 0) return [];
+  const sorted = [...starts].sort((a, b) => a - b);
+  const clusters: number[][] = [[sorted[0]]];
+  for (let i = 1; i < sorted.length; i++) {
+    const current = clusters[clusters.length - 1];
+    if (sorted[i] - current[current.length - 1] <= tolerance) {
+      current.push(sorted[i]);
+    } else {
+      clusters.push([sorted[i]]);
+    }
+  }
+  return clusters.map((cluster) => cluster.reduce((sum, v) => sum + v, 0) / cluster.length);
+}
+
+export type TableRegion = { start: number; end: number; columns: number[] };
+
+/**
+ * Conservatively detect table regions in a page's lines. A region is a run of
+ * ≥2 *consecutive* lines that each split into ≥2 cells and share ≥2 clustered
+ * columns. A non-tabular line (one cell) breaks the run. Pure & testable: only
+ * reads each cell's `x` and the per-line cell count.
+ */
+export function detectTableRegions(
+  cellsPerLine: ReadonlyArray<ReadonlyArray<{ x: number }>>,
+  tolerance: number,
+): TableRegion[] {
+  const regions: TableRegion[] = [];
+  let i = 0;
+  while (i < cellsPerLine.length) {
+    if (cellsPerLine[i].length < 2) {
+      i++;
+      continue;
+    }
+    let j = i;
+    while (j < cellsPerLine.length && cellsPerLine[j].length >= 2) j++;
+    const start = i;
+    const end = j - 1;
+    if (end - start + 1 >= 2) {
+      const allX: number[] = [];
+      for (let k = start; k <= end; k++) {
+        for (const cell of cellsPerLine[k]) allX.push(cell.x);
+      }
+      const columns = clusterColumns(allX, tolerance);
+      if (columns.length >= 2) {
+        regions.push({ start, end, columns });
+      }
+    }
+    i = j;
+  }
+  return regions;
+}
+
+/** Index of the nearest column anchor to `x`. */
+export function assignToColumn(x: number, columns: number[]): number {
+  if (columns.length === 0) return 0;
+  let best = 0;
+  let bestDist = Infinity;
+  for (let i = 0; i < columns.length; i++) {
+    const dist = Math.abs(columns[i] - x);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = i;
+    }
+  }
+  return best;
+}
+
+type LineCell = { text: string; x: number; color?: string };
+
+/** Like cellsFromLine but keeps each cell's starting x (for column clustering). */
+function cellsWithX(line: PdfLayoutLine): LineCell[] {
+  if (line.items.length === 0) return [{ text: line.text, x: 0 }];
   const sorted = [...line.items].sort((a, b) => a.x - b.x);
-  const cells: string[] = [];
-  let current = sorted[0].text;
+  const cells: LineCell[] = [];
+  let currentText = sorted[0].text;
+  let currentX = sorted[0].x;
+  let currentColors: string[] = sorted[0].color ? [sorted[0].color] : [];
   let prevEnd = sorted[0].x + Math.max(sorted[0].width, sorted[0].text.length * 6);
 
   for (let i = 1; i < sorted.length; i++) {
@@ -305,17 +441,183 @@ function cellsFromLine(line: PdfLayoutLine): string[] {
     const gap = item.x - prevEnd;
 
     if (gap > Math.max(20, averageCharWidth * 3.5)) {
-      cells.push(current.trim());
-      current = item.text;
+      const dominantColor = dominantString(currentColors);
+      cells.push({ text: currentText.trim(), x: currentX, ...(dominantColor ? { color: dominantColor } : {}) });
+      currentText = item.text;
+      currentX = item.x;
+      currentColors = item.color ? [item.color] : [];
     } else {
-      current += gap > Math.max(5, averageCharWidth * 1.1) ? ` ${item.text}` : item.text;
+      currentText += gap > Math.max(5, averageCharWidth * 1.1) ? ` ${item.text}` : item.text;
+      if (item.color) currentColors.push(item.color);
     }
-
     prevEnd = item.x + Math.max(item.width, item.text.length * 6);
   }
 
-  cells.push(current.trim());
-  return cells.length > 0 ? cells : [line.text];
+  const dominantColor = dominantString(currentColors);
+  cells.push({ text: currentText.trim(), x: currentX, ...(dominantColor ? { color: dominantColor } : {}) });
+  return cells;
+}
+
+export function dominantString(arr: string[]): string | undefined {
+  if (arr.length === 0) return undefined;
+  const counts = new Map<string, number>();
+  for (const s of arr) counts.set(s, (counts.get(s) || 0) + 1);
+  let best = arr[0];
+  let bestCount = 0;
+  counts.forEach((c, s) => {
+    if (c > bestCount) { best = s; bestCount = c; }
+  });
+  return best;
+}
+
+export type StyledRun = { text: string; bold: boolean; italic: boolean; fontSizePt: number; color?: string; fontFamily?: string };
+
+/**
+ * Group a line's items into styled runs (consecutive items sharing
+ * bold/italic/size merge), inserting spacing that mirrors the x-gaps so
+ * separated columns stay visually apart in flow layout.
+ */
+function itemsToStyledRuns(line: PdfLayoutLine): StyledRun[] {
+  const sorted = [...line.items].sort((a, b) => a.x - b.x);
+  if (sorted.length === 0) {
+    return line.text ? [{ text: line.text, bold: line.bold, italic: false, fontSizePt: Math.round(line.fontSize) || 11 }] : [];
+  }
+
+  const runs: StyledRun[] = [];
+  let prevEnd = sorted[0].x;
+
+  for (let i = 0; i < sorted.length; i++) {
+    const item = sorted[i];
+    const averageCharWidth = item.text.length > 0 ? item.width / item.text.length : 6;
+    const gap = item.x - prevEnd;
+
+    let sep = "";
+    if (i > 0) {
+      if (gap > Math.max(22, averageCharWidth * 4)) sep = "   ";
+      else if (gap > Math.max(6, averageCharWidth * 1.2)) sep = " ";
+    }
+
+    const fontSizePt = Math.max(1, Math.round(item.fontSize)) || 11;
+    const last = runs[runs.length - 1];
+    if (last && last.bold === item.bold && last.italic === item.italic && last.fontSizePt === fontSizePt && last.color === item.color && last.fontFamily === item.fontFamily) {
+      last.text += sep + item.text;
+    } else {
+      if (last && sep) last.text += sep;
+      runs.push({ text: item.text, bold: item.bold, italic: item.italic, fontSizePt, ...(item.color ? { color: item.color } : {}), ...(item.fontFamily ? { fontFamily: item.fontFamily } : {}) });
+    }
+
+    prevEnd = item.x + Math.max(item.width, averageCharWidth * item.text.length);
+  }
+
+  return runs;
+}
+
+function toHex2(n: number): string {
+  return Math.round(Math.max(0, Math.min(255, n))).toString(16).padStart(2, "0");
+}
+
+export function fillColorToHex(colorSpace: string, components: number[]): string | undefined {
+  if (!components || components.length === 0) return undefined;
+  const eps = 0.02;
+  switch (colorSpace) {
+    case "rgb": {
+      const [r, g, b] = components;
+      if (Math.abs(r) < eps && Math.abs(g) < eps && Math.abs(b) < eps) return undefined;
+      return toHex2(r * 255) + toHex2(g * 255) + toHex2(b * 255);
+    }
+    case "gray": {
+      const v = components[0];
+      if (Math.abs(v) < eps) return undefined;
+      if (Math.abs(v - 1) < eps) return undefined;
+      return toHex2(v * 255) + toHex2(v * 255) + toHex2(v * 255);
+    }
+    case "cmyk": {
+      const [c, m, y, k] = components;
+      const r = (1 - c) * (1 - k);
+      const g = (1 - m) * (1 - k);
+      const b = (1 - y) * (1 - k);
+      if (r < eps && g < eps && b < eps) return undefined;
+      return toHex2(r * 255) + toHex2(g * 255) + toHex2(b * 255);
+    }
+    default:
+      return undefined;
+  }
+}
+
+async function extractPageColors(
+  page: any,
+  items: any[],
+): Promise<Map<number, string | undefined>> {
+  const pdfjs = await loadPdfJs();
+  let opList: any;
+  try {
+    opList = await page.getOperatorList();
+  } catch {
+    return new Map();
+  }
+  const OPS = pdfjs.OPS;
+  const colorOps = new Map([
+    [OPS.setFillRGBColor, "rgb"],
+    [OPS.setFillGray, "gray"],
+    [OPS.setFillCMYKColor, "cmyk"],
+  ]);
+  const textOps = new Set([
+    OPS.showText,
+    OPS.showSpacedText,
+    OPS.nextLineShowText,
+    OPS.nextLineSetSpacingShowText,
+  ]);
+  const colorMap = new Map<number, string | undefined>();
+  let currentColor: string | undefined = undefined;
+  let currentColorSpace = "";
+  let currentComponents: number[] = [];
+  let textIdx = 0;
+
+  for (let i = 0; i < opList.fnArray.length; i++) {
+    const fn = opList.fnArray[i];
+    const args = opList.argsArray[i];
+    if (colorOps.has(fn)) {
+      currentColorSpace = colorOps.get(fn)!;
+      currentComponents = Array.isArray(args) ? args.map(Number) : [];
+      currentColor = fillColorToHex(currentColorSpace, currentComponents);
+    } else if (textOps.has(fn)) {
+      if (textIdx < items.length) {
+        colorMap.set(textIdx, currentColor);
+      }
+      textIdx++;
+    }
+  }
+  return colorMap;
+}
+
+async function renderPageToPng(pdfPage: any): Promise<Uint8Array | null> {
+  try {
+    const scale = 2;
+    const viewport = pdfPage.getViewport({ scale });
+    const { canvas, ctx } = createRenderCanvas(viewport.width, viewport.height);
+    await pdfPage.render({ canvasContext: ctx, viewport }).promise;
+    let dataUrl: string;
+    if (typeof (canvas as OffscreenCanvas).convertToBlob === "function") {
+      const blob = await (canvas as OffscreenCanvas).convertToBlob({ type: "image/png" });
+      const buf = new Uint8Array(await blob.arrayBuffer());
+      releaseCanvas(canvas);
+      return buf;
+    } else {
+      dataUrl = (canvas as HTMLCanvasElement).toDataURL("image/png");
+      releaseCanvas(canvas);
+      return dataUrlToBytes(dataUrl);
+    }
+  } catch {
+    return null;
+  }
+}
+
+/** Median of a numeric list (used to estimate the document's body font size). */
+function median(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
 
 async function extractPdfLayout(file: File): Promise<PdfLayoutPage[]> {
@@ -328,18 +630,41 @@ async function extractPdfLayout(file: File): Promise<PdfLayoutPage[]> {
   try {
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
     const page = await pdf.getPage(pageNumber);
+    const viewport = page.getViewport({ scale: 1 });
+    const pageWidth = Math.max(Number(viewport.width) || 0, 1);
+    const pageHeight = Math.max(Number(viewport.height) || 0, 1);
     const content = await page.getTextContent();
-    const items = (content.items || [])
-      .map((item: any) => {
+    const rawItems: any[] = content.items || [];
+    const styles: Record<string, any> = (content as any).styles || {};
+
+    const colorMap = await extractPageColors(page, rawItems);
+
+    const items = rawItems
+      .map((item: any, rawIdx: number) => {
         const text = typeof item?.str === "string" ? item.str.trim() : "";
         if (!text) return null;
         const transform = Array.isArray(item.transform) ? item.transform : [1, 0, 0, 1, 0, 0];
+        const fontName = typeof item.fontName === "string" ? item.fontName : "";
+        const fontFamily =
+          typeof styles[fontName]?.fontFamily === "string" ? styles[fontName].fontFamily : "";
+        const { bold, italic } = detectFontStyle(`${fontName} ${fontFamily}`);
+        const transformSize = Math.hypot(Number(transform[2]) || 0, Number(transform[3]) || 0);
+        const fontSize = Math.max(
+          1,
+          transformSize || Math.abs(Number(item.height) || Number(transform[3]) || 10),
+        );
+        const color = colorMap.get(rawIdx);
         return {
           text,
           x: Number(transform[4] || 0),
           y: Number(transform[5] || 0),
           width: Math.max(Number(item.width || 0), 1),
           height: Math.max(Math.abs(Number(item.height || transform[3] || 10)), 1),
+          fontSize,
+          bold,
+          italic,
+          ...(color ? { color } : {}),
+          ...(fontFamily ? { fontFamily } : {}),
         } satisfies PdfLayoutItem;
       })
       .filter((item): item is PdfLayoutItem => Boolean(item))
@@ -362,14 +687,24 @@ async function extractPdfLayout(file: File): Promise<PdfLayoutPage[]> {
     const lines = rows
       .map((row) => {
         const sortedItems = [...row.items].sort((a, b) => a.x - b.x);
+        const left = Math.min(...sortedItems.map((i) => i.x));
+        const right = Math.max(...sortedItems.map((i) => i.x + i.width));
+        const fontSize = Math.max(...sortedItems.map((i) => i.fontSize));
+        const totalChars = sortedItems.reduce((sum, i) => sum + i.text.length, 0);
+        const boldChars = sortedItems
+          .filter((i) => i.bold)
+          .reduce((sum, i) => sum + i.text.length, 0);
         return {
           text: lineTextFromItems(sortedItems),
           items: sortedItems,
+          fontSize,
+          bold: totalChars > 0 && boldChars / totalChars > 0.6,
+          alignment: lineAlignment(left, right, pageWidth),
         } satisfies PdfLayoutLine;
       })
       .filter((line) => line.text.length > 0);
 
-    pages.push({ pageNumber, lines });
+    pages.push({ pageNumber, width: pageWidth, height: pageHeight, lines });
   }
   } finally {
     // pdfToWord/Excel/Text/Html/Markdown all route through here — release the
@@ -553,6 +888,81 @@ export async function addWatermark(
   return pdf.save();
 }
 
+export async function batesNumbering(
+  file: File,
+  options: {
+    prefix?: string;
+    startNumber?: number;
+    digits?: number;
+    suffix?: string;
+    position?: "bottom-right" | "bottom-left" | "top-right" | "top-left" | "center";
+    fontSize?: number;
+    margin?: number;
+    color?: [number, number, number];
+    opacity?: number;
+  } = {},
+): Promise<Uint8Array> {
+  const {
+    prefix = "",
+    startNumber = 1,
+    digits = 6,
+    suffix = "",
+    position = "bottom-right",
+    fontSize = 10,
+    margin = 36,
+    color = [0, 0, 0],
+    opacity = 1,
+  } = options;
+
+  const bytes = await file.arrayBuffer();
+  const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const pages = pdf.getPages();
+
+  pages.forEach((page, index) => {
+    const batesNum = String(startNumber + index).padStart(digits, "0");
+    const label = `${prefix}${batesNum}${suffix}`;
+    const { width, height } = page.getSize();
+    const textWidth = font.widthOfTextAtSize(label, fontSize);
+    const textHeight = font.heightAtSize(fontSize);
+    let x: number;
+    let y: number;
+    switch (position) {
+      case "top-left":
+        x = margin;
+        y = height - margin - textHeight;
+        break;
+      case "top-right":
+        x = width - margin - textWidth;
+        y = height - margin - textHeight;
+        break;
+      case "bottom-left":
+        x = margin;
+        y = margin;
+        break;
+      case "center":
+        x = width / 2 - textWidth / 2;
+        y = height / 2 - textHeight / 2;
+        break;
+      case "bottom-right":
+      default:
+        x = width - margin - textWidth;
+        y = margin;
+        break;
+    }
+    page.drawText(label, {
+      x,
+      y,
+      size: fontSize,
+      font,
+      color: rgb(color[0], color[1], color[2]),
+      opacity,
+    });
+  });
+
+  return pdf.save();
+}
+
 export async function addPageNumbers(
   file: File,
   position: "bottom-center" | "bottom-right" | "bottom-left" | "top-center" = "bottom-center",
@@ -582,24 +992,205 @@ export async function addPageNumbers(
   return pdf.save();
 }
 
+// ============================================================
+// COMPRESS — реальное сжатие, а не только структурная оптимизация.
+//   low / medium → Smart: пережать встроенные JPEG-картинки (DCTDecode),
+//                  уменьшив разрешение и качество. Текст и вектор не трогаются.
+//   high         → Rasterize: каждая страница рендерится в JPEG. Максимальное
+//                  сжатие на любом PDF, но текст становится картинкой.
+// Всё в браузере (canvas + pdfjs), без серверной обработки.
+// ============================================================
+
+const SMART_COMPRESS: Record<"low" | "medium", { maxDim: number; quality: number }> = {
+  low: { maxDim: 2200, quality: 0.82 },
+  medium: { maxDim: 1600, quality: 0.62 },
+};
+
+// Число цветовых компонентов JPEG из маркера SOF (1=gray, 3=RGB/YCbCr, 4=CMYK).
+// Нужно чтобы пропускать CMYK — браузер декодирует Adobe-CMYK с инверсией цветов.
+function jpegComponentCount(bytes: Uint8Array): number | null {
+  let i = 2; // пропускаем SOI (FFD8)
+  const n = bytes.length;
+  while (i + 9 < n) {
+    if (bytes[i] !== 0xff) {
+      i++;
+      continue;
+    }
+    const marker = bytes[i + 1];
+    // SOF-маркеры несут число компонентов (исключаем C4=DHT, C8=JPG, CC=DAC).
+    if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+      return bytes[i + 9] ?? null;
+    }
+    // Маркеры без длины (SOI/EOI/RSTn) — шаг 2 байта.
+    if (marker === 0xd8 || marker === 0xd9 || (marker >= 0xd0 && marker <= 0xd7)) {
+      i += 2;
+      continue;
+    }
+    const len = (bytes[i + 2] << 8) | bytes[i + 3];
+    if (len < 2) return null;
+    i += 2 + len;
+  }
+  return null;
+}
+
+// Декодирует «сырой» поток DCTDecode (это готовый JPEG) в растровый bitmap.
+async function decodeJpegBitmap(bytes: Uint8Array): Promise<ImageBitmap | null> {
+  try {
+    const blob = new Blob([bytes], { type: "image/jpeg" });
+    return await createImageBitmap(blob);
+  } catch {
+    return null;
+  }
+}
+
+// Проходит по всем image-XObject'ам и пережимает одиночные JPEG (DCTDecode):
+// даунсемпл до maxDim по длинной стороне + повторное кодирование с quality.
+// Заменяет поток только если результат реально меньше. Возвращает кол-во замен.
+async function recompressEmbeddedImages(
+  doc: PDFDocument,
+  maxDim: number,
+  quality: number
+): Promise<number> {
+  const context = doc.context;
+  let replaced = 0;
+  for (const [ref, obj] of context.enumerateIndirectObjects()) {
+    if (!(obj instanceof PDFRawStream)) continue;
+    const dict = obj.dict;
+    try {
+      if (dict.get(PDFName.of("Subtype"))?.toString() !== "/Image") continue;
+
+      // Только одиночный DCTDecode (готовый JPEG). Обёрнутые/JPX/CCITT пропускаем.
+      if (dict.get(PDFName.of("Filter"))?.toString() !== "/DCTDecode") continue;
+
+      // Маски/прозрачность/кастомный Decode — пропускаем, чтобы не ловить артефакты.
+      if (
+        dict.get(PDFName.of("SMask")) ||
+        dict.get(PDFName.of("Mask")) ||
+        dict.get(PDFName.of("ImageMask")) ||
+        dict.get(PDFName.of("Decode"))
+      )
+        continue;
+
+      const original = obj.contents;
+      if (!original || original.length < 8 * 1024) continue; // мелочь не трогаем
+
+      // CMYK (4 компонента) пропускаем — иначе риск инверсии цветов на печатных PDF.
+      if (jpegComponentCount(original) === 4) continue;
+
+      const bitmap = await decodeJpegBitmap(original);
+      if (!bitmap) continue;
+      try {
+        const longSide = Math.max(bitmap.width, bitmap.height);
+        const scale = longSide > maxDim ? maxDim / longSide : 1;
+        const dstW = Math.max(1, Math.round(bitmap.width * scale));
+        const dstH = Math.max(1, Math.round(bitmap.height * scale));
+
+        const { canvas, ctx } = createRenderCanvas(dstW, dstH);
+        (ctx as CanvasRenderingContext2D).drawImage(
+          bitmap as unknown as CanvasImageSource,
+          0,
+          0,
+          dstW,
+          dstH
+        );
+        const newBytes = await canvasToJpegBytes(canvas, quality);
+        releaseCanvas(canvas);
+
+        if (newBytes.length >= original.length) continue; // не меньше — оставляем как было
+
+        const newDict = context.obj({
+          Type: "XObject",
+          Subtype: "Image",
+          Width: dstW,
+          Height: dstH,
+          ColorSpace: "DeviceRGB",
+          BitsPerComponent: 8,
+          Filter: "DCTDecode",
+          Length: newBytes.length,
+        });
+        context.assign(ref, PDFRawStream.of(newDict, newBytes));
+        replaced++;
+      } finally {
+        bitmap.close();
+      }
+    } catch {
+      /* проблемную картинку пропускаем — остальные пережимаются */
+    }
+  }
+  return replaced;
+}
+
+// Растеризует каждую страницу в JPEG и собирает новый PDF (по картинке на лист).
+async function rasterizeToCompressedPdf(
+  file: File,
+  scale: number,
+  quality: number
+): Promise<Uint8Array> {
+  const pdfjs = await loadPdfJs();
+  const data = new Uint8Array(await file.arrayBuffer());
+  const loadingTask = pdfjs.getDocument({ data });
+  const srcPdf = await loadingTask.promise;
+  const outPdf = await PDFDocument.create();
+  try {
+    for (let i = 1; i <= srcPdf.numPages; i++) {
+      const page = await srcPdf.getPage(i);
+      const pointVp = page.getViewport({ scale: 1 }); // размер страницы в PDF-точках
+      const base = page.getViewport({ scale });
+      const maxArea = 25_000_000;
+      const safeScale =
+        base.width * base.height > maxArea
+          ? scale * Math.sqrt(maxArea / (base.width * base.height))
+          : scale;
+      const vp = page.getViewport({ scale: safeScale });
+      const { canvas, ctx } = createRenderCanvas(vp.width, vp.height);
+      await page.render({
+        canvasContext: ctx as CanvasRenderingContext2D,
+        viewport: vp,
+        canvas: canvas as HTMLCanvasElement,
+      }).promise;
+      const jpeg = await canvasToJpegBytes(canvas, quality);
+      releaseCanvas(canvas);
+      page.cleanup();
+
+      const img = await outPdf.embedJpg(jpeg);
+      const p = outPdf.addPage([pointVp.width, pointVp.height]);
+      p.drawImage(img, { x: 0, y: 0, width: pointVp.width, height: pointVp.height });
+    }
+  } finally {
+    await loadingTask.destroy();
+  }
+  return outPdf.save({ useObjectStreams: true });
+}
+
 export async function compressPdf(
   file: File,
   level: "low" | "medium" | "high" = "medium"
 ): Promise<Uint8Array> {
-  const bytes = await file.arrayBuffer();
-  const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
-  const firstPass = await pdf.save({ useObjectStreams: level !== "low" });
+  const bytes = new Uint8Array(await file.arrayBuffer());
 
   if (level === "high") {
-    const secondPdf = await PDFDocument.load(firstPass, { ignoreEncryption: true });
-    const secondPass = await secondPdf.save({ useObjectStreams: true });
-    const best = secondPass.byteLength < firstPass.byteLength ? secondPass : firstPass;
-    if (best.byteLength >= bytes.byteLength) return new Uint8Array(bytes);
-    return best;
+    // Растеризация даёт максимальное сжатие; при ошибке — структурный фолбэк.
+    try {
+      const raster = await rasterizeToCompressedPdf(file, 1.5, 0.6);
+      if (raster.byteLength < bytes.byteLength) return raster;
+    } catch {
+      /* ниже — структурный фолбэк */
+    }
+    const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
+    const saved = await pdf.save({ useObjectStreams: true });
+    return saved.byteLength < bytes.byteLength ? saved : bytes;
   }
 
-  if (firstPass.byteLength >= bytes.byteLength) return new Uint8Array(bytes);
-  return firstPass;
+  // low / medium — умное пережатие картинок + структурная оптимизация.
+  const settings = SMART_COMPRESS[level];
+  const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
+  try {
+    await recompressEmbeddedImages(pdf, settings.maxDim, settings.quality);
+  } catch {
+    /* даже если пережатие упало — сохраним со структурной оптимизацией */
+  }
+  const saved = await pdf.save({ useObjectStreams: true });
+  return saved.byteLength < bytes.byteLength ? saved : bytes;
 }
 
 export async function imagesToPdf(files: File[]): Promise<Uint8Array> {
@@ -1024,29 +1615,169 @@ export async function wordToPdf(file: File): Promise<Uint8Array> {
   return textToPdf(text);
 }
 
+/** Render one layout line as a styled WordprocessingML paragraph. */
+function lineToParagraphXml(line: PdfLayoutLine, headingThreshold: number): string {
+  const isHeading = line.fontSize >= headingThreshold;
+  const runs = itemsToStyledRuns(line);
+  const runXml = (runs.length > 0 ? runs : [{ text: line.text, bold: line.bold, italic: false, fontSizePt: Math.round(line.fontSize) || 11 }])
+    .map((run) => {
+      const bold = run.bold || line.bold || isHeading;
+      const sizeHalfPoints = Math.max(2, Math.round(run.fontSizePt * 2));
+      const colorXml = run.color ? `<w:color w:val="${run.color}"/>` : "";
+      const rFontsXml = run.fontFamily ? `<w:rFonts w:ascii="${escapeXml(run.fontFamily)}" w:hAnsi="${escapeXml(run.fontFamily)}" w:cs="${escapeXml(run.fontFamily)}"/>` : "";
+      const rPr =
+        `<w:rPr>` +
+        rFontsXml +
+        (bold ? "<w:b/>" : "") +
+        (run.italic ? "<w:i/>" : "") +
+        colorXml +
+        `<w:sz w:val="${sizeHalfPoints}"/><w:szCs w:val="${sizeHalfPoints}"/>` +
+        `</w:rPr>`;
+      return `<w:r>${rPr}<w:t xml:space="preserve">${escapeXml(run.text)}</w:t></w:r>`;
+    })
+    .join("");
+
+  const jc =
+    line.alignment === "center"
+      ? '<w:jc w:val="center"/>'
+      : line.alignment === "right"
+        ? '<w:jc w:val="right"/>'
+        : "";
+  const spacingXml = isHeading ? '<w:spacing w:before="240" w:after="120"/>' : '<w:spacing w:after="120"/>';
+  const pPr = (jc || spacingXml) ? `<w:pPr>${spacingXml}${jc}</w:pPr>` : "";
+  return `<w:p>${pPr}${runXml}</w:p>`;
+}
+
+const TABLE_BORDERS =
+  `<w:tblBorders>` +
+  `<w:top w:val="single" w:sz="4" w:space="0" w:color="auto"/>` +
+  `<w:left w:val="single" w:sz="4" w:space="0" w:color="auto"/>` +
+  `<w:bottom w:val="single" w:sz="4" w:space="0" w:color="auto"/>` +
+  `<w:right w:val="single" w:sz="4" w:space="0" w:color="auto"/>` +
+  `<w:insideH w:val="single" w:sz="4" w:space="0" w:color="auto"/>` +
+  `<w:insideV w:val="single" w:sz="4" w:space="0" w:color="auto"/>` +
+  `</w:tblBorders>`;
+
+/** Render a detected table region as a bordered WordprocessingML table. */
+function tableRegionToXml(region: TableRegion, cellsPerLine: LineCell[][]): string {
+  const cols = region.columns;
+  const gridCols = cols.map(() => "<w:gridCol/>").join("");
+  const rowsXml: string[] = [];
+
+  for (let k = region.start; k <= region.end; k++) {
+    const rowCells: LineCell[] = Array.from({ length: cols.length }, () => ({ text: "", x: 0 }));
+    for (const cell of cellsPerLine[k]) {
+      const idx = assignToColumn(cell.x, cols);
+      rowCells[idx] = rowCells[idx].text ? { text: `${rowCells[idx].text} ${cell.text}`.trim(), x: rowCells[idx].x, color: rowCells[idx].color || cell.color } : cell;
+    }
+    const tcs = rowCells
+      .map(
+        (cell) => {
+          const colorXml = cell.color ? `<w:rPr><w:color w:val="${cell.color}"/></w:rPr>` : "";
+          return `<w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"/></w:tcPr>` +
+            `<w:p><w:r>${colorXml}<w:t xml:space="preserve">${escapeXml(cell.text)}</w:t></w:r></w:p></w:tc>`;
+        },
+      )
+      .join("");
+    rowsXml.push(`<w:tr>${tcs}</w:tr>`);
+  }
+
+  return (
+    `<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/>${TABLE_BORDERS}</w:tblPr>` +
+    `<w:tblGrid>${gridCols}</w:tblGrid>${rowsXml.join("")}</w:tbl>`
+  );
+}
+
 export async function pdfToWord(file: File): Promise<Uint8Array> {
-  const pages = await extractPdfLayout(file);
+  const arrayBuffer = await file.arrayBuffer();
+  const pdfjs = await loadPdfJs();
+  const renderLoadingTask = pdfjs.getDocument({ data: new Uint8Array(arrayBuffer) });
+  const renderPdf = await renderLoadingTask.promise;
+  const pages = await extractPdfLayout(new File([arrayBuffer], file.name, { type: file.type }));
+
+  const bodyFontSize = median(
+    pages.flatMap((page) => page.lines.map((line) => line.fontSize)).filter((s) => s > 0),
+  ) || 11;
+  const headingThreshold = bodyFontSize * 1.3;
+
+  const JSZip = (await import("jszip")).default;
+  const zip = new JSZip();
+
   const paragraphXml: string[] = [];
+  const imageRels: { id: string; target: string }[] = [];
+  const imageBlobs: { rel: { id: string; target: string }; data: Uint8Array }[] = [];
 
-  for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
-    const page = pages[pageIndex];
-    if (pageIndex > 0) {
-      paragraphXml.push('<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
-    }
+  try {
+    for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
+      const page = pages[pageIndex];
+      if (pageIndex > 0) {
+        paragraphXml.push('<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
+      }
 
-    for (const line of page.lines) {
-      paragraphXml.push(
-        `<w:p><w:r><w:t xml:space="preserve">${escapeXml(line.text)}</w:t></w:r></w:p>`
+      const totalChars = page.lines.reduce((sum, l) => sum + l.text.length, 0);
+      const textAreaEstimate = totalChars * (page.width / 70) * (page.height / 72 / page.lines.length || 1);
+      const pageArea = page.width * page.height;
+      const textDensity = pageArea > 0 ? textAreaEstimate / pageArea : 0;
+      const isScanLike = page.lines.length < 3 || textDensity < 0.02;
+
+      if (isScanLike) {
+        const pdfPage = await renderPdf.getPage(pageIndex + 1);
+        const imgData = await renderPageToPng(pdfPage);
+        if (imgData) {
+          const relId = `rImg${imageRels.length + 4}`;
+          const target = `media/image${imageRels.length + 1}.png`;
+          const vp = pdfPage.getViewport({ scale: 1 });
+          const cxEmu = Math.round(vp.width * 914400 / 72);
+          const cyEmu = Math.round(vp.height * 914400 / 72);
+          paragraphXml.push(
+            `<w:p><w:r><w:rPr><w:noProof/></w:rPr><w:drawing>` +
+            `<wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">` +
+            `<wp:extent cx="${cxEmu}" cy="${cyEmu}"/>` +
+            `<wp:docPr id="${imageRels.length + 1}" name="Page ${pageIndex + 1}"/>` +
+            `<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">` +
+            `<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
+            `<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
+            `<pic:nvPicPr><pic:cNvPr id="${imageRels.length + 1}" name="Page ${pageIndex + 1}"/><pic:cNvPicPr/></pic:nvPicPr>` +
+            `<pic:blipFill><a:blip r:embed="${relId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>` +
+            `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cxEmu}" cy="${cyEmu}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>` +
+            `</pic:pic></a:graphicData></a:graphic>` +
+            `</wp:inline></w:drawing></w:r></w:p>`,
+          );
+          imageRels.push({ id: relId, target });
+          imageBlobs.push({ rel: { id: relId, target }, data: imgData });
+          continue;
+        }
+      }
+
+      const cellsPerLine = page.lines.map((line) => cellsWithX(line));
+      const colTolerance = Math.max(
+        14,
+        (median(page.lines.map((line) => line.fontSize).filter((s) => s > 0)) || bodyFontSize) * 1.2,
       );
+      const regions = detectTableRegions(cellsPerLine, colTolerance);
+      const regionByStart = new Map(regions.map((region) => [region.start, region]));
+
+      let lineIndex = 0;
+      while (lineIndex < page.lines.length) {
+        const region = regionByStart.get(lineIndex);
+        if (region) {
+          paragraphXml.push(tableRegionToXml(region, cellsPerLine));
+          paragraphXml.push("<w:p/>");
+          lineIndex = region.end + 1;
+        } else {
+          paragraphXml.push(lineToParagraphXml(page.lines[lineIndex], headingThreshold));
+          lineIndex++;
+        }
+      }
     }
+  } finally {
+    await renderLoadingTask.destroy();
   }
 
   if (paragraphXml.length === 0) {
     throw new Error("No text was found in this PDF. Try OCR PDF for scanned documents.");
   }
 
-  const JSZip = (await import("jszip")).default;
-  const zip = new JSZip();
   const now = new Date().toISOString();
 
   zip.file(
@@ -1055,6 +1786,7 @@ export async function pdfToWord(file: File): Promise<Uint8Array> {
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
+  <Default Extension="png" ContentType="image/png"/>
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
   <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
   <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
@@ -1096,6 +1828,11 @@ export async function pdfToWord(file: File): Promise<Uint8Array> {
 </Properties>`
   );
 
+// Match page size to the first PDF page for best fidelity.
+  const firstPage = pages[0];
+  const pageWidthTwips = firstPage ? Math.round(firstPage.width * 1440 / 72) : 11906;
+  const pageHeightTwips = firstPage ? Math.round(firstPage.height * 1440 / 72) : 16838;
+
   zip.folder("word")?.file(
     "document.xml",
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -1112,24 +1849,34 @@ export async function pdfToWord(file: File): Promise<Uint8Array> {
   xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml"
   xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup"
   xmlns:wpi="http://schemas.microsoft.com/office/word/2010/wordprocessingInk"
-  xmlns:wne="http://schemas.microsoft.com/office/2006/wordml"
+  xmlns:wne="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
   xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
+  xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+  xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"
   mc:Ignorable="w14 wp14">
   <w:body>
     ${paragraphXml.join("")}
     <w:sectPr>
-      <w:pgSz w:w="11906" w:h="16838"/>
+      <w:pgSz w:w="${pageWidthTwips}" w:h="${pageHeightTwips}"/>
       <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="708" w:footer="708" w:gutter="0"/>
     </w:sectPr>
   </w:body>
 </w:document>`
   );
 
+  const imageRelsXml = imageRels
+    .map((rel) => `<Relationship Id="${rel.id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${rel.target}"/>`)
+    .join("");
+
   zip.folder("word")?.folder("_rels")?.file(
     "document.xml.rels",
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${imageRelsXml}</Relationships>`
   );
+
+  for (const blob of imageBlobs) {
+    zip.folder("word")?.folder("media")?.file(blob.rel.target.replace("media/", ""), blob.data);
+  }
 
   return zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
 }
@@ -1140,9 +1887,29 @@ export async function pdfToExcel(file: File): Promise<Uint8Array> {
   const workbook = XLSX.utils.book_new();
 
   for (const page of pages) {
-    const rows = page.lines.map((line) => {
-      const cells = cellsFromLine(line);
-      return cells.length > 1 ? cells : line.text.split("\t").filter(Boolean).length > 1 ? line.text.split("\t") : [line.text];
+    // Split every line into cells while keeping each cell's start-x, then
+    // cluster those x positions into page-wide columns so cells align into the
+    // same column across rows (true table fidelity instead of per-line guesses).
+    const lineCells = page.lines.map((line) => cellsWithX(line));
+    const colTolerance = Math.max(
+      14,
+      median(page.lines.map((line) => line.fontSize).filter((s) => s > 0)) * 1.2,
+    );
+    const columns = clusterColumns(
+      lineCells.flat().map((cell) => cell.x),
+      colTolerance,
+    );
+
+    const rows = lineCells.map((cells) => {
+      if (columns.length <= 1) {
+        return [cells.map((cell) => cell.text).join(" ").trim()];
+      }
+      const row: string[] = Array.from({ length: columns.length }, () => "");
+      for (const cell of cells) {
+        const index = assignToColumn(cell.x, columns);
+        row[index] = row[index] ? `${row[index]} ${cell.text}`.trim() : cell.text;
+      }
+      return row;
     });
 
     const sheet = XLSX.utils.aoa_to_sheet(rows.length > 0 ? rows : [[""]]);
@@ -1591,6 +2358,22 @@ export async function pdfToDocx(file: File): Promise<Uint8Array> {
 
 // ─── OCR PDF ──────────────────────────────────────────────────────────────────
 
+/**
+ * Adaptive render scale for OCR. Bounds the page's long side to ~`targetLongSide`
+ * pixels so very large pages stay fast (fewer pixels for Tesseract to scan) while
+ * small pages are upscaled to a legible DPI. Clamped to [min, max].
+ */
+export function ocrRenderScale(
+  pageWidth: number,
+  pageHeight: number,
+  targetLongSide = 1800,
+  min = 0.5,
+  max = 3,
+): number {
+  const longSide = Math.max(pageWidth, pageHeight, 1);
+  return Math.min(max, Math.max(min, targetLongSide / longSide));
+}
+
 export async function ocrPdf(
   file: File,
   lang = "eng+rus",
@@ -1623,7 +2406,6 @@ export async function ocrPdf(
   // гарантированно терминировался даже при ошибке embedFont/render.
   try {
     const resultPdf = await PDFDocument.create();
-    const scale = 2;
     const stdFont = await resultPdf.embedFont(StandardFonts.Helvetica);
     let unicodeFontPromise: Promise<any> | null = null;
     const getWordFont = async (text: string) => {
@@ -1636,6 +2418,8 @@ export async function ocrPdf(
       onProgress?.(25 + Math.round(((pageNum - 1) / pdfjsDoc.numPages) * 70));
 
       const page = await pdfjsDoc.getPage(pageNum);
+      const base = page.getViewport({ scale: 1 });
+      const scale = ocrRenderScale(base.width, base.height);
       const viewport = page.getViewport({ scale });
       const canvas = document.createElement("canvas");
       canvas.width = Math.round(viewport.width);
@@ -1709,6 +2493,7 @@ export async function addBlankPages(file: File, positions: number[]): Promise<Ui
 // SANITIZE PDF
 // ============================================================
 export async function sanitizePdf(file: File): Promise<Uint8Array> {
+  const { PDFName, PDFDict } = await import("pdf-lib");
   const bytes = await file.arrayBuffer();
   const doc = await PDFDocument.load(bytes, { ignoreEncryption: true });
   doc.setTitle("");
@@ -1717,6 +2502,27 @@ export async function sanitizePdf(file: File): Promise<Uint8Array> {
   doc.setKeywords([]);
   doc.setProducer("");
   doc.setCreator("");
+  doc.setCreationDate(new Date(0));
+  doc.setModificationDate(new Date(0));
+
+  // Remove JavaScript, auto-run actions, and tracking
+  const catalog = doc.catalog;
+  for (const key of ["OpenAction", "AA", "URI"]) {
+    catalog.delete(PDFName.of(key));
+  }
+  const namesVal = catalog.get(PDFName.of("Names"));
+  if (namesVal instanceof PDFDict) {
+    namesVal.delete(PDFName.of("JavaScript"));
+    namesVal.delete(PDFName.of("EmbeddedFiles"));
+  }
+  for (const page of doc.getPages()) {
+    const pageDict = doc.context.lookup(page.ref);
+    if (pageDict instanceof PDFDict) {
+      pageDict.delete(PDFName.of("AA"));
+      pageDict.delete(PDFName.of("JS"));
+    }
+  }
+
   return doc.save();
 }
 
@@ -1726,11 +2532,6 @@ export async function sanitizePdf(file: File): Promise<Uint8Array> {
 export async function convertToPdfA(file: File): Promise<Uint8Array> {
   const bytes = await file.arrayBuffer();
   const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
-  pdfDoc.registerFontkit(fontkit);
-  const pages = pdfDoc.getPages();
-  for (const page of pages) {
-    page.getSize();
-  }
   pdfDoc.setProducer("PDFX.tools PDF/A Converter");
   if (!pdfDoc.getCreator()) pdfDoc.setCreator("PDFX.tools");
   pdfDoc.setKeywords(["PDF/A-1b", "archival"]);
@@ -1779,8 +2580,9 @@ export async function invertColors(
   const pdfjs = await loadPdfJs();
   const bytes = new Uint8Array(await file.arrayBuffer());
   const srcDoc = await pdfjs.getDocument({ data: bytes }).promise;
-  const pageCount = srcDoc.numPages;
-  const dstDoc = await PDFDocument.create();
+  try {
+    const pageCount = srcDoc.numPages;
+    const dstDoc = await PDFDocument.create();
 
 for (let i = 1; i <= pageCount; i++) {
     onProgress?.(Math.round((i / pageCount) * 100));
@@ -1804,7 +2606,10 @@ for (let i = 1; i <= pageCount; i++) {
     const dstPage = dstDoc.addPage([pw, ph]);
     dstPage.drawImage(jpgImg, { x: 0, y: 0, width: pw, height: ph });
   }
-  return dstDoc.save();
+    return dstDoc.save();
+  } finally {
+    srcDoc.destroy();
+  }
 }
 
 // ============================================================
@@ -1985,25 +2790,26 @@ export async function splitByChapters(
 
   // Get outline
   const viewDoc = await pdfjs.getDocument({ data: bytes }).promise;
-  const outline = await viewDoc.getOutline();
-  if (!outline || outline.length === 0) {
-    // No bookmarks — return whole file as one chunk
-    return [{ name: file.name, bytes }];
-  }
-
-  // Resolve page numbers for each top-level chapter
   const chapters: { title: string; page: number }[] = [];
-  for (const item of outline) {
-    if (item.dest) {
-      try {
-let dest: any = item.dest;
-        if (typeof dest === "string") dest = await viewDoc.getDestination(dest);
-        if (Array.isArray(dest) && dest[0]) {
-          const pageIndex = await viewDoc.getPageIndex(dest[0]);
-          chapters.push({ title: item.title || `Chapter ${chapters.length + 1}`, page: pageIndex });
-        }
-      } catch { /* skip unresolvable */ }
+  try {
+    const outline = await viewDoc.getOutline();
+    if (!outline || outline.length === 0) return [{ name: file.name, bytes }];
+
+    // Resolve page numbers for each top-level chapter
+    for (const item of outline) {
+      if (item.dest) {
+        try {
+          let dest: any = item.dest;
+          if (typeof dest === "string") dest = await viewDoc.getDestination(dest);
+          if (Array.isArray(dest) && dest[0]) {
+            const pageIndex = await viewDoc.getPageIndex(dest[0]);
+            chapters.push({ title: item.title || `Chapter ${chapters.length + 1}`, page: pageIndex });
+          }
+        } catch { /* skip unresolvable */ }
+      }
     }
+  } finally {
+    viewDoc.destroy();
   }
   if (chapters.length === 0) return [{ name: file.name, bytes }];
 
@@ -2100,8 +2906,9 @@ export async function scannerEffect(
   const pdfjs = await loadPdfJs();
   const bytes = new Uint8Array(await file.arrayBuffer());
   const srcDoc = await pdfjs.getDocument({ data: bytes }).promise;
-  const pageCount = srcDoc.numPages;
-  const dstDoc = await PDFDocument.create();
+  try {
+    const pageCount = srcDoc.numPages;
+    const dstDoc = await PDFDocument.create();
 
 for (let i = 1; i <= pageCount; i++) {
     onProgress?.(Math.round((i / pageCount) * 100));
@@ -2132,7 +2939,10 @@ await page.render({ canvasContext: ctx as CanvasRenderingContext2D, viewport: vp
     const dstPage = dstDoc.addPage([pw, ph]);
     dstPage.drawImage(jpgImg, { x: 0, y: 0, width: pw, height: ph });
   }
-  return dstDoc.save();
+    return dstDoc.save();
+  } finally {
+    srcDoc.destroy();
+  }
 }
 
 // ============================================================
@@ -2151,54 +2961,57 @@ export async function cropPdf(
   if (options.autoCrop) {
     const pdfjs = await loadPdfJs();
     const srcDoc = await pdfjs.getDocument({ data: new Uint8Array(bytes) }).promise;
+    try {
+      for (let i = 0; i < pages.length; i++) {
+        onProgress?.(Math.round(((i + 1) / pages.length) * 100));
+        const srcPage = await srcDoc.getPage(i + 1);
+        const vp = srcPage.getViewport({ scale: 1 });
+        const canvas = document.createElement("canvas");
+        canvas.width = vp.width;
+        canvas.height = vp.height;
+        const ctx = canvas.getContext("2d")!;
+        await srcPage.render({ canvasContext: ctx, viewport: vp, canvas }).promise;
 
-    for (let i = 0; i < pages.length; i++) {
-      onProgress?.(Math.round(((i + 1) / pages.length) * 100));
-      const srcPage = await srcDoc.getPage(i + 1);
-      const vp = srcPage.getViewport({ scale: 1 });
-      const canvas = document.createElement("canvas");
-      canvas.width = vp.width;
-      canvas.height = vp.height;
-      const ctx = canvas.getContext("2d")!;
-      await srcPage.render({ canvasContext: ctx, viewport: vp, canvas }).promise;
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = imgData.data;
+        let minX = canvas.width, minY = canvas.height, maxX = 0, maxY = 0;
+        const threshold = 240;
 
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const d = imgData.data;
-      let minX = canvas.width, minY = canvas.height, maxX = 0, maxY = 0;
-      const threshold = 240;
-
-      for (let y = 0; y < canvas.height; y++) {
-        for (let x = 0; x < canvas.width; x++) {
-          const idx = (y * canvas.width + x) * 4;
-          const brightness = (d[idx] + d[idx + 1] + d[idx + 2]) / 3;
-          if (brightness < threshold) {
-            if (x < minX) minX = x;
-            if (x > maxX) maxX = x;
-            if (y < minY) minY = y;
-            if (y > maxY) maxY = y;
+        for (let y = 0; y < canvas.height; y++) {
+          for (let x = 0; x < canvas.width; x++) {
+            const idx = (y * canvas.width + x) * 4;
+            const brightness = (d[idx] + d[idx + 1] + d[idx + 2]) / 3;
+            if (brightness < threshold) {
+              if (x < minX) minX = x;
+              if (x > maxX) maxX = x;
+              if (y < minY) minY = y;
+              if (y > maxY) maxY = y;
+            }
           }
         }
+
+        if (maxX > minX && maxY > minY) {
+          const padding = 5;
+          minX = Math.max(0, minX - padding);
+          minY = Math.max(0, minY - padding);
+          maxX = Math.min(canvas.width, maxX + padding);
+          maxY = Math.min(canvas.height, maxY + padding);
+
+          // convertToPdfPoint инвертирует scale + rotation + Y-flip, отдавая
+          // координаты в PDF user space — ровно то, что ждёт setCropBox.
+          // Корректно для повёрнутых страниц (/Rotate) и ненулевого origin.
+          const [px0, py0] = vp.convertToPdfPoint(minX, maxY);
+          const [px1, py1] = vp.convertToPdfPoint(maxX, minY);
+          const cropX = Math.min(px0, px1);
+          const cropY = Math.min(py0, py1);
+          const cropW = Math.abs(px1 - px0);
+          const cropH = Math.abs(py1 - py0);
+
+          pages[i].setCropBox(cropX, cropY, cropW, cropH);
+        }
       }
-
-      if (maxX > minX && maxY > minY) {
-        const padding = 5;
-        minX = Math.max(0, minX - padding);
-        minY = Math.max(0, minY - padding);
-        maxX = Math.min(canvas.width, maxX + padding);
-        maxY = Math.min(canvas.height, maxY + padding);
-
-        // convertToPdfPoint инвертирует scale + rotation + Y-flip, отдавая
-        // координаты в PDF user space — ровно то, что ждёт setCropBox.
-        // Корректно для повёрнутых страниц (/Rotate) и ненулевого origin.
-        const [px0, py0] = vp.convertToPdfPoint(minX, maxY);
-        const [px1, py1] = vp.convertToPdfPoint(maxX, minY);
-        const cropX = Math.min(px0, px1);
-        const cropY = Math.min(py0, py1);
-        const cropW = Math.abs(px1 - px0);
-        const cropH = Math.abs(py1 - py0);
-
-        pages[i].setCropBox(cropX, cropY, cropW, cropH);
-      }
+    } finally {
+      srcDoc.destroy();
     }
   } else {
     const topMm = options.topMm ?? 0;
@@ -2282,53 +3095,58 @@ export async function comparePdf(
   const bytes2 = new Uint8Array(await file2.arrayBuffer());
   const doc1 = await pdfjs.getDocument({ data: bytes1 }).promise;
   const doc2 = await pdfjs.getDocument({ data: bytes2 }).promise;
-  const maxPages = Math.max(doc1.numPages, doc2.numPages);
+  try {
+    const maxPages = Math.max(doc1.numPages, doc2.numPages);
 
-  const { PDFDocument } = await import("pdf-lib");
-  const dstDoc = await PDFDocument.create();
+    const { PDFDocument } = await import("pdf-lib");
+    const dstDoc = await PDFDocument.create();
 
-  for (let i = 1; i <= maxPages; i++) {
-    onProgress?.(Math.round(((i - 1) / maxPages) * 100));
-    if (i % 3 === 0) await yieldToUI();
-    const renderPage = async (doc: any, pageNum: number) => {
-      try {
-        const page = await doc.getPage(pageNum);
-        const vp = page.getViewport({ scale: 1.5 });
-        // Canvas-абстракция: OffscreenCanvas в воркере, HTMLCanvasElement в main.
-        const { canvas, ctx } = createRenderCanvas(vp.width, vp.height);
-        await page.render({ canvasContext: ctx as CanvasRenderingContext2D, viewport: vp, canvas: canvas as HTMLCanvasElement }).promise;
-        return { canvas, width: vp.width / 1.5, height: vp.height / 1.5 };
-      } catch {
-        return null;
+    for (let i = 1; i <= maxPages; i++) {
+      onProgress?.(Math.round(((i - 1) / maxPages) * 100));
+      if (i % 3 === 0) await yieldToUI();
+      const renderPage = async (doc: any, pageNum: number) => {
+        try {
+          const page = await doc.getPage(pageNum);
+          const vp = page.getViewport({ scale: 1.5 });
+          // Canvas-абстракция: OffscreenCanvas в воркере, HTMLCanvasElement в main.
+          const { canvas, ctx } = createRenderCanvas(vp.width, vp.height);
+          await page.render({ canvasContext: ctx as CanvasRenderingContext2D, viewport: vp, canvas: canvas as HTMLCanvasElement }).promise;
+          return { canvas, width: vp.width / 1.5, height: vp.height / 1.5 };
+        } catch {
+          return null;
+        }
+      };
+
+      const r1 = await renderPage(doc1, i);
+      const r2 = await renderPage(doc2, i);
+
+      const w1 = r1?.width ?? 595;
+      const h1 = r1?.height ?? 842;
+      const w2 = r2?.width ?? 595;
+      const h2 = r2?.height ?? 842;
+      const totalWidth = w1 + w2 + 20;
+      const pageHeight = Math.max(h1, h2);
+
+      const dstPage = dstDoc.addPage([totalWidth, pageHeight]);
+
+      if (r1) {
+        const jpegBytes = await canvasToJpegBytes(r1.canvas, 0.92);
+        const img = await dstDoc.embedJpg(jpegBytes);
+        dstPage.drawImage(img, { x: 0, y: 0, width: w1, height: h1 });
+        releaseCanvas(r1.canvas);
       }
-    };
-
-    const r1 = await renderPage(doc1, i);
-    const r2 = await renderPage(doc2, i);
-
-    const w1 = r1?.width ?? 595;
-    const h1 = r1?.height ?? 842;
-    const w2 = r2?.width ?? 595;
-    const h2 = r2?.height ?? 842;
-    const totalWidth = w1 + w2 + 20;
-    const pageHeight = Math.max(h1, h2);
-
-    const dstPage = dstDoc.addPage([totalWidth, pageHeight]);
-
-    if (r1) {
-      const jpegBytes = await canvasToJpegBytes(r1.canvas, 0.92);
-      const img = await dstDoc.embedJpg(jpegBytes);
-      dstPage.drawImage(img, { x: 0, y: 0, width: w1, height: h1 });
-      releaseCanvas(r1.canvas);
+      if (r2) {
+        const jpegBytes = await canvasToJpegBytes(r2.canvas, 0.92);
+        const img = await dstDoc.embedJpg(jpegBytes);
+        dstPage.drawImage(img, { x: w1 + 20, y: 0, width: w2, height: h2 });
+        releaseCanvas(r2.canvas);
+      }
     }
-    if (r2) {
-      const jpegBytes = await canvasToJpegBytes(r2.canvas, 0.92);
-      const img = await dstDoc.embedJpg(jpegBytes);
-      dstPage.drawImage(img, { x: w1 + 20, y: 0, width: w2, height: h2 });
-      releaseCanvas(r2.canvas);
-    }
+    return dstDoc.save();
+  } finally {
+    doc1.destroy();
+    doc2.destroy();
   }
-  return dstDoc.save();
 }
 
 // ============================================================
@@ -2342,43 +3160,47 @@ export async function removeBlankPages(
   const pdfjs = await loadPdfJs();
   const bytes = new Uint8Array(await file.arrayBuffer());
   const doc = await pdfjs.getDocument({ data: bytes }).promise;
-  const pageCount = doc.numPages;
   const nonBlankPages: number[] = [];
+  try {
+    const pageCount = doc.numPages;
 
-  for (let i = 1; i <= pageCount; i++) {
-    onProgress?.(Math.round((i / pageCount) * 50));
-    if (i % 3 === 0) await yieldToUI();
-    const page = await doc.getPage(i);
+    for (let i = 1; i <= pageCount; i++) {
+      onProgress?.(Math.round((i / pageCount) * 50));
+      if (i % 3 === 0) await yieldToUI();
+      const page = await doc.getPage(i);
 
-    // First check: does the page have text content? (like Stirling-PDF)
-    let hasText = false;
-    try {
-      const textContent = await page.getTextContent();
-      const text = textContent.items.map((item: any) => item.str).join("").trim();
-      if (text.length > 0) hasText = true;
-    } catch {}
+      // First check: does the page have text content? (like Stirling-PDF)
+      let hasText = false;
+      try {
+        const textContent = await page.getTextContent();
+        const text = textContent.items.map((item: any) => item.str).join("").trim();
+        if (text.length > 0) hasText = true;
+      } catch {}
 
-    if (hasText) {
-      nonBlankPages.push(i);
-      continue;
+      if (hasText) {
+        nonBlankPages.push(i);
+        continue;
+      }
+
+      // No text — render and check pixels
+      const vp = page.getViewport({ scale: 1 });
+      const { canvas, ctx } = createRenderCanvas(vp.width, vp.height);
+      await page.render({ canvasContext: ctx as CanvasRenderingContext2D, viewport: vp, canvas: canvas as HTMLCanvasElement }).promise;
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const d = imgData.data;
+      let brightPixels = 0;
+      const totalPixels = canvas.width * canvas.height;
+      for (let j = 0; j < d.length; j += 4) {
+        const brightness = (d[j] + d[j + 1] + d[j + 2]) / 3;
+        if (brightness > threshold) brightPixels++;
+      }
+      if (brightPixels / totalPixels < 0.95) {
+        nonBlankPages.push(i);
+      }
+      releaseCanvas(canvas);
     }
-
-    // No text — render and check pixels
-    const vp = page.getViewport({ scale: 1 });
-    const { canvas, ctx } = createRenderCanvas(vp.width, vp.height);
-    await page.render({ canvasContext: ctx as CanvasRenderingContext2D, viewport: vp, canvas: canvas as HTMLCanvasElement }).promise;
-    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const d = imgData.data;
-    let brightPixels = 0;
-    const totalPixels = canvas.width * canvas.height;
-    for (let j = 0; j < d.length; j += 4) {
-      const brightness = (d[j] + d[j + 1] + d[j + 2]) / 3;
-      if (brightness > threshold) brightPixels++;
-    }
-    if (brightPixels / totalPixels < 0.95) {
-      nonBlankPages.push(i);
-    }
-    releaseCanvas(canvas);
+  } finally {
+    doc.destroy();
   }
 
   if (nonBlankPages.length === 0) {
@@ -2461,34 +3283,38 @@ export async function grayscalePdf(
   const pdfjs = await loadPdfJs();
   const bytes = new Uint8Array(await file.arrayBuffer());
   const srcDoc = await pdfjs.getDocument({ data: bytes }).promise;
-  const pageCount = srcDoc.numPages;
-  const dstDoc = await PDFDocument.create();
+  try {
+    const pageCount = srcDoc.numPages;
+    const dstDoc = await PDFDocument.create();
 
-  for (let i = 1; i <= pageCount; i++) {
-    onProgress?.(Math.round((i / pageCount) * 100));
-    if (i % 3 === 0) await yieldToUI();
-    const page = await srcDoc.getPage(i);
-    const vp = page.getViewport({ scale: 1.5 });
-    const { canvas, ctx } = createRenderCanvas(vp.width, vp.height);
-    await page.render({ canvasContext: ctx as CanvasRenderingContext2D, viewport: vp, canvas: canvas as HTMLCanvasElement }).promise;
+    for (let i = 1; i <= pageCount; i++) {
+      onProgress?.(Math.round((i / pageCount) * 100));
+      if (i % 3 === 0) await yieldToUI();
+      const page = await srcDoc.getPage(i);
+      const vp = page.getViewport({ scale: 1.5 });
+      const { canvas, ctx } = createRenderCanvas(vp.width, vp.height);
+      await page.render({ canvasContext: ctx as CanvasRenderingContext2D, viewport: vp, canvas: canvas as HTMLCanvasElement }).promise;
 
-    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const d = imgData.data;
-    for (let j = 0; j < d.length; j += 4) {
-      const gray = Math.round(d[j] * 0.299 + d[j + 1] * 0.587 + d[j + 2] * 0.114);
-      d[j] = gray;
-      d[j + 1] = gray;
-      d[j + 2] = gray;
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const d = imgData.data;
+      for (let j = 0; j < d.length; j += 4) {
+        const gray = Math.round(d[j] * 0.299 + d[j + 1] * 0.587 + d[j + 2] * 0.114);
+        d[j] = gray;
+        d[j + 1] = gray;
+        d[j + 2] = gray;
+      }
+      ctx.putImageData(imgData, 0, 0);
+
+      const jpegBytes = await canvasToJpegBytes(canvas, 0.92);
+      const jpgImg = await dstDoc.embedJpg(jpegBytes);
+      const { width: pw, height: ph } = page.getViewport({ scale: 1 });
+      const dstPage = dstDoc.addPage([pw, ph]);
+      dstPage.drawImage(jpgImg, { x: 0, y: 0, width: pw, height: ph });
     }
-    ctx.putImageData(imgData, 0, 0);
-
-    const jpegBytes = await canvasToJpegBytes(canvas, 0.92);
-    const jpgImg = await dstDoc.embedJpg(jpegBytes);
-    const { width: pw, height: ph } = page.getViewport({ scale: 1 });
-    const dstPage = dstDoc.addPage([pw, ph]);
-    dstPage.drawImage(jpgImg, { x: 0, y: 0, width: pw, height: ph });
+    return dstDoc.save();
+  } finally {
+    srcDoc.destroy();
   }
-  return dstDoc.save();
 }
 
 // ============================================================
@@ -2498,24 +3324,28 @@ export async function pdfBookmarks(file: File): Promise<string> {
   const pdfjs = await loadPdfJs();
   const bytes = new Uint8Array(await file.arrayBuffer());
   const doc = await pdfjs.getDocument({ data: bytes }).promise;
-  const outline = await doc.getOutline();
+  try {
+    const outline = await doc.getOutline();
 
-  if (!outline || outline.length === 0) {
-    return "No bookmarks found in this PDF.";
-  }
-
-  const lines: string[] = [];
-  const walk = (items: any[], depth: number) => {
-    for (const item of items) {
-      const indent = "  ".repeat(depth);
-      lines.push(`${indent}${item.title}`);
-      if (item.items && item.items.length > 0) {
-        walk(item.items, depth + 1);
-      }
+    if (!outline || outline.length === 0) {
+      return "No bookmarks found in this PDF.";
     }
-  };
-  walk(outline, 0);
-  return lines.join("\n");
+
+    const lines: string[] = [];
+    const walk = (items: any[], depth: number) => {
+      for (const item of items) {
+        const indent = "  ".repeat(depth);
+        lines.push(`${indent}${item.title}`);
+        if (item.items && item.items.length > 0) {
+          walk(item.items, depth + 1);
+        }
+      }
+    };
+    walk(outline, 0);
+    return lines.join("\n");
+  } finally {
+    doc.destroy();
+  }
 }
 
 // ============================================================
@@ -2533,117 +3363,130 @@ export async function autoRedactPdf(
   // transferable и детачит исходный буфер — иначе pdf-lib ниже получит пустой.
   const pdfLibBytes = bytes.slice(0);
   const srcDoc = await pdfjs.getDocument({ data: bytes }).promise;
-  const pageCount = srcDoc.numPages;
-  const pdfLib = await PDFDocument.load(pdfLibBytes, { ignoreEncryption: true });
-  const resultPdf = await PDFDocument.create();
-  const renderScale = 1.5;
+  try {
+    const pageCount = srcDoc.numPages;
+    const pdfLib = await PDFDocument.load(pdfLibBytes, { ignoreEncryption: true });
+    const resultPdf = await PDFDocument.create();
+    const renderScale = 1.5;
 
-  const patterns: RegExp[] = [];
-  if (options.emails) patterns.push(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g);
-  if (options.phones) patterns.push(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g);
-  if (options.ssn) patterns.push(/\d{3}[-]\d{2}[-]\d{4}/g);
-  if (options.iban) patterns.push(/[A-Z]{2}\d{2}[A-Z0-9]{4,30}/g);
-  if (options.customRegex) {
-    try { patterns.push(new RegExp(options.customRegex, "g")); } catch {}
+    const patterns: RegExp[] = [];
+    if (options.emails) patterns.push(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g);
+    if (options.phones) patterns.push(/(?:\+?\d{1,3}[\s.\-]?)?(?:\(?\d{2,4}\)?[\s.\-]?)?\d{3,4}[\s.\-]\d{2,4}[\s.\-]\d{2,4}/g);
+    if (options.ssn) patterns.push(/\d{3}[-\s]?\d{2}[-\s]?\d{4}/g);
+    if (options.iban) patterns.push(/[A-Za-z]{2}\d{2}[A-Za-z0-9]{11,28}/g);
+    if (options.customRegex) {
+      try { patterns.push(new RegExp(options.customRegex, "g")); } catch {}
+    }
+
+    for (let pageIndex = 0; pageIndex < pageCount; pageIndex++) {
+      const pageNumber = pageIndex + 1;
+      onProgress?.(Math.round((pageIndex / pageCount) * 100));
+      if (pageIndex % 3 === 0) await yieldToUI();
+
+      const page = await srcDoc.getPage(pageNumber);
+      const textContent = await page.getTextContent();
+      const textItems = textContent.items as any[];
+
+      // Sliding window groups (1–3 adjacent items) so PII split across items is caught
+      const groups: Array<{ indices: number[]; text: string }> = [];
+      for (let gi = 0; gi < textItems.length; gi++) {
+        const t0 = (textItems[gi] as any).str as string;
+        if (!t0) continue;
+        groups.push({ indices: [gi], text: t0 });
+        if (gi + 1 < textItems.length && (textItems[gi + 1] as any).str) {
+          groups.push({ indices: [gi, gi + 1], text: t0 + (textItems[gi + 1] as any).str });
+          if (gi + 2 < textItems.length && (textItems[gi + 2] as any).str) {
+            groups.push({ indices: [gi, gi + 1, gi + 2], text: t0 + (textItems[gi + 1] as any).str + (textItems[gi + 2] as any).str });
+          }
+        }
+      }
+
+      const matchedItemIndices = new Set<number>();
+      for (const group of groups) {
+        for (const pattern of patterns) {
+          pattern.lastIndex = 0;
+          if (pattern.test(group.text)) {
+            for (const idx of group.indices) matchedItemIndices.add(idx);
+            break;
+          }
+        }
+      }
+
+      if (matchedItemIndices.size === 0) {
+        const [copied] = await resultPdf.copyPages(pdfLib, [pageIndex]);
+        resultPdf.addPage(copied);
+        continue;
+      }
+
+      // Render page to canvas (handles rotation automatically via pdfjs viewport)
+      const viewport = page.getViewport({ scale: renderScale });
+      const { canvas, ctx } = createRenderCanvas(viewport.width, viewport.height);
+      await page.render({ canvasContext: ctx as CanvasRenderingContext2D, viewport, canvas: canvas as HTMLCanvasElement }).promise;
+
+      // Draw black rectangles over all matching text items using viewport coordinates
+      ctx.fillStyle = "#000000";
+      for (let itemIdx = 0; itemIdx < textItems.length; itemIdx++) {
+        if (!matchedItemIndices.has(itemIdx)) continue;
+        const item = textItems[itemIdx];
+        const text = item.str;
+        if (!text) continue;
+
+        if (!item.transform) continue;
+        const [a, b, c, d, tx, ty] = item.transform;
+        const runLen = Math.max(1, item.width || Math.hypot(a, b));
+        const fontH = Math.max(6, Math.abs(item.height) || Math.hypot(c, d) || 12);
+        let bx = a, by = b;
+        let blen = Math.hypot(bx, by);
+        if (blen === 0) { bx = 1; by = 0; blen = 1; }
+        const ubx = bx / blen, uby = by / blen;
+        let vx = c, vy = d;
+        let vlen = Math.hypot(vx, vy);
+        if (vlen === 0) { vx = -uby; vy = ubx; vlen = 1; }
+        const uvx = vx / vlen, uvy = vy / vlen;
+        const ascent = fontH;
+        const descent = fontH * 0.25;
+
+        const cornersPdf: [number, number][] = [
+          [tx - uvx * descent, ty - uvy * descent],
+          [tx + ubx * runLen - uvx * descent, ty + uby * runLen - uvy * descent],
+          [tx + ubx * runLen + uvx * ascent, ty + uby * runLen + uvy * ascent],
+          [tx + uvx * ascent, ty + uvy * ascent],
+        ];
+
+        let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+        for (const [cx, cy] of cornersPdf) {
+          const vpPt = viewport.convertToViewportPoint(cx, cy);
+          if (vpPt[0] < bx0) bx0 = vpPt[0];
+          if (vpPt[0] > bx1) bx1 = vpPt[0];
+          if (vpPt[1] < by0) by0 = vpPt[1];
+          if (vpPt[1] > by1) by1 = vpPt[1];
+        }
+
+        const pad = 2;
+        ctx.fillRect(
+          Math.floor(bx0) - pad,
+          Math.floor(by0) - pad,
+          Math.ceil(bx1 - bx0) + pad * 2,
+          Math.ceil(by1 - by0) + pad * 2
+        );
+      }
+
+      // Embed the redacted canvas back into the PDF.
+      // Размер страницы из viewport (учитывает /Rotate), а не getSize() —
+      // иначе на ротированных страницах маски смещаются с текста.
+      const imgBytes = await canvasToJpegBytes(canvas, 0.92);
+      const img = await resultPdf.embedJpg(imgBytes);
+      const pageW = viewport.width / renderScale;
+      const pageH = viewport.height / renderScale;
+      const newPage = resultPdf.addPage([pageW, pageH]);
+      newPage.drawImage(img, { x: 0, y: 0, width: pageW, height: pageH });
+      releaseCanvas(canvas);
+    }
+
+    return resultPdf.save();
+  } finally {
+    srcDoc.destroy();
   }
-
-  for (let pageIndex = 0; pageIndex < pageCount; pageIndex++) {
-    const pageNumber = pageIndex + 1;
-    onProgress?.(Math.round((pageIndex / pageCount) * 100));
-    if (pageIndex % 3 === 0) await yieldToUI();
-
-    const page = await srcDoc.getPage(pageNumber);
-    const textContent = await page.getTextContent();
-    const textItems = textContent.items as any[];
-
-    // Collect matching item indexes
-    let hasMatch = false;
-    for (const item of textItems) {
-      const text = item.str;
-      if (!text) continue;
-      for (const pattern of patterns) {
-        pattern.lastIndex = 0;
-        if (pattern.test(text)) { hasMatch = true; break; }
-      }
-      if (hasMatch) break;
-    }
-
-    if (!hasMatch) {
-      const [copied] = await resultPdf.copyPages(pdfLib, [pageIndex]);
-      resultPdf.addPage(copied);
-      continue;
-    }
-
-    // Render page to canvas (handles rotation automatically via pdfjs viewport)
-    const viewport = page.getViewport({ scale: renderScale });
-    const { canvas, ctx } = createRenderCanvas(viewport.width, viewport.height);
-    await page.render({ canvasContext: ctx as CanvasRenderingContext2D, viewport, canvas: canvas as HTMLCanvasElement }).promise;
-
-    // Draw black rectangles over all matching text items using viewport coordinates
-    ctx.fillStyle = "#000000";
-    for (const item of textItems) {
-      const text = item.str;
-      if (!text) continue;
-      let matched = false;
-      for (const pattern of patterns) {
-        pattern.lastIndex = 0;
-        if (pattern.test(text)) { matched = true; break; }
-      }
-      if (!matched) continue;
-
-      if (!item.transform) continue;
-      const [a, b, c, d, tx, ty] = item.transform;
-      const runLen = Math.max(1, item.width || Math.hypot(a, b));
-      const fontH = Math.max(6, Math.abs(item.height) || Math.hypot(c, d) || 12);
-      let bx = a, by = b;
-      let blen = Math.hypot(bx, by);
-      if (blen === 0) { bx = 1; by = 0; blen = 1; }
-      const ubx = bx / blen, uby = by / blen;
-      let vx = c, vy = d;
-      let vlen = Math.hypot(vx, vy);
-      if (vlen === 0) { vx = -uby; vy = ubx; vlen = 1; }
-      const uvx = vx / vlen, uvy = vy / vlen;
-      const ascent = fontH;
-      const descent = fontH * 0.25;
-
-      const cornersPdf: [number, number][] = [
-        [tx - uvx * descent, ty - uvy * descent],
-        [tx + ubx * runLen - uvx * descent, ty + uby * runLen - uvy * descent],
-        [tx + ubx * runLen + uvx * ascent, ty + uby * runLen + uvy * ascent],
-        [tx + uvx * ascent, ty + uvy * ascent],
-      ];
-
-      let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
-      for (const [cx, cy] of cornersPdf) {
-        const vpPt = viewport.convertToViewportPoint(cx, cy);
-        if (vpPt[0] < bx0) bx0 = vpPt[0];
-        if (vpPt[0] > bx1) bx1 = vpPt[0];
-        if (vpPt[1] < by0) by0 = vpPt[1];
-        if (vpPt[1] > by1) by1 = vpPt[1];
-      }
-
-      const pad = 2;
-      ctx.fillRect(
-        Math.floor(bx0) - pad,
-        Math.floor(by0) - pad,
-        Math.ceil(bx1 - bx0) + pad * 2,
-        Math.ceil(by1 - by0) + pad * 2
-      );
-    }
-
-    // Embed the redacted canvas back into the PDF.
-    // Размер страницы из viewport (учитывает /Rotate), а не getSize() —
-    // иначе на ротированных страницах маски смещаются с текста.
-    const imgBytes = await canvasToJpegBytes(canvas, 0.92);
-    const img = await resultPdf.embedJpg(imgBytes);
-    const pageW = viewport.width / renderScale;
-    const pageH = viewport.height / renderScale;
-    const newPage = resultPdf.addPage([pageW, pageH]);
-    newPage.drawImage(img, { x: 0, y: 0, width: pageW, height: pageH });
-    releaseCanvas(canvas);
-  }
-
-return resultPdf.save();
 }
 
 // ============================================================
@@ -2658,51 +3501,55 @@ export async function nUpPdf(
   const pdfjs = await loadPdfJs();
   const bytes = new Uint8Array(await file.arrayBuffer());
   const srcDoc = await pdfjs.getDocument({ data: bytes }).promise;
-  const pageCount = srcDoc.numPages;
-  if (pageCount === 0) throw new Error("The PDF has no pages.");
-  const dstDoc = await PDFDocument.create();
+  try {
+    const pageCount = srcDoc.numPages;
+    if (pageCount === 0) throw new Error("The PDF has no pages.");
+    const dstDoc = await PDFDocument.create();
 
-  const a4w = 595.28, a4h = 841.89;
-  const margin = 20;
-  const cols = n === 2 ? 1 : 2;
-  const rows = n === 2 ? 2 : 2;
-  const cellW = (a4w - margin * (cols + 1)) / cols;
-  const cellH = (a4h - margin * (rows + 1)) / rows;
+    const a4w = 595.28, a4h = 841.89;
+    const margin = 20;
+    const cols = n === 2 ? 1 : 2;
+    const rows = n === 2 ? 2 : 2;
+    const cellW = (a4w - margin * (cols + 1)) / cols;
+    const cellH = (a4h - margin * (rows + 1)) / rows;
 
-  for (let sheet = 0; sheet * n < pageCount; sheet++) {
-    onProgress?.(Math.round(((sheet * n) / pageCount) * 100));
-    const dstPage = dstDoc.addPage([a4w, a4h]);
+    for (let sheet = 0; sheet * n < pageCount; sheet++) {
+      onProgress?.(Math.round(((sheet * n) / pageCount) * 100));
+      const dstPage = dstDoc.addPage([a4w, a4h]);
 
-    for (let slot = 0; slot < n; slot++) {
-      const srcPageNum = sheet * n + slot + 1;
-      if (srcPageNum > pageCount) break;
+      for (let slot = 0; slot < n; slot++) {
+        const srcPageNum = sheet * n + slot + 1;
+        if (srcPageNum > pageCount) break;
 
-      const srcPage = await srcDoc.getPage(srcPageNum);
-      const vp = srcPage.getViewport({ scale: 1.5 });
-      const { canvas, ctx } = createRenderCanvas(vp.width, vp.height);
-      await srcPage.render({ canvasContext: ctx as CanvasRenderingContext2D, viewport: vp, canvas: canvas as HTMLCanvasElement }).promise;
+        const srcPage = await srcDoc.getPage(srcPageNum);
+        const vp = srcPage.getViewport({ scale: 1.5 });
+        const { canvas, ctx } = createRenderCanvas(vp.width, vp.height);
+        await srcPage.render({ canvasContext: ctx as CanvasRenderingContext2D, viewport: vp, canvas: canvas as HTMLCanvasElement }).promise;
 
-      const jpegBytes = await canvasToJpegBytes(canvas, 0.92);
-      const jpgImg = await dstDoc.embedJpg(jpegBytes);
-      releaseCanvas(canvas);
+        const jpegBytes = await canvasToJpegBytes(canvas, 0.92);
+        const jpgImg = await dstDoc.embedJpg(jpegBytes);
+        releaseCanvas(canvas);
 
-      const col = slot % cols;
-      const row = Math.floor(slot / cols);
-      const x = margin + col * (cellW + margin);
-      const y = a4h - margin - (row + 1) * (cellH + margin);
+        const col = slot % cols;
+        const row = Math.floor(slot / cols);
+        const x = margin + col * (cellW + margin);
+        const y = a4h - margin - (row + 1) * (cellH + margin);
 
-      const origW = vp.width / 1.5;
-      const origH = vp.height / 1.5;
-      const scale = Math.min(cellW / origW, cellH / origH);
-      const drawW = origW * scale;
-      const drawH = origH * scale;
-      const drawX = x + (cellW - drawW) / 2;
-      const drawY = y + (cellH - drawH) / 2;
+        const origW = vp.width / 1.5;
+        const origH = vp.height / 1.5;
+        const scale = Math.min(cellW / origW, cellH / origH);
+        const drawW = origW * scale;
+        const drawH = origH * scale;
+        const drawX = x + (cellW - drawW) / 2;
+        const drawY = y + (cellH - drawH) / 2;
 
-      dstPage.drawImage(jpgImg, { x: drawX, y: drawY, width: drawW, height: drawH });
+        dstPage.drawImage(jpgImg, { x: drawX, y: drawY, width: drawW, height: drawH });
+      }
     }
+    return dstDoc.save();
+  } finally {
+    srcDoc.destroy();
   }
-  return dstDoc.save();
 }
 
 // ============================================================
@@ -2796,37 +3643,41 @@ export async function overlayPdf(
   const overlayBytes = new Uint8Array(await overlayFile.arrayBuffer());
   const baseDoc = await PDFDocument.load(baseBytes, { ignoreEncryption: true });
   const overlayPdfDoc = await pdfjs.getDocument({ data: overlayBytes }).promise;
-  const basePages = baseDoc.getPages();
-  const overlayPageCount = overlayPdfDoc.numPages;
+  try {
+    const basePages = baseDoc.getPages();
+    const overlayPageCount = overlayPdfDoc.numPages;
 
-  for (let i = 0; i < basePages.length; i++) {
-    onProgress?.(Math.round(((i + 1) / basePages.length) * 100));
-    if (i % 3 === 0) await yieldToUI();
-    const overlayPageNum = (i % overlayPageCount) + 1;
-    const overlayPage = await overlayPdfDoc.getPage(overlayPageNum);
-    const vp = overlayPage.getViewport({ scale: 1.5 });
-    const canvas = document.createElement("canvas");
-    canvas.width = vp.width;
-    canvas.height = vp.height;
-    const ctx = canvas.getContext("2d")!;
-    await overlayPage.render({ canvasContext: ctx, viewport: vp, canvas }).promise;
+    for (let i = 0; i < basePages.length; i++) {
+      onProgress?.(Math.round(((i + 1) / basePages.length) * 100));
+      if (i % 3 === 0) await yieldToUI();
+      const overlayPageNum = (i % overlayPageCount) + 1;
+      const overlayPage = await overlayPdfDoc.getPage(overlayPageNum);
+      const vp = overlayPage.getViewport({ scale: 1.5 });
+      const canvas = document.createElement("canvas");
+      canvas.width = vp.width;
+      canvas.height = vp.height;
+      const ctx = canvas.getContext("2d")!;
+      await overlayPage.render({ canvasContext: ctx, viewport: vp, canvas }).promise;
 
-    const pngUrl = canvas.toDataURL("image/png");
-    const pngBytes = Uint8Array.from(atob(pngUrl.split(",")[1]), (c) => c.charCodeAt(0));
-    const pngImg = await baseDoc.embedPng(pngBytes);
+      const pngUrl = canvas.toDataURL("image/png");
+      const pngBytes = Uint8Array.from(atob(pngUrl.split(",")[1]), (c) => c.charCodeAt(0));
+      const pngImg = await baseDoc.embedPng(pngBytes);
 
-    const { width: bw, height: bh } = basePages[i].getSize();
-    const origW = vp.width / 1.5;
-    const origH = vp.height / 1.5;
-    const scale = Math.min(bw / origW, bh / origH);
-    const drawW = origW * scale;
-    const drawH = origH * scale;
-    const x = (bw - drawW) / 2;
-    const y = (bh - drawH) / 2;
+      const { width: bw, height: bh } = basePages[i].getSize();
+      const origW = vp.width / 1.5;
+      const origH = vp.height / 1.5;
+      const scale = Math.min(bw / origW, bh / origH);
+      const drawW = origW * scale;
+      const drawH = origH * scale;
+      const x = (bw - drawW) / 2;
+      const y = (bh - drawH) / 2;
 
-    basePages[i].drawImage(pngImg, { x, y, width: drawW, height: drawH, opacity });
+      basePages[i].drawImage(pngImg, { x, y, width: drawW, height: drawH, opacity });
+    }
+    return baseDoc.save();
+  } finally {
+    overlayPdfDoc.destroy();
   }
-  return baseDoc.save();
 }
 
 // ============================================================
@@ -2836,67 +3687,71 @@ export async function pdfToMarkdown(file: File): Promise<string> {
   const pdfjs = await loadPdfJs();
   const bytes = new Uint8Array(await file.arrayBuffer());
   const doc = await pdfjs.getDocument({ data: bytes }).promise;
-  const pages: string[] = [];
+  try {
+    const pages: string[] = [];
 
-  for (let i = 1; i <= doc.numPages; i++) {
-    const page = await doc.getPage(i);
-    const textContent = await page.getTextContent();
-    const items = textContent.items as any[];
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i);
+      const textContent = await page.getTextContent();
+      const items = textContent.items as any[];
 
-    if (items.length === 0) {
-      pages.push(`\n---\n*Page ${i}: [image/empty]*\n`);
-      continue;
-    }
+      if (items.length === 0) {
+        pages.push(`\n---\n*Page ${i}: [image/empty]*\n`);
+        continue;
+      }
 
-    const lines: { text: string; fontSize: number; y: number }[] = [];
-    let currentLine = "";
-    let lastY: number | null = null;
-    let currentFontSize = 12;
+      const lines: { text: string; fontSize: number; y: number }[] = [];
+      let currentLine = "";
+      let lastY: number | null = null;
+      let currentFontSize = 12;
 
-    for (const item of items) {
-      const text = item.str;
-      if (text === undefined || text === null) continue;
-      const fontSize = item.transform?.[0] || item.height || 12;
-      const y = item.transform?.[5] ?? 0;
+      for (const item of items) {
+        const text = item.str;
+        if (text === undefined || text === null) continue;
+        const fontSize = item.transform?.[0] || item.height || 12;
+        const y = item.transform?.[5] ?? 0;
 
-      if (lastY !== null && Math.abs(y - lastY) > 3) {
-        if (currentLine.trim()) {
-          lines.push({ text: currentLine.trim(), fontSize: currentFontSize, y: lastY });
+        if (lastY !== null && Math.abs(y - lastY) > 3) {
+          if (currentLine.trim()) {
+            lines.push({ text: currentLine.trim(), fontSize: currentFontSize, y: lastY });
+          }
+          currentLine = text;
+          currentFontSize = fontSize;
+        } else {
+          currentLine += text;
+          currentFontSize = Math.max(currentFontSize, fontSize);
         }
-        currentLine = text;
-        currentFontSize = fontSize;
-      } else {
-        currentLine += text;
-        currentFontSize = Math.max(currentFontSize, fontSize);
+        lastY = y;
       }
-      lastY = y;
-    }
-    if (currentLine.trim()) {
-      lines.push({ text: currentLine.trim(), fontSize: currentFontSize, y: lastY ?? 0 });
+      if (currentLine.trim()) {
+        lines.push({ text: currentLine.trim(), fontSize: currentFontSize, y: lastY ?? 0 });
+      }
+
+      let pageMd = `\n---\n\n## Page ${i}\n\n`;
+      let prevSize = 0;
+
+      for (const line of lines) {
+        const sizeRatio = line.fontSize / 12;
+        if (sizeRatio > 1.8) {
+          pageMd += `# ${line.text}\n\n`;
+        } else if (sizeRatio > 1.4) {
+          pageMd += `## ${line.text}\n\n`;
+        } else if (sizeRatio > 1.15) {
+          pageMd += `### ${line.text}\n\n`;
+        } else if (line.text.match(/^\s*[-•*]\s/)) {
+          pageMd += `${line.text.replace(/^[•*]\s/, "- ")}\n`;
+        } else {
+          pageMd += `${line.text}\n`;
+        }
+        prevSize = line.fontSize;
+      }
+      pages.push(pageMd);
     }
 
-    let pageMd = `\n---\n\n## Page ${i}\n\n`;
-    let prevSize = 0;
-
-    for (const line of lines) {
-      const sizeRatio = line.fontSize / 12;
-      if (sizeRatio > 1.8) {
-        pageMd += `# ${line.text}\n\n`;
-      } else if (sizeRatio > 1.4) {
-        pageMd += `## ${line.text}\n\n`;
-      } else if (sizeRatio > 1.15) {
-        pageMd += `### ${line.text}\n\n`;
-      } else if (line.text.match(/^\s*[-•*]\s/)) {
-        pageMd += `${line.text.replace(/^[•*]\s/, "- ")}\n`;
-      } else {
-        pageMd += `${line.text}\n`;
-      }
-      prevSize = line.fontSize;
-    }
-    pages.push(pageMd);
+    return pages.join("\n");
+  } finally {
+    doc.destroy();
   }
-
-  return pages.join("\n");
 }
 
 // ============================================================
@@ -2943,58 +3798,63 @@ export async function pdfDiff(
   const bytes2 = new Uint8Array(await file2.arrayBuffer());
   const doc1 = await pdfjs.getDocument({ data: bytes1 }).promise;
   const doc2 = await pdfjs.getDocument({ data: bytes2 }).promise;
-  const { PDFDocument, rgb } = await import("pdf-lib");
-  const maxPages = Math.max(doc1.numPages, doc2.numPages);
-  const srcBytes = await file1.arrayBuffer();
-  const dstDoc = await PDFDocument.load(srcBytes, { ignoreEncryption: true });
+  try {
+    const { PDFDocument, rgb } = await import("pdf-lib");
+    const maxPages = Math.max(doc1.numPages, doc2.numPages);
+    const srcBytes = await file1.arrayBuffer();
+    const dstDoc = await PDFDocument.load(srcBytes, { ignoreEncryption: true });
 
-  for (let i = 1; i <= Math.min(doc1.numPages, doc2.numPages); i++) {
-    onProgress?.(Math.round((i / maxPages) * 80));
-    const text1 = await (await doc1.getPage(i)).getTextContent();
-    const text2 = await (await doc2.getPage(i)).getTextContent();
-    const str1 = text1.items.map((it: any) => it.str).join("");
-    const str2 = text2.items.map((it: any) => it.str).join("");
+    for (let i = 1; i <= Math.min(doc1.numPages, doc2.numPages); i++) {
+      onProgress?.(Math.round((i / maxPages) * 80));
+      const text1 = await (await doc1.getPage(i)).getTextContent();
+      const text2 = await (await doc2.getPage(i)).getTextContent();
+      const str1 = text1.items.map((it: any) => it.str).join("");
+      const str2 = text2.items.map((it: any) => it.str).join("");
 
-    if (str1 !== str2) {
-      const pdfPage = dstDoc.getPages()[i - 1];
-      const { width, height } = pdfPage.getSize();
-      pdfPage.drawRectangle({
-        x: 0,
-        y: height - 20,
-        width,
-        height: 20,
-        color: rgb(1, 0.85, 0.85),
-        opacity: 0.5,
+      if (str1 !== str2) {
+        const pdfPage = dstDoc.getPages()[i - 1];
+        const { width, height } = pdfPage.getSize();
+        pdfPage.drawRectangle({
+          x: 0,
+          y: height - 20,
+          width,
+          height: 20,
+          color: rgb(1, 0.85, 0.85),
+          opacity: 0.5,
+        });
+      }
+    }
+
+    // dstDoc was loaded from file1, so it only has doc1's pages. Pages that
+    // exist only in file2 must be copied in, otherwise additions are silently
+    // dropped from the diff output.
+    if (doc2.numPages > doc1.numPages) {
+      const file2Doc = await PDFDocument.load(bytes2, { ignoreEncryption: true });
+      const extraIndices = Array.from(
+        { length: doc2.numPages - doc1.numPages },
+        (_, k) => doc1.numPages + k
+      );
+      const copied = await dstDoc.copyPages(file2Doc, extraIndices);
+      copied.forEach((p, k) => {
+        onProgress?.(80 + Math.round(((k + 1) / copied.length) * 20));
+        dstDoc.addPage(p);
+        const { width, height } = p.getSize();
+        p.drawRectangle({
+          x: 0,
+          y: height - 30,
+          width,
+          height: 30,
+          color: rgb(0.85, 0.85, 1),
+          opacity: 0.5,
+        });
       });
     }
-  }
 
-  // dstDoc was loaded from file1, so it only has doc1's pages. Pages that
-  // exist only in file2 must be copied in, otherwise additions are silently
-  // dropped from the diff output.
-  if (doc2.numPages > doc1.numPages) {
-    const file2Doc = await PDFDocument.load(bytes2, { ignoreEncryption: true });
-    const extraIndices = Array.from(
-      { length: doc2.numPages - doc1.numPages },
-      (_, k) => doc1.numPages + k
-    );
-    const copied = await dstDoc.copyPages(file2Doc, extraIndices);
-    copied.forEach((p, k) => {
-      onProgress?.(80 + Math.round(((k + 1) / copied.length) * 20));
-      dstDoc.addPage(p);
-      const { width, height } = p.getSize();
-      p.drawRectangle({
-        x: 0,
-        y: height - 30,
-        width,
-        height: 30,
-        color: rgb(0.85, 0.85, 1),
-        opacity: 0.5,
-      });
-    });
+    return dstDoc.save();
+  } finally {
+    doc1.destroy();
+    doc2.destroy();
   }
-
-  return dstDoc.save();
 }
 
 // ============================================================

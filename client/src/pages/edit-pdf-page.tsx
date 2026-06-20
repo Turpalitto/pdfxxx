@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import {
-  MousePointer2, Type, Pencil, Image as ImageIcon, PenLine,
+  MousePointer2, Type, TextCursorInput, Pencil, Image as ImageIcon, PenLine,
   Square, Circle, Minus, Highlighter, Eraser, Undo2, Redo2,
   ZoomIn, ZoomOut, Maximize2, Download, ArrowLeft, ChevronLeft, ChevronRight,
   Upload, Loader2, ArrowRight, Search, ChevronUp, ChevronDown, Copy, ClipboardPaste, Trash2, ChevronsUp, ChevronsDown,
@@ -26,7 +26,7 @@ import {
   extractTextLines, findNearestTextLine,
   getHighlightPadding, clampHighlightX,
   resolveHighlightEndLine, resolveTextInsertionStyle,
-  buildHighlightRectMetrics,
+  buildHighlightRectMetrics, buildLineEditSeed,
 } from "@/lib/edit-pdf-utils";
 import { useFindReplace } from "@/hooks/use-find-replace";
 import { useEditorHistory } from "@/hooks/use-editor-history";
@@ -104,6 +104,7 @@ export default function EditPdfPage() {
   const draftObjectRef = useRef<any>(null);
   const draftStartRef = useRef<{ x: number; y: number } | null>(null);
   const draftLineRef = useRef<TextLineMetric | null>(null);
+  const hoverLineRectRef = useRef<any>(null);
   const activeTextEditorRef = useRef<ActiveTextEditor | null>(null);
   const syncToolbarFromObjectRef = useRef<(obj: any) => void>(() => {});
 
@@ -119,6 +120,7 @@ export default function EditPdfPage() {
     tools: {
       select: isRu ? "Выбор" : "Select",
       text: isRu ? "Текст" : "Text",
+      editText: isRu ? "Редактировать текст" : "Edit text",
       draw: isRu ? "Рисование" : "Draw",
       image: isRu ? "Изображение" : "Image",
       sign: isRu ? "Подпись" : "Signature",
@@ -316,6 +318,69 @@ export default function EditPdfPage() {
     });
   }, [getTextMeasureContext, setActiveTextEditor]);
 
+  // Правка существующего текста PDF на месте: маскируем оригинальную строку
+  // белым прямоугольником и открываем редактор, заполненный текстом/шрифтом
+  // строки. При коммите остаётся «маска + заменяющий Textbox» — браузерный
+  // аналог редактирования текста как в Stirling-PDF.
+  const beginLineTextEditor = useCallback(async (pageNumber: number, line: TextLineMetric) => {
+    if (!fabricRef.current) return;
+    if (hoverLineRectRef.current) {
+      suppressHistoryRef.current = true;
+      try { fabricRef.current.remove(hoverLineRectRef.current); } catch {}
+      suppressHistoryRef.current = false;
+      hoverLineRectRef.current = null;
+    }
+    const seed = buildLineEditSeed(line);
+    const { Rect } = await import("fabric");
+    const mask = new Rect({
+      left: seed.mask.left,
+      top: seed.mask.top,
+      width: seed.mask.width,
+      height: seed.mask.height,
+      fill: "#ffffff",
+      stroke: "transparent",
+      selectable: false,
+      evented: false,
+    });
+    (mask as any).data = { pdfxReplacement: true };
+    fabricRef.current.add(mask);
+    fabricRef.current.requestRenderAll?.();
+
+    const ctx = getTextMeasureContext();
+    const textMetrics = ctx
+      ? measureEditorTextMetrics(ctx, {
+          fontFamily: seed.fontFamily,
+          fontSize: seed.fontSize,
+          fontWeight: seed.fontWeight,
+          fontStyle: seed.fontStyle,
+        }, line.height)
+      : { lineHeight: Math.max(Math.round(seed.fontSize * 1.1), line.height, 18), baselineFromTop: seed.fontSize * 0.82 };
+    const lineHeight = textMetrics.lineHeight;
+    const top = seed.baselineY - textMetrics.baselineFromTop;
+
+    setActiveTextEditor({
+      pageNumber,
+      left: seed.left,
+      top,
+      baselineY: seed.baselineY,
+      width: Math.min(Math.max(line.right - line.left, seed.fontSize * 0.9, 18), seed.maxWidth),
+      maxWidth: seed.maxWidth,
+      minHeight: lineHeight,
+      lineHeight,
+      fontFamily: seed.fontFamily,
+      fontSize: seed.fontSize,
+      fontWeight: seed.fontWeight,
+      fontStyle: seed.fontStyle,
+      underline: false,
+      textAlign: "left",
+      color: fontColorRef.current,
+      backgroundColor: "transparent",
+      text: seed.text,
+      sourceObject: null,
+      maskObject: mask,
+    });
+  }, [getTextMeasureContext]);
+
   // Коммит текста в страницу, которая сейчас НЕ на canvas (editor.pageNumber !==
   // currentPage). Загружаем сохранённый JSON этой страницы в offscreen StaticCanvas,
   // добавляем Textbox, сериализуем обратно в pageStatesRef. Так текст не теряется
@@ -479,6 +544,11 @@ export default function EditPdfPage() {
 
   const cancelTextEditor = useCallback(() => {
     const editor = activeTextEditorRef.current;
+    if (editor?.maskObject && fabricRef.current) {
+      // Edit was abandoned — drop the mask so the original PDF text shows again.
+      try { fabricRef.current.remove(editor.maskObject); } catch {}
+      fabricRef.current.requestRenderAll?.();
+    }
     if (editor?.sourceObject) {
       editor.sourceObject.set({
         visible: true,
@@ -749,6 +819,20 @@ export default function EditPdfPage() {
       if (!pointer) return;
       const currentLines = pageTextLinesRef.current.get(pageNumber) || [];
 
+      if (activeToolRef.current === "edit-text") {
+        if (opt.target && isEditableTextObject(opt.target)) {
+          openTextObjectEditor(pageNumber, opt.target);
+          return;
+        }
+        const line = findNearestTextLine(currentLines, pointer.x, pointer.y, 28);
+        if (line) {
+          fc.discardActiveObject?.();
+          fc.requestRenderAll?.();
+          void beginLineTextEditor(pageNumber, line);
+        }
+        return;
+      }
+
       if (activeToolRef.current === "text") {
         if (opt.target && isEditableTextObject(opt.target)) {
           openTextObjectEditor(pageNumber, opt.target);
@@ -866,6 +950,59 @@ export default function EditPdfPage() {
       }
     });
     fc.on("mouse:move", (opt: any) => {
+      // Hover outline over the nearest PDF text line while the edit-text tool is
+      // active, so the user sees which line a click will edit.
+      // The hover outline is transient UI: suppress history and exclude it from
+      // export so it never lands in undo stack, unsaved flag, or the saved PDF.
+      const removeHoverRect = () => {
+        if (!hoverLineRectRef.current) return;
+        suppressHistoryRef.current = true;
+        try { fc.remove(hoverLineRectRef.current); } catch {}
+        suppressHistoryRef.current = false;
+        hoverLineRectRef.current = null;
+        fc.requestRenderAll?.();
+      };
+
+      if (activeToolRef.current === "edit-text" && !draftObjectRef.current) {
+        const movePointer = opt.scenePoint ?? fc.getScenePoint?.(opt.e);
+        const lines = pageTextLinesRef.current.get(pageNumber) || [];
+        const hovered = movePointer ? findNearestTextLine(lines, movePointer.x, movePointer.y, 28) : null;
+        if (hovered) {
+          const pad = Math.max(2, hovered.fontSize * 0.15);
+          if (!hoverLineRectRef.current) {
+            const rect = new Rect({
+              left: hovered.left - pad,
+              top: hovered.top - pad,
+              width: hovered.right - hovered.left + pad * 2,
+              height: hovered.height + pad * 2,
+              fill: "rgba(99,102,241,0.10)",
+              stroke: "rgba(99,102,241,0.7)",
+              strokeWidth: 1,
+              selectable: false,
+              evented: false,
+              excludeFromExport: true,
+            });
+            (rect as any).data = { pdfxHoverOutline: true };
+            hoverLineRectRef.current = rect;
+            suppressHistoryRef.current = true;
+            fc.add(rect);
+            suppressHistoryRef.current = false;
+          } else {
+            hoverLineRectRef.current.set({
+              left: hovered.left - pad,
+              top: hovered.top - pad,
+              width: hovered.right - hovered.left + pad * 2,
+              height: hovered.height + pad * 2,
+            });
+          }
+          fc.requestRenderAll?.();
+        } else {
+          removeHoverRect();
+        }
+      } else {
+        removeHoverRect();
+      }
+
       if (!draftStartRef.current || !draftObjectRef.current) return;
       const pointer = opt.scenePoint ?? fc.getScenePoint?.(opt.e);
       if (!pointer) return;
@@ -975,6 +1112,14 @@ export default function EditPdfPage() {
 
       draftObjectRef.current.setCoords?.();
       fc.renderAll();
+    });
+    fc.on("mouse:out", () => {
+      if (!hoverLineRectRef.current) return;
+      suppressHistoryRef.current = true;
+      try { fc.remove(hoverLineRectRef.current); } catch {}
+      suppressHistoryRef.current = false;
+      hoverLineRectRef.current = null;
+      fc.requestRenderAll?.();
     });
     fc.on("mouse:up", () => {
       const draft = draftObjectRef.current;
@@ -1783,6 +1928,7 @@ export default function EditPdfPage() {
   const toolButtons: { id: ToolType; icon: any; label: string }[] = [
     { id: "select", icon: MousePointer2, label: t.tools.select },
     { id: "text", icon: Type, label: t.tools.text },
+    { id: "edit-text", icon: TextCursorInput, label: t.tools.editText },
     { id: "draw", icon: Pencil, label: t.tools.draw },
     { id: "image", icon: ImageIcon, label: t.tools.image },
     { id: "sign", icon: PenLine, label: t.tools.sign },
@@ -2049,7 +2195,7 @@ export default function EditPdfPage() {
               </div>
             )}
 
-            {(activeTool === "text" || selectionToolContext === "text") && (
+            {(activeTool === "text" || activeTool === "edit-text" || selectionToolContext === "text") && (
               <div className="ml-2 flex items-center gap-2 rounded-lg bg-white/5 px-2 py-1">
                 <span className="text-[10px] uppercase tracking-wide text-slate-400">
                   {isRu ? "Шрифт" : "Font"}
@@ -2394,7 +2540,7 @@ export default function EditPdfPage() {
             <div className="flex items-start justify-center min-h-full p-3 md:p-6">
               <div
                 className="relative shadow-2xl"
-                style={{ width: canvasW, height: canvasH, cursor: activeTool === "text" || activeTool === "rect" || activeTool === "circle" || activeTool === "line" || activeTool === "highlight" ? "crosshair" : undefined }}
+                style={{ width: canvasW, height: canvasH, cursor: activeTool === "text" || activeTool === "edit-text" || activeTool === "rect" || activeTool === "circle" || activeTool === "line" || activeTool === "highlight" ? "crosshair" : undefined }}
               >
                 <canvas
                   ref={pdfCanvasRef}

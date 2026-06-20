@@ -1,5 +1,6 @@
 export const loadHomePage = () => import("@/pages/home");
 export const loadToolPage = () => import("@/pages/tool-page");
+export const loadWorkflowPage = () => import("@/pages/workflow-page");
 export const loadEditPdfPage = () => import("@/pages/edit-pdf-page");
 export const loadPricingPage = () => import("@/pages/pricing");
 export const loadPrivacyPage = () => import("@/pages/privacy");
@@ -20,6 +21,7 @@ export function warmPrimaryRoutes() {
   return Promise.allSettled([
     loadHomePage(),
     loadToolPage(),
+    loadWorkflowPage(),
     loadPricingPage(),
     loadPrivacyPage(),
     loadTermsPage(),

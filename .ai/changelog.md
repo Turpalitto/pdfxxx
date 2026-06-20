@@ -4,6 +4,190 @@
 
 ---
 
+## 2026-06-18 — SEO + bates-numbering инструмент
+
+### SEO для 12 языков
+- **sitemap.xml** (`server/routes.ts`): `LANG_CODES` расширен с 2 до 12 (en/ru/es/fr/de/pt/zh/ja/ko/ar/hi/tr), `TOOL_SLUGS` синхронизирован с полным каталогом (~57 slug). hreflang `<xhtml:link>` для каждого языка + x-default.
+- **home.tsx**: `useSeo` теперь использует `t.hero.headline*` и `t.hero.sub` из i18n вместо hardcoded en/ru — title/description на всех 12 языках.
+- **hreflang** в `use-seo.ts` уже работал динамически через `LANGUAGES.map` — автоматически covers 12 языков.
+
+### Новый инструмент: bates-numbering
+- **`tools.ts`**: slug `bates-numbering`, category `utility`, color `slate`, иконка `ClipboardList`
+- **`pdf-utils.ts`**: `batesNumbering(file, options)` — prefix + zero-padded number + suffix, 5 позиций, настраиваемые digits/fontSize/margin/color/opacity
+- **`tool-page.tsx`**: state (batesPrefix/Start/Digits/Suffix/Position/FontSize), switch case, UI блок с превью, deps array
+- **`tool-translations.ts`**: переводы для en/ru/es/fr/de/pt/zh/ja/ko/ar/hi/tr (10 новых языков)
+- **`server/routes.ts`**: bates-numbering добавлен в TOOL_SLUGS
+- **Тесты**: 2 новых, всего 70/70
+
+### Проверка
+- tsc 0 · vitest 70/70 · build OK
+
+### edit-pdf декомпозиция
+- Phase 1-4 уже выполнены (типы, утилиты, use-find-replace, use-editor-history, use-editor-signature, use-editor-save). Phase 5 (дальнейшая декомпозиция хуков с 10+ параметрами) — выигрыш мал, оставлено. Файл 2733 строк (вырос из-за новых фич).
+
+---
+
+## 2026-06-18 — Feature #2 Phase C+: pdf-to-word улучшения
+
+### Зачем
+Phase C добавил цвет и сканы, но конверсия на реальных PDF страдала от: фиксированного A4-размера, отсутствия отступов между параграфами, потери шрифтов.
+
+### Что сделано
+- **`<w:pgSz>` из PDF**: размер страницы берётся из первой PDF-страницы вместо фиксированного A4 (11906×16838)
+- **`<w:spacing>`**: заголовки — `w:before="240" w:after="120"`, обычные — `w:after="120"`
+- **`<w:rFonts>`**: fontFamily из pdfjs-стилей передаётся в Word-шрифты (`w:ascii`, `w:hAnsi`, `w:cs`)
+- **Smart scan detection**: вместо порога `< 3 строки` — оценка плотности текста (`textDensity < 0.02` или `< 3 строк`)
+- **`fontFamily`** в `PdfLayoutItem` и `StyledRun`, grouping по fontFamily в `itemsToStyledRuns`
+
+### Проверка
+- tsc 0 · vitest 68/68 · build OK
+
+## 2026-06-17 — Feature #6 (OCR) + #4 (языки) + #2 Phase C (цвет + сканы в Word)
+
+### #6 OCR: адаптивный масштаб + мультиязычный UI
+- **`ocrRenderScale()`** в `pdf-utils.ts`: адаптивный масштаб вместо фиксированного `scale=2` — целевой long side 1800px, clamped в `[0.5, 3]`
+- **tool-page.tsx**: `ocrLanguage` → `ocrLanguages` (массив), 16 языков (ukr, pol, nld, tur, ces, chi_sim, jpn, kor добавлены), чекбоксы вместо селекта
+
+### #4 Языки: 10 новых в LANGUAGES
+- `es, fr, de, pt, zh, ja, ko, ar, hi, tr` добавлены в `LANGUAGES` (i18n.ts)
+- RTL для арабского (`RTL_LANGS = new Set(["ar"])`)
+- Переводы hero/nav + tool-translations уже были полные для 18 языков
+
+### #2 Phase C: цвет текста + сканы в pdf-to-word
+- **`PdfLayoutItem`** и **`StyledRun`**: добавлено опциональное поле `color` (hex, без `#`)
+- **`extractPageColors()`**: парсинг `getOperatorList()` — отслеживает fill color (RGB/Gray/CMYK) перед текстовыми операторами. Цвет подставляется в соответствующий text item через rawIdx.
+- **`fillColorToHex()`**: конвертация RGB/Gray/CMYK → hex, пропуск чёрного и белого
+- **`itemsToStyledRuns()`**: runs сгруппированы ещё и по цвету; цвет передаётся в `lineToParagraphXml`
+- **`lineToParagraphXml()`**: `<w:color w:val="..."/>` в `<w:rPr>` для цветного текста
+- **`cellsWithX()`** + **`LineCell`**: доминантный цвет ячейки (по частоте среди items)
+- **`tableRegionToXml()`**: `<w:rPr><w:color w:val="..."/></w:rPr>` в ячейках таблиц
+- **Отсканированные страницы**: если на странице <3 строк текста, рендерим страницу через `renderPageToPng()` → PNG → `<w:drawing>` (inline-изображение) с правильными размерами EMU. Изображения укладываются в `word/media/` + релсы в `document.xml.rels`
+- **`document.xml`**: добавлены namespaces `a:`, `pic:` для DrawingML
+- **`[Content_Types].xml`**: `<Default Extension="png" .../>`
+- **Тесты**: `fillColorToHex`, `dominantString`, `ocrRenderScale` — 12 новых, всего 68/68
+- tsc 0 · vitest 68/68 · build OK
+
+## 2026-06-17 — Feature #6 (OCR improvements): адаптивный масштаб + мультиязычный UI
+
+### Зачем
+OCR работал с фиксированным `scale=2` — мелкий текст мог не распознаваться, а большие страницы обрабатывались избыточно долго. Выбор языка был ограничен одним выпадающим списком из 8 языков.
+
+### Что сделано
+- **`ocrRenderScale()`** (`pdf-utils.ts`): адаптивный масштаб — `targetLongSide / max(w,h)`, clamped в `[0.5, 3]`. Для A4 (~612×792) scale ≈ 2.27, для A0 — ≈ 0.74. Убрана жёсткая константа `scale = 2`.
+- **Мультиязычный UI** (`tool-page.tsx`): `ocrLanguage` → `ocrLanguages` (массив), `toggleOcrLanguage()`, список из 16 языков (добавлены ukr, pol, nld, tur, ces, chi_sim, jpn, kor). Чекбоксы (grid 2 cols) вместо `<Select>`. В `ocrPdf` передаётся `ocrLanguages.join("+")`.
+- **Импорт Checkbox** добавлен.
+
+### Проверка
+- `npx tsc --noEmit` → 0 ошибок
+- `npx vitest run` → 56/56 passed
+- `npm run build` → OK
+
+---
+
+## 2026-06-12 — Feature #2 (Phase B): Детекция таблиц → Word `w:tbl`
+
+### Зачем
+Продолжение #2. После Phase A (типографика/выравнивание) табличные данные в `pdf-to-word` всё ещё шли плоским текстом с пробелами. Phase B превращает выровненные колонки в настоящие таблицы Word.
+
+### Что сделано (`pdf-utils.ts`, browser-only, без новых пакетов)
+- **`detectTableRegions(cellsPerLine, tolerance)`** — новый чистый экспортируемый детектор. Консервативно: таблица = ≥2 **подряд идущих** строк, каждая с ≥2 ячейками, дающих ≥2 кластеризованных колонки (`clusterColumns`). Нетабличная строка (одна ячейка) разрывает регион. Читает только `x` и число ячеек — легко тестируется.
+- **`pdfToWord`**: для каждой страницы строит `cellsPerLine = lines.map(cellsWithX)`, находит регионы, эмитит их через **`tableRegionToXml`** как `<w:tbl>` с границами (`tblBorders`), `tblGrid` и `tr/tc` (ячейки раскладываются по общим колонкам через `assignToColumn`). Остальные строки идут прежним путём Phase A (`lineToParagraphXml`). После таблицы вставляется `<w:p/>` (требование Word).
+- **`pdfToExcel`** не трогался — он уже выравнивал колонки в Phase A.
+
+### Защиты от ложных таблиц
+- Требуется ≥2 строки И ≥2 колонки И смежность строк — проза (одноколоночные строки) и одиночные «таблицы» не срабатывают (покрыто тестами).
+
+### Проверка
+- `npx tsc --noEmit` → 0 ошибок
+- **vitest 56/56** (+4 теста на `detectTableRegions`: таблица / проза / одна строка / разрыв)
+- `npx vite build` → успешно
+- ⚠️ Визуальная проверка таблиц на реальных PDF (границы, разбиение по колонкам) — ручной шаг
+- Phase C (картинки, цвет текста) — следующая сессия
+
+---
+
+## 2026-06-12 — Feature #2 (Phase A): Fidelity pdf-to-word / pdf-to-excel
+
+### Зачем
+Roadmap-пункт #2 «переплюнуть iLovePDF» — главный платный фичар конкурента. До этого `pdfToWord` выдавал плоский однородный 11pt-текст (без размеров шрифта, жирного/курсива, выравнивания, таблиц), а `pdfToExcel` резал каждую строку на ячейки независимо → колонки не выравнивались между строками. Фаза A закрывает типографику и выравнивание (без таблиц/картинок — это фазы B/C).
+
+### Что сделано (`pdf-utils.ts`, browser-only, без новых пакетов)
+- **`extractPdfLayout` обогащён** (общий для word/excel/text/html/markdown — изменения аддитивны):
+  - `PdfLayoutItem` += `fontSize` (из `Math.hypot(transform[2], transform[3])`), `bold`/`italic` (`detectFontStyle` по имени шрифта + `content.styles[fontName].fontFamily`).
+  - `PdfLayoutPage` += `width`/`height` (scale-1 viewport, в точках) для выравнивания.
+  - `PdfLayoutLine` += `fontSize` (доминирующий), `bold` (>60% символов), `alignment` (`lineAlignment` по полям bbox vs ширина страницы).
+- **`pdfToWord` переписан**: размер шрифта → `w:sz` (полупункты), заголовки (строки ≥1.3× медианного размера → bold), runs сгруппированы по стилю (`itemsToStyledRuns`: bold/italic/size, с сохранением межколоночных пробелов), выравнивание абзаца → `w:jc`.
+- **`pdfToExcel` переписан**: x-границы ячеек по всей странице кластеризуются в общие колонки (`clusterColumns`), каждая ячейка раскладывается в ближайшую колонку (`assignToColumn`) → таблицы выравниваются между строками; проза остаётся одной колонкой.
+- **DRY**: `cellsFromLine` переведена на делегирование к новой `cellsWithX` (общая gap-эвристика, без дублирования). *Примечание: `cellsFromLine` теперь без активных вызовов — оставлена (не удаляю функции без подтверждения владельца), кандидат на удаление.*
+- Новые чистые экспортируемые хелперы: `detectFontStyle`, `lineAlignment`, `clusterColumns`, `assignToColumn` (+ тип `PdfTextAlignment`, `StyledRun`).
+
+### Проверка
+- `npx tsc --noEmit` → 0 ошибок
+- **vitest 52/52** (было 39, +13 юнит-тестов на новые хелперы)
+- `npx vite build` → успешно
+- ⚠️ Визуальная проверка качества Word/Excel на реальных документах (заголовки/выравнивание/колонки) — ручной шаг
+- Фазы B (детекция таблиц → `w:tbl`) и C (картинки) — отложены на следующие сессии
+
+---
+
+## 2026-06-12 — Feature #3: Workflow-цепочки (vs iLovePDF)
+
+### Зачем
+Roadmap-пункт #3 «переплюнуть iLovePDF». Уникальная фича удержания: связать несколько PDF-операций в один проход (например merge → compress → watermark) без повторной загрузки/скачивания между шагами. У iLovePDF цепочки есть только в платном Desktop; PDFX делает это 100% в браузере.
+
+### Что сделано (всё browser-only, без новых пакетов)
+- **`client/src/lib/workflow-engine.ts`** (новый) — движок цепочек:
+  - Реестр `WORKFLOW_STEPS` из 14 сцепляемых PDF→PDF шагов: compress, watermark, page-numbers, rotate, header-footer, grayscale, scanner, invert, remove-blank, remove-images, flatten, sanitize, repair, protect. Каждый шаг — типизированные опции (`select`/`text`/`password`/`range`) с дефолтами + `run(file, opts)`, оборачивающий существующую функцию `pdf-utils` (логика не дублируется).
+  - `bytesToFile()` адаптер: выход шага (`Uint8Array`) → `File` на вход следующего.
+  - `runWorkflow(files, items, onProgress)`: при >1 файле неявно делает `mergePdfs` первым шагом, затем последовательно прогоняет пайплайн, отдавая статус каждого шага (`pending`/`running`/`done`/`error`); бросает при первой ошибке шага с её сообщением.
+  - 4 готовых пресета (`WORKFLOW_PRESETS`): send-ready, print-ready, scan-cleanup, anonymize.
+- **`client/src/pages/workflow-page.tsx`** (новый) — конструктор цепочки: `FileUpload` (multiple), палитра «добавить шаг», упорядоченный список пайплайна с up/down/remove + инлайн-опции, пресеты в один клик, кнопка Run с прогрессом по шагам, метрика размера (вход→выход, −%) и скачивание результата. EN+RU инлайн, `useSeo`, только существующая палитра/классы.
+- **Маршрут** `/workflow` (lazy) в `App.tsx` + `route-preload.ts` (`loadWorkflowPage`, добавлен в `warmPrimaryRoutes`).
+- **Точка входа**: ссылка «Workflow/Цепочки» в `navbar.tsx` (desktop + mobile).
+- ADR-011 добавлен в `.ai/decisions.md`.
+
+### Проверка
+- `npx tsc --noEmit` → 0 ошибок
+- `npx vite build` → успешно (`workflow-page` — отдельный lazy-чанк 20.35 kB / gzip 6.70 kB)
+- **E2E** `tests/e2e/workflow.spec.ts` (Playwright): рендер конструктора + добавление шагов в пайплайн из палитры + Run заблокирован без файла — 2/2 на chromium-desktop и mobile-chrome (4/4). Добавлены `data-testid`: `workflow-pipeline`, `workflow-run`, `workflow-add-{id}`.
+- ⚠️ Полный прогон цепочки с реальным PDF (merge→compress→watermark, проверка выходного файла) — остаётся ручным шагом
+
+---
+
+## 2026-06-12 — Feature: реальное сжатие в Compress PDF (vs iLovePDF)
+
+### Зачем
+До этого `compressPdf` делал только структурную оптимизацию pdf-lib (object streams) — картинки не трогались, поэтому на фото/сканах выигрыш был почти нулевой. iLovePDF на тех же файлах даёт −60…80% за счёт пережатия изображений. Это закрывает главный разрыв в ежедневном инструменте.
+
+### Что сделано (`pdf-utils.ts`, всё browser-only, без новых пакетов)
+- **Smart-режим (level low/medium)** — `recompressEmbeddedImages()`: проходит по всем image-XObject'ам через `context.enumerateIndirectObjects()`, находит одиночные JPEG (`/Filter /DCTDecode`), декодирует через `createImageBitmap`, даунсемплит до maxDim по длинной стороне и пережимает с пониженным quality, заменяет поток через `PDFRawStream.of` + `context.assign`. **Текст и вектор не трогаются.** Параметры: low = 2200px/0.82, medium = 1600px/0.62.
+- **Rasterize-режим (level high)** — `rasterizeToCompressedPdf()`: каждая страница рендерится pdfjs в canvas (scale 1.5, кламп площади 25МП) → JPEG q0.6 → новый PDF (картинка на лист в размере страницы в точках). Максимальное сжатие на любом PDF; текст становится картинкой. При ошибке — структурный фолбэк.
+- **Защиты от регрессий**: пропуск картинок <8КБ; пропуск с `/SMask /Mask /ImageMask /Decode` (прозрачность/кастомный decode); `jpegComponentCount()` парсит SOF-маркер и пропускает CMYK (4 компонента) — иначе Adobe-CMYK инвертируется браузером; замена только если результат реально меньше; общий guard «не больше оригинала».
+
+### Проверка
+- `npx tsc --noEmit` → 0 ошибок
+- `npx vite build` → успешно
+- ⚠️ Интерактивный тест в браузере на фото-тяжёлом PDF — остаётся ручным шагом
+
+---
+
+## 2026-06-11 — Bugfix round: HIGH+MED+ALL priorities
+
+### HIGH (user-confirmed, fixed)
+- **sanitizePdf**: Added JS/tracking removal — deletes /OpenAction, /AA, /URI from catalog, removes Names.JavaScript and Names.EmbeddedFiles, removes per-page /AA and /JS actions; also clears creation/modification dates (epoch 0)
+- **autoRedactPdf**: Fixed split-PII bug — sliding window groups 1–3 adjacent text items so SSNs/IBANs/phones torn across pdfjs text items are now caught; improved regex patterns: SSN allows spaces/no-separator (\d{3}[-\s]?\d{2}[-\s]?\d{4}), IBAN is now case-insensitive; fixed pdfjs srcDoc memory leak (try/finally destroy)
+- **splitByChapters**: Fixed pdfjs viewDoc memory leak (try/finally destroy)
+
+### MED
+- **convertToPdfA**: Removed dead code — registerFontkit + empty getSize() loop (no functional change)
+- **pdfDiff**: Fixed doc1/doc2 pdfjs memory leaks (try/finally destroy)
+- **pdfjs memory leaks**: Added try/finally + .destroy() in 10 functions: invertColors, scannerEffect, cropPdf, comparePdf, removeBlankPages, grayscalePdf, pdfBookmarks, nUpPdf, overlayPdf, pdfToMarkdown
+
+### tool-page.tsx
+- **split-by-chapters download**: Fixed — checks magic bytes (0x50 0x4B) to distinguish PDF vs ZIP; single-chapter result now downloads as .pdf instead of .zip
+
+---
+
 ## [2026-06-07] — Фикс: пробел в инлайн-редакторе текста (edit-pdf)
 
 ### Исправлен баг

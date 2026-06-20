@@ -388,6 +388,17 @@ export const tools: Tool[] = [
     outputExt: "pdf",
   },
   {
+    slug: "bates-numbering",
+    name: "Bates Numbering",
+    description: "Stamp sequential Bates identifiers (e.g. CASE-000001) on every page for legal documents.",
+    icon: ClipboardList,
+    emoji: "🔢",
+    category: "utility",
+    color: "slate",
+    accept: ".pdf",
+    outputExt: "pdf",
+  },
+  {
     slug: "edit-pdf",
     name: "Edit PDF",
     description: "Add text, images, drawings and signatures to PDF pages directly in your browser.",

@@ -509,6 +509,47 @@ export function resolveTextInsertionStyle(
   };
 }
 
+export interface LineEditSeed {
+  text: string;
+  left: number;
+  top: number;
+  baselineY: number;
+  maxWidth: number;
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: "normal" | "bold";
+  fontStyle: "normal" | "italic";
+  mask: { left: number; top: number; width: number; height: number };
+}
+
+// Derives everything needed to edit an existing PDF text line in place: the
+// normalized editor seed (text/font/coords) plus the white-mask rect that hides
+// the original glyphs. Shared shape with the text editor + find/replace mask.
+export function buildLineEditSeed(line: TextLineMetric): LineEditSeed {
+  const fontSize = line.fontSize;
+  const baselineY = line.bottom;
+  const top = baselineY - fontSize * 0.82;
+  const maskPadX = Math.max(2, fontSize * 0.15);
+  const maskPadY = Math.max(2, fontSize * 0.18);
+  return {
+    text: line.text ?? "",
+    left: line.left,
+    top,
+    baselineY,
+    maxWidth: Math.max(line.right - line.left + fontSize * 0.5, fontSize * 4.5, 72),
+    fontFamily: normalizeEditorFontFamily(line.fontFamily),
+    fontSize,
+    fontWeight: line.fontWeight === "bold" ? "bold" : "normal",
+    fontStyle: line.fontStyle === "italic" ? "italic" : "normal",
+    mask: {
+      left: line.left - maskPadX,
+      top: line.top - maskPadY,
+      width: line.right - line.left + maskPadX * 2,
+      height: line.height + maskPadY * 2,
+    },
+  };
+}
+
 export function resolveHighlightRange(
   line: TextLineMetric,
   fromX: number,

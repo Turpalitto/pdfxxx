@@ -16,11 +16,13 @@ import {
   loadPrivacyPage,
   loadTermsPage,
   loadToolPage,
+  loadWorkflowPage,
   warmPrimaryRoutes,
 } from "@/lib/route-preload";
 
 const Home = lazy(loadHomePage);
 const ToolPage = lazy(loadToolPage);
+const WorkflowPage = lazy(loadWorkflowPage);
 const EditPdfPage = lazy(loadEditPdfPage);
 const Pricing = lazy(loadPricingPage);
 const PrivacyPage = lazy(loadPrivacyPage);
@@ -56,6 +58,7 @@ function Router() {
     >
       <Switch>
         <Route path="/" component={Home} />
+        <Route path="/workflow" component={WorkflowPage} />
         <Route path="/tools/edit-pdf" component={EditPdfPage} />
         <Route path="/tools/:slug" component={ToolPage} />
         <Route path="/pricing" component={Pricing} />
