@@ -14,6 +14,10 @@ export interface ToolNamedBytesPart {
   bytes: Uint8Array;
 }
 
+export interface ToolNamedPartsResultOptions {
+  singlePartMode?: "bytes" | "zip";
+}
+
 export type ToolMetadataFields = Record<string, string>;
 
 export type ToolMetadataResult =
@@ -50,7 +54,8 @@ export function createToolTextResult(
 
 export async function createToolNamedPartsResult(
   entry: ToolRegistryEntry,
-  parts: ToolNamedBytesPart[]
+  parts: ToolNamedBytesPart[],
+  options: ToolNamedPartsResultOptions = {}
 ): Promise<Uint8Array> {
   if (entry.output.kind !== "zip") {
     throw new Error(`Tool "${entry.slug}" does not produce a split archive result.`);
@@ -62,7 +67,7 @@ export async function createToolNamedPartsResult(
     throw new Error(`Tool "${entry.slug}" did not produce any split parts.`);
   }
 
-  if (parts.length === 1) {
+  if (parts.length === 1 && options.singlePartMode !== "zip") {
     return firstPart.bytes;
   }
 
@@ -74,6 +79,25 @@ export async function createToolNamedPartsResult(
   }
 
   return zip.generateAsync({ type: "uint8array" });
+}
+
+export async function createToolNumberedPartsResult(
+  entry: ToolRegistryEntry,
+  parts: Uint8Array[],
+  baseName: string,
+  options: ToolNamedPartsResultOptions = {}
+): Promise<Uint8Array> {
+  const padLength = String(parts.length).length;
+  const namedParts = parts.map((bytes, index) => {
+    const partNumber = String(index + 1).padStart(padLength, "0");
+
+    return {
+      name: `${baseName}-part${partNumber}.pdf`,
+      bytes,
+    };
+  });
+
+  return createToolNamedPartsResult(entry, namedParts, options);
 }
 
 export async function runToolMainThreadTask<T>(

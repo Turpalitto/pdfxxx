@@ -43,7 +43,6 @@ import {
   splitPdf,
   splitPdfEveryN,
   splitPdfAllPages,
-  splitResultsToZip,
   rotatePdf,
   deletePages,
   extractPages,
@@ -120,6 +119,7 @@ import {
 import { createToolDownloadPlan } from "@/tools/shared/download";
 import {
   createToolNamedPartsResult,
+  createToolNumberedPartsResult,
   createToolTextResult,
   runToolAudioSideEffectTask,
   runToolMainThreadTask,
@@ -482,12 +482,12 @@ export default function ToolPage() {
           if (splitMode === "all") {
             const parts = await splitPdfAllPages(files[0]);
             setSplitPartsCount(parts.length);
-            result = await splitResultsToZip(parts, origName);
+            result = await createToolNumberedPartsResult(registryEntry, parts, origName, { singlePartMode: "zip" });
           } else if (splitMode === "every-n") {
             const n = Math.max(1, parseInt(splitEveryN) || 1);
             const parts = await splitPdfEveryN(files[0], n);
             setSplitPartsCount(parts.length);
-            result = await splitResultsToZip(parts, origName);
+            result = await createToolNumberedPartsResult(registryEntry, parts, origName, { singlePartMode: "zip" });
           } else {
             const totalPages = await getPdfPageCount(files[0]);
             const start = parseInt(splitStart) || 1;

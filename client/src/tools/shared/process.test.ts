@@ -3,6 +3,7 @@ import { runPdfTask } from "@/workers/worker-client";
 import { getToolRegistryEntry } from "../registry";
 import {
   createToolNamedPartsResult,
+  createToolNumberedPartsResult,
   createToolTextResult,
   runToolAudioSideEffectTask,
   runToolMainThreadTask,
@@ -128,6 +129,23 @@ describe("tool process metadata", () => {
       { name: "chapter-1.pdf", bytes: new Uint8Array([1, 2, 3]) },
       { name: "chapter-2.pdf", bytes: new Uint8Array([4, 5, 6]) },
     ]);
+
+    expect(new TextDecoder().decode(result.slice(0, 2))).toBe("PK");
+  });
+
+  it("packages numbered split parts into zip archives when requested", async () => {
+    const entry = expectEntry("split-pdf");
+
+    if (!entry) {
+      return;
+    }
+
+    const result = await createToolNumberedPartsResult(
+      entry,
+      [new Uint8Array([1, 2, 3])],
+      "input",
+      { singlePartMode: "zip" }
+    );
 
     expect(new TextDecoder().decode(result.slice(0, 2))).toBe("PK");
   });

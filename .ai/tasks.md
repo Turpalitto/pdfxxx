@@ -20,10 +20,12 @@
 
 ## 🔄 Текущие задачи (In Progress)
 
-- [ ] Round 4 Phase I: постепенно вынести numbered split-pdf packaging из `tool-page.tsx` в typed process result helpers без изменения UX и slug.
+- [ ] Round 4 Phase J: постепенно вынести image archive result adapters (`pdf-to-jpg/png`, `extract-images`) из `tool-page.tsx` в typed process result helpers без изменения UX и slug.
 - [ ] TD-02 Phase 5: Дальнейшая декомпозиция edit-pdf-page.tsx (~2291 строк) — выигрыш мал (каждый хук 10+ параметров)
 
 ## ✅ Решено
+
+- [x] **Round 4 Phase I numbered split-pdf packaging adapter (2026-06-21)** — `split-pdf` all/every-n использует `createToolNumberedPartsResult()` вместо прямого `splitResultsToZip()` в `tool-page.tsx`; ZIP behavior для all/every-n сохранён даже при одной части, range-mode остаётся одиночным PDF. Проверки: check OK, vitest 118/118, build OK, smoke e2e 12/12.
 
 - [x] **Round 4 Phase H metadata two-step adapter (2026-06-21)** — `pdf-metadata` использует `runToolMetadataEditTask()` для load-before-save flow: первый запуск возвращает editable fields и idle, второй сохраняет PDF bytes. UX, slug и metadata fields state сохранены. Проверки: check OK, vitest 117/117, build OK, smoke e2e 12/12.
 

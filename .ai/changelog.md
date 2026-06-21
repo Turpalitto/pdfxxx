@@ -4,6 +4,27 @@
 
 ---
 
+## 2026-06-21 — Round 4 Phase I: numbered split-pdf packaging adapter
+
+### Добавлено
+- `createToolNumberedPartsResult()` в `client/src/tools/shared/process.ts`: typed adapter для numbered split parts (`<base>-partN.pdf`) поверх shared named-parts packaging.
+- `ToolNamedPartsResultOptions.singlePartMode` сохраняет старый контракт: `split-pdf` all/every-n скачивают ZIP даже при одной части.
+- Unit-тест фиксирует ZIP packaging для numbered split parts.
+
+### Изменено
+- `split-pdf` all/every-n в `tool-page.tsx` больше не вызывает `splitResultsToZip()` напрямую; упаковка результата перенесена в process helper.
+- Range-mode `split-pdf` сохранён как одиночный PDF result.
+
+### Проверка
+- `npm run check` — OK.
+- `npm test -- --run` — OK, 118/118.
+- `npm run build` — OK, с существующим PostCSS warning.
+- `npx playwright test tests/e2e/smoke.spec.ts` — OK, 12/12.
+- `git diff --check` — OK.
+- Guard: `client/src/index.css` и `client/src/lib/tools.ts` без изменений.
+
+---
+
 ## 2026-06-21 — Round 4 Phase H: metadata two-step adapter
 
 ### Добавлено
