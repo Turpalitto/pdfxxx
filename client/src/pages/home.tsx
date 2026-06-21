@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useDeferredValue, useEffect, useState } from "react";
 import { Link, useSearch } from "wouter";
 import { motion } from "framer-motion";
 import {
@@ -12,9 +12,10 @@ import {
   ArrowUpRight,
   CheckCircle2,
   Layers3,
+  Search,
 } from "lucide-react";
 import { ToolCard } from "@/components/tool-card";
-import { categories, categoryColors, getCategoryLabel, getLaunchReadyTools, getPopularTools } from "@/lib/tools";
+import { categories, categoryColors, getCategoryLabel, getLaunchReadyTools, getPopularTools, getToolBySlug } from "@/lib/tools";
 import { useLang } from "@/lib/lang-context";
 import { useSeo } from "@/hooks/use-seo";
 import { getToolTranslation } from "@/lib/tool-translations";
@@ -22,11 +23,15 @@ import { cn } from "@/lib/utils";
 import { preloadToolRoute } from "@/lib/route-preload";
 import { getRecentTools, getWorkflowPlaybooks } from "@/lib/tool-experience";
 import { useLazyRender } from "@/hooks/use-lazy-render";
+import { Input } from "@/components/ui/input";
+import { searchToolRegistry } from "@/tools/search-index";
 
 export default function Home() {
   const search = useSearch();
   const initialCategory = new URLSearchParams(search).get("category") || "all";
   const [activeCategory, setActiveCategory] = useState(initialCategory);
+  const [toolSearch, setToolSearch] = useState("");
+  const deferredToolSearch = useDeferredValue(toolSearch);
   const [recentTools, setRecentTools] = useState(() => getRecentTools());
   const { lang, t } = useLang();
 
@@ -36,10 +41,15 @@ export default function Home() {
   }, [search]);
 
   const allTools = getLaunchReadyTools();
+  const searchMatchedTools = deferredToolSearch.trim()
+    ? searchToolRegistry(deferredToolSearch, lang, 58)
+      .map((result) => getToolBySlug(result.entry.slug))
+      .filter((tool): tool is NonNullable<typeof tool> => Boolean(tool))
+    : allTools;
   const filteredTools =
     activeCategory === "all"
-      ? allTools
-      : allTools.filter((tool) => tool.category === activeCategory);
+      ? searchMatchedTools
+      : searchMatchedTools.filter((tool) => tool.category === activeCategory);
   const { visibleCount, sentinelRef } = useLazyRender(filteredTools.length);
   const previewTools = allTools.slice(0, 4);
   const popularTools = getPopularTools();
@@ -151,21 +161,21 @@ export default function Home() {
               <div>
                 <div className="premium-kicker mb-6 inline-flex items-center gap-2 text-xs font-semibold text-primary/80">
                   <Sparkles className="h-4 w-4" />
-                  <span>{lang === "ru" ? "Редакторский стиль · тихая премиальность" : "Editorial style · quiet premium"}</span>
+                  <span>{lang === "ru" ? "PDF-инструменты прямо в браузере" : "PDF tools directly in your browser"}</span>
                 </div>
 
                 <h1
                   className="paper-title font-bold text-foreground"
                   style={{ fontSize: "clamp(54px, 6vw, 92px)", lineHeight: 0.94, maxWidth: 780 }}
                 >
-                  {lang === "ru" ? "PDF-сервис с ощущением" : "PDF tools with a"}{" "}
-                  <span className="text-primary">{lang === "ru" ? "дорогой бумажной среды." : "premium paper feel."}</span>
+                  {lang === "ru" ? "Все нужные действия с PDF" : "All the PDF work you need"}{" "}
+                  <span className="text-primary">{lang === "ru" ? "в одном месте." : "in one place."}</span>
                 </h1>
 
                 <p className="mx-auto mt-6 max-w-[52rem] text-base leading-8 text-muted-foreground sm:text-lg lg:mx-0">
                   {lang === "ru"
-                    ? "Спокойная палитра, мягкий off-white, деликатные зелёные акценты и карточки как листы плотной дизайнерской бумаги. PDFX не кричит, а внушает доверие."
-                    : "A calm palette, soft off-white surfaces, delicate green accents, and cards that feel like dense design paper. PDFX stays quiet and trustworthy."}
+                    ? "Объединяйте, редактируйте, конвертируйте и защищайте документы. Основная обработка выполняется локально на вашем устройстве."
+                    : "Merge, edit, convert, and protect documents. Core processing runs locally on your device."}
                 </p>
 
                 <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row lg:items-center lg:justify-start">
@@ -376,6 +386,19 @@ export default function Home() {
           </motion.div>
 
           <div className="mb-8 flex flex-wrap justify-center gap-2.5 sm:mb-10">
+            <div className="relative mb-4 w-full max-w-xl">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={toolSearch}
+                onChange={(event) => setToolSearch(event.target.value)}
+                placeholder={lang === "ru" ? "Найти инструмент по задаче: сжать, объединить, OCR..." : "Find a tool by task: compress, merge, OCR..."}
+                className="h-12 rounded-full border-border bg-white/55 pl-11 pr-4 shadow-sm backdrop-blur-sm"
+                data-testid="input-tool-search"
+              />
+            </div>
+          </div>
+
+          <div className="mb-8 flex flex-wrap justify-center gap-2.5 sm:mb-10">
             {categoryList.map((cat) => (
               <button
                 key={cat.id}
@@ -394,7 +417,14 @@ export default function Home() {
             ))}
           </div>
 
-<div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredTools.length === 0 ? (
+            <div className="mx-auto max-w-xl rounded-2xl border border-border bg-white/45 p-6 text-center text-sm text-muted-foreground">
+              {lang === "ru"
+                ? "Ничего не найдено. Попробуйте другой запрос или переключите категорию."
+                : "No tools found. Try another search or switch category."}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {filteredTools.slice(0, visibleCount).map((tool, index) => (
               <motion.div
                 key={tool.slug}
@@ -408,7 +438,8 @@ export default function Home() {
             {visibleCount < filteredTools.length && (
               <div ref={sentinelRef} className="col-span-full h-4" />
             )}
-          </div>
+            </div>
+          )}
         </div>
       </section>
 

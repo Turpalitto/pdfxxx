@@ -9,6 +9,7 @@ Date: 2026-06-20
 - Round 2: shared sitemap registry plus typed client registry facade for output/execution/search metadata.
 - Round 3: worker-client cleanup for abort listener removal and pending rejection on worker termination.
 - Round 4 Phase A: output validation before `done` state and compact result report in the tool page.
+- Round 6 Phase A: registry-backed home search, `Ctrl/Command+K` command palette, and updated product hero copy.
 
 ## Verification
 
@@ -16,7 +17,8 @@ Date: 2026-06-20
 - `npm run check`: OK.
 - `npm test -- --run`: OK, 87/87.
 - `npm run build`: OK, with the existing PostCSS `from` warning.
-- `npm run test:e2e`: OK on repeat run, 47 passed / 3 skipped.
+- `npm run test:e2e`: OK, 49 passed / 3 skipped after search/palette coverage.
+- `npx playwright test tests/e2e/smoke.spec.ts`: OK, 8 passed after search/palette changes.
 - Palette guard: `client/src/index.css` unchanged; `categoryColors` unchanged.
 
 ## Notes

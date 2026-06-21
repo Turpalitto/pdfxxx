@@ -20,6 +20,21 @@ test.describe("public pages", () => {
     await expectNoHorizontalOverflow(page);
   });
 
+  test("home search and command palette navigate to matching tools", async ({ page }) => {
+    await page.goto("/");
+
+    await page.getByTestId("input-tool-search").fill("markdown");
+    await expect(page.getByRole("link", { name: /PDF to Markdown/i }).first()).toBeVisible();
+
+    await page.keyboard.press("Control+K");
+    await expect(page.getByPlaceholder(/What do you need to do with a PDF/i)).toBeVisible();
+    await page.getByPlaceholder(/What do you need to do with a PDF/i).fill("powerpoint");
+    await page.getByText("PDF to PowerPoint").click();
+
+    await expect(page).toHaveURL(/\/tools\/pdf-to-pptx$/);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(/PDF to PowerPoint/i);
+  });
+
   test("pricing page renders plans", async ({ page }) => {
     await page.goto("/pricing");
 

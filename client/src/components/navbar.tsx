@@ -7,6 +7,7 @@ import { LANGUAGES, type LangCode } from "@/lib/i18n";
 import { categories, getCategoryLabel } from "@/lib/tools";
 import { cn } from "@/lib/utils";
 import { loadContactPage, loadHomePage, loadPricingPage, loadWorkflowPage } from "@/lib/route-preload";
+import { GlobalCommandPalette } from "@/components/global-command-palette";
 
 export function Navbar() {
   const { lang, setLang, t } = useLang();
@@ -120,6 +121,8 @@ export function Navbar() {
 
         {/* Right side */}
         <div className="flex items-center gap-2">
+          <GlobalCommandPalette />
+
           {/* Language selector */}
           <div ref={langRef} className="relative">
             <button

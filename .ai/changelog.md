@@ -4,6 +4,25 @@
 
 ---
 
+## 2026-06-21 — Round 6 Phase A: registry-backed search + command palette
+
+### Добавлено
+- `GlobalCommandPalette` в navbar: `Ctrl/⌘+K`, поиск по registry-backed index, быстрый переход на инструмент и Workflow.
+- Поиск по каталогу на главной странице через `searchToolRegistry()` с EN/RU task keywords и локализованными названиями/описаниями.
+- E2E smoke coverage для home search и command palette navigation на desktop/mobile.
+
+### Изменено
+- Hero copy на главной приведён ближе к продуктовому обещанию промпта: все PDF-действия в одном месте, локальная обработка на устройстве.
+
+### Проверка
+- `npm run check` — OK.
+- `npm test -- --run` — OK, 87/87.
+- `npm run build` — OK, с существующим PostCSS warning.
+- `npx playwright test tests/e2e/smoke.spec.ts` — OK, 8/8.
+- `npm run test:e2e` — OK, 49 passed / 3 skipped.
+
+---
+
 ## 2026-06-20 — Round 4 Phase A: output validation + result report
 
 ### Добавлено

@@ -278,6 +278,27 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 
 ---
 
+## ADR-015 — Registry-backed search surfaces
+
+**Дата:** 2026-06-21
+**Статус:** ✅ Принято
+
+**Решение:** Главная страница и command palette используют единый `searchToolRegistry()` из `client/src/tools/search-index.ts`.
+
+**Причины:**
+- Поиск должен отвечать на пользовательскую задачу, а не только на видимые названия карточек.
+- Единый индекс предотвращает drift между home search, command palette и будущими workflow/recent-tool поверхностями.
+- Search metadata уже строится из typed registry и EN/RU переводов, поэтому не требует новых ручных списков.
+
+**Последствия:**
+- Добавление новых поисковых keywords должно идти через registry/search-index, а не через отдельные компоненты.
+- Command palette остаётся browser-only и не отправляет запросы на сервер.
+- UI использует существующую palette/classes, без изменения дизайн-системы.
+
+**Правило:** Любая новая поисковая поверхность PDFX должна вызывать `searchToolRegistry()` или тонкую обёртку над ним.
+
+---
+
 ## Шаблон нового ADR
 
 ```markdown

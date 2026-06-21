@@ -118,6 +118,12 @@ handleDownload() → downloadBlob() / downloadText()
 
 **Правило:** новые registry-facing metadata добавлять в `client/src/tools/types.ts`/`registry.ts`; не дублировать worker/output/search списки в компонентах.
 
+### `GlobalCommandPalette` + home search
+
+`client/src/components/global-command-palette.tsx` и поиск на главной используют один источник — `client/src/tools/search-index.ts`. Palette открывается через `Ctrl/⌘+K`, ищет по slug/category/output/maturity и EN/RU названиям/описаниям, затем ведёт на `/tools/{slug}` или `/workflow`.
+
+**Правило:** новые поисковые поверхности должны переиспользовать `searchToolRegistry()`, а не строить отдельные локальные индексы.
+
 ### `client/src/tools/shared/output.ts` — Output validation/report
 
 Перед показом успешного состояния `tool-page.tsx` проверяет результат через `validateToolOutput()` на базе output metadata из registry. Минимальный контракт: результат не пустой, PDF начинается с `%PDF`, ZIP/Office-контейнер начинается с `PK`; динамические split-операции могут вернуть ZIP или PDF. `createToolResultReport()` формирует компактную метрику input/output/format/saved для UI.

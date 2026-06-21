@@ -20,10 +20,13 @@
 
 ## 🔄 Текущие задачи (In Progress)
 
+- [ ] Round 6 Phase B: расширить command palette workflow-пресетами и recent tools, не сохраняя имена файлов или содержимое документов.
 - [ ] Round 4 Phase B: постепенно вынести process/download runner из `tool-page.tsx` на typed registry metadata без изменения UX и slug.
 - [ ] TD-02 Phase 5: Дальнейшая декомпозиция edit-pdf-page.tsx (~2291 строк) — выигрыш мал (каждый хук 10+ параметров)
 
 ## ✅ Решено
+
+- [x] **Round 6 Phase A registry-backed search + command palette (2026-06-21)** — главная страница фильтрует каталог через `searchToolRegistry()`, navbar получил `GlobalCommandPalette` с `Ctrl/⌘+K` и переходом на инструменты/Workflow, hero copy приведён к продуктовому обещанию промпта. Проверки: check OK, vitest 87/87, smoke e2e 8/8. См. ADR-015.
 
 - [x] **Round 4 Phase A output validation + result report (2026-06-20)** — добавлен `client/src/tools/shared/output.ts`, `tool-page.tsx` валидирует результат по registry output metadata перед `done`, показывает compact report (input/output/format/saved), добавлен `output.test.ts`. Проверки: check OK, vitest 87/87, build OK, e2e 47 passed / 3 skipped.
 
