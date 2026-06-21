@@ -4,6 +4,25 @@
 
 ---
 
+## 2026-06-21 — Round 5 Phase A: Workflow cancellation
+
+### Добавлено
+- `WorkflowAbortError` и `RunWorkflowOptions.signal` в `workflow-engine.ts`: workflow runner теперь может останавливаться перед стартом и между шагами.
+- Кнопка Cancel на `/workflow` во время обработки.
+- Unit-тест `workflow-engine.test.ts` на distinguishable abort error.
+
+### Ограничение
+- Отмена cooperative: уже начатая синхронная PDF-функция может завершиться, но цепочка не продолжит следующий шаг и не покажет устаревший результат после abort.
+
+### Проверка
+- `npm run check` — OK.
+- `npm test -- --run` — OK, 88/88.
+- `npx playwright test tests/e2e/workflow.spec.ts` — OK, 4/4.
+- `npm run build` — OK, с существующим PostCSS warning.
+- `npm run test:e2e` — OK, 49 passed / 3 skipped.
+
+---
+
 ## 2026-06-21 — Round 6 Phase A: registry-backed search + command palette
 
 ### Добавлено

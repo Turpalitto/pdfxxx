@@ -26,6 +26,7 @@ import {
   defaultStepOptions,
   pickCopy,
   runWorkflow,
+  WorkflowAbortError,
   type WorkflowItem,
   type StepOption,
   type StepStatus,
@@ -52,6 +53,7 @@ export default function WorkflowPage() {
   const [error, setError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const uidRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
 
   const nextUid = useCallback(() => `wf-${uidRef.current++}`, []);
 
@@ -129,6 +131,8 @@ export default function WorkflowPage() {
 
   const handleRun = useCallback(async () => {
     if (files.length === 0 || items.length === 0 || running) return;
+    const controller = new AbortController();
+    abortRef.current = controller;
     setRunning(true);
     setError(null);
     setResult(null);
@@ -136,14 +140,27 @@ export default function WorkflowPage() {
     try {
       const runResult = await runWorkflow(files, items, (info) => {
         setStatuses((prev) => ({ ...prev, [info.index]: info.status }));
-      });
+      }, { signal: controller.signal });
       setResult(runResult);
     } catch (e) {
+      if (e instanceof WorkflowAbortError || controller.signal.aborted) {
+        resetRun();
+        return;
+      }
+
       setError(e instanceof Error ? e.message : String(e));
     } finally {
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+      }
+
       setRunning(false);
     }
-  }, [files, items, running]);
+  }, [files, items, resetRun, running]);
+
+  const handleCancel = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
 
   const handleDownload = useCallback(() => {
     if (!result) return;
@@ -331,25 +348,39 @@ export default function WorkflowPage() {
 
             {/* Run */}
             <div className="mt-5 flex flex-col gap-3">
-              <Button
-                className="w-full gap-2"
-                size="lg"
-                onClick={handleRun}
-                disabled={!canRun}
-                data-testid="workflow-run"
-              >
-                {running ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    {ru ? "Обработка…" : "Processing…"}
-                  </>
-                ) : (
-                  <>
-                    <Play className="h-4 w-4" />
-                    {ru ? "Запустить цепочку" : "Run workflow"}
-                  </>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  className="w-full gap-2"
+                  size="lg"
+                  onClick={handleRun}
+                  disabled={!canRun}
+                  data-testid="workflow-run"
+                >
+                  {running ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {ru ? "Обработка…" : "Processing…"}
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4" />
+                      {ru ? "Запустить цепочку" : "Run workflow"}
+                    </>
+                  )}
+                </Button>
+                {running && (
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="gap-2 sm:w-40"
+                    onClick={handleCancel}
+                    data-testid="workflow-cancel"
+                  >
+                    <X className="h-4 w-4" />
+                    {ru ? "Отмена" : "Cancel"}
+                  </Button>
                 )}
-              </Button>
+              </div>
               {files.length === 0 && items.length > 0 && (
                 <p className="text-center text-xs text-muted-foreground">
                   {ru ? "Загрузите PDF, чтобы запустить." : "Upload a PDF to run."}

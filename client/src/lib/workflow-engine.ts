@@ -420,6 +420,23 @@ export type WorkflowRunResult = {
   outputBytes: number;
 };
 
+export class WorkflowAbortError extends Error {
+  constructor() {
+    super("Workflow cancelled.");
+    this.name = "WorkflowAbortError";
+  }
+}
+
+export interface RunWorkflowOptions {
+  signal?: AbortSignal;
+}
+
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    throw new WorkflowAbortError();
+  }
+}
+
 /**
  * Прогоняет файлы через пайплайн. При нескольких файлах они неявно
  * объединяются (merge) первым шагом. Бросает при первой ошибке шага,
@@ -429,7 +446,10 @@ export async function runWorkflow(
   files: File[],
   items: WorkflowItem[],
   onProgress?: (info: StepProgress) => void,
+  options: RunWorkflowOptions = {},
 ): Promise<WorkflowRunResult> {
+  throwIfAborted(options.signal);
+
   if (files.length === 0) {
     throw new Error("No files to process.");
   }
@@ -444,6 +464,8 @@ export async function runWorkflow(
   const inputBytes = bytes.byteLength;
 
   for (let i = 0; i < items.length; i++) {
+    throwIfAborted(options.signal);
+
     const item = items[i];
     const def = getWorkflowStep(item.stepId);
     if (!def) continue;
@@ -452,6 +474,7 @@ export async function runWorkflow(
     try {
       const file = bytesToFile(bytes, `workflow-step-${i + 1}.pdf`);
       bytes = await def.run(file, { ...defaultStepOptions(def), ...item.options });
+      throwIfAborted(options.signal);
       onProgress?.({
         index: i,
         stepId: item.stepId,

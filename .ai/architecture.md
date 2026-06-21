@@ -75,6 +75,17 @@ handleDownload() → downloadBlob() / downloadText()
 Браузер скачивает файл
 ```
 
+## Поток данных — Workflow
+
+```
+Файлы → workflow-page.tsx
+     → runWorkflow(files, items, onProgress, { signal })
+     → если файлов несколько: mergePdfs как неявный первый шаг
+     → каждый PDF→PDF шаг: Uint8Array → File → следующий step.run()
+     → Cancel: AbortSignal останавливает цепочку перед стартом/между шагами
+     → downloadBlob(result.bytes, "workflow.pdf")
+```
+
 ---
 
 ## Поток данных — Edit PDF (особый случай)
