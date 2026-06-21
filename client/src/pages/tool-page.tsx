@@ -68,7 +68,6 @@ import {
   pdfToImages,
   pdfToHtml,
   ocrPdf,
-  pdfImagesAsZip,
   downloadBlob,
   downloadText,
   downloadHtml,
@@ -118,6 +117,7 @@ import {
 } from "@/tools/shared/output";
 import { createToolDownloadPlan } from "@/tools/shared/download";
 import {
+  createToolImageArchiveResult,
   createToolNamedPartsResult,
   createToolNumberedPartsResult,
   createToolTextResult,
@@ -622,7 +622,7 @@ export default function ToolPage() {
             { file: files[0], args: [fmt, scale], signal: controller.signal }
           );
           const origName = files[0].name.replace(/\.[^.]+$/, "");
-          result = await pdfImagesAsZip(images, fmt, origName);
+          result = await createToolImageArchiveResult(registryEntry, images, fmt, origName);
           break;
         }
         case "ocr-pdf":
@@ -806,7 +806,7 @@ export default function ToolPage() {
             { file: files[0], args: ["png", 2], signal: controller.signal }
           );
           const origName = files[0].name.replace(/\.[^.]+$/, "");
-          result = await pdfImagesAsZip(images, "png", origName);
+          result = await createToolImageArchiveResult(registryEntry, images, "png", origName);
           break;
         }
         case "pdf-to-markdown": {

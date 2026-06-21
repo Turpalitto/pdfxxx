@@ -20,10 +20,11 @@
 
 ## 🔄 Текущие задачи (In Progress)
 
-- [ ] Round 4 Phase J: постепенно вынести image archive result adapters (`pdf-to-jpg/png`, `extract-images`) из `tool-page.tsx` в typed process result helpers без изменения UX и slug.
 - [ ] TD-02 Phase 5: Дальнейшая декомпозиция edit-pdf-page.tsx (~2291 строк) — выигрыш мал (каждый хук 10+ параметров)
 
 ## ✅ Решено
+
+- [x] **Round 4 Phase J image archive result adapters (2026-06-21)** — `pdf-to-jpg`, `pdf-to-png` и `extract-images` используют `createToolImageArchiveResult()` вместо прямого `pdfImagesAsZip()` в `tool-page.tsx`; имена `<base>-page-<page>.<format>` сохранены. После Phase J в `tool-page.tsx` не осталось ручных `TextEncoder`, `JSZip`, `splitResultsToZip` или `pdfImagesAsZip` result adapters. Проверки: check OK, vitest 120/120, build OK, smoke e2e 12/12.
 
 - [x] **Round 4 Phase I numbered split-pdf packaging adapter (2026-06-21)** — `split-pdf` all/every-n использует `createToolNumberedPartsResult()` вместо прямого `splitResultsToZip()` в `tool-page.tsx`; ZIP behavior для all/every-n сохранён даже при одной части, range-mode остаётся одиночным PDF. Проверки: check OK, vitest 118/118, build OK, smoke e2e 12/12.
 

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { runPdfTask } from "@/workers/worker-client";
 import { getToolRegistryEntry } from "../registry";
 import {
+  createToolImageArchiveResult,
   createToolNamedPartsResult,
   createToolNumberedPartsResult,
   createToolTextResult,
@@ -160,6 +161,38 @@ describe("tool process metadata", () => {
     await expect(createToolNamedPartsResult(entry, [
       { name: "part.pdf", bytes: new Uint8Array([1, 2, 3]) },
     ])).rejects.toThrow('Tool "merge-pdf" does not produce a split archive result.');
+  });
+
+  it("packages image data URLs into zip archives", async () => {
+    const entry = expectEntry("pdf-to-png");
+
+    if (!entry) {
+      return;
+    }
+
+    const result = await createToolImageArchiveResult(
+      entry,
+      [{ dataUrl: "data:image/png;base64,AQID", page: 1 }],
+      "png",
+      "input"
+    );
+
+    expect(new TextDecoder().decode(result.slice(0, 2))).toBe("PK");
+  });
+
+  it("rejects image archive packaging for non-archive outputs", async () => {
+    const entry = expectEntry("merge-pdf");
+
+    if (!entry) {
+      return;
+    }
+
+    await expect(createToolImageArchiveResult(
+      entry,
+      [{ dataUrl: "data:image/png;base64,AQID", page: 1 }],
+      "png",
+      "input"
+    )).rejects.toThrow('Tool "merge-pdf" does not produce an image archive result.');
   });
 
   it("runs worker tools through the registry worker op", async () => {

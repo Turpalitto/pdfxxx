@@ -4,6 +4,27 @@
 
 ---
 
+## 2026-06-21 — Round 4 Phase J: image archive result adapters
+
+### Добавлено
+- `createToolImageArchiveResult()` в `client/src/tools/shared/process.ts`: typed adapter для ZIP-архивов изображений из data URL результатов.
+- Unit-тесты фиксируют image ZIP packaging и запрет image archive adapter для неархивных output.
+
+### Изменено
+- `pdf-to-jpg`, `pdf-to-png` и `extract-images` в `tool-page.tsx` больше не вызывают `pdfImagesAsZip()` напрямую; ZIP-упаковка результата перенесена в process helper.
+- Имена файлов внутри архива сохранены: `<base>-page-<page>.<format>`.
+- После Phase J в `tool-page.tsx` не осталось ручных `TextEncoder`, `JSZip`, `splitResultsToZip` или `pdfImagesAsZip` result adapters.
+
+### Проверка
+- `npm run check` — OK.
+- `npm test -- --run` — OK, 120/120.
+- `npm run build` — OK, с существующим PostCSS warning.
+- `npx playwright test tests/e2e/smoke.spec.ts` — OK, 12/12.
+- `git diff --check` — OK.
+- Guard: `client/src/index.css` и `client/src/lib/tools.ts` без изменений.
+
+---
+
 ## 2026-06-21 — Round 4 Phase I: numbered split-pdf packaging adapter
 
 ### Добавлено

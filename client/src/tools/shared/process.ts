@@ -18,6 +18,13 @@ export interface ToolNamedPartsResultOptions {
   singlePartMode?: "bytes" | "zip";
 }
 
+export type ToolImageArchiveFormat = "jpg" | "png";
+
+export interface ToolImageArchiveItem {
+  dataUrl: string;
+  page: number;
+}
+
 export type ToolMetadataFields = Record<string, string>;
 
 export type ToolMetadataResult =
@@ -98,6 +105,32 @@ export async function createToolNumberedPartsResult(
   });
 
   return createToolNamedPartsResult(entry, namedParts, options);
+}
+
+export async function createToolImageArchiveResult(
+  entry: ToolRegistryEntry,
+  images: ToolImageArchiveItem[],
+  format: ToolImageArchiveFormat,
+  baseName: string
+): Promise<Uint8Array> {
+  if (entry.output.kind !== "zip") {
+    throw new Error(`Tool "${entry.slug}" does not produce an image archive result.`);
+  }
+
+  const JSZip = (await import("jszip")).default;
+  const zip = new JSZip();
+
+  for (const image of images) {
+    const base64 = image.dataUrl.split(",")[1];
+
+    if (!base64) {
+      continue;
+    }
+
+    zip.file(`${baseName}-page-${image.page}.${format}`, base64, { base64: true });
+  }
+
+  return zip.generateAsync({ type: "uint8array" });
 }
 
 export async function runToolMainThreadTask<T>(
