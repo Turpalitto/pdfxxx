@@ -1,6 +1,6 @@
 # PDFX — Project Overview
 
-> Source of truth. Last updated: 2026-06-20. Update after major changes.
+> Source of truth. Last updated: 2026-06-21. Update after major changes.
 
 ---
 
@@ -21,7 +21,7 @@
 
 ---
 
-## Текущее состояние (2026-06-20)
+## Текущее состояние (2026-06-21)
 
 | Параметр | Значение |
 |---|---|
@@ -29,7 +29,7 @@
 | Категорий | 7 (organize, convert-from, convert-to, security, utility, ocr, optimize) |
 | Языков | 18 (активные для разработки: EN + RU) |
 | TypeScript | ✅ 0 ошибок |
-| Тесты | Vitest 83 unit-теста + Playwright E2E baseline |
+| Тесты | Vitest 93 unit-теста + Playwright E2E baseline 51 passed / 3 skipped |
 | CI/CD | GitHub Actions настроен ранее; текущий раунд добавляет локальные проверки |
 | База данных | Drizzle ORM + PostgreSQL (подключена, но не используется для PDF) |
 

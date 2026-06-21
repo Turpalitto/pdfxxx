@@ -35,4 +35,28 @@ test.describe("workflow page", () => {
     // Run stays disabled until a file is uploaded.
     await expect(page.getByTestId("workflow-run")).toBeDisabled();
   });
+
+  test("saves and restores a chain without uploaded files", async ({ page }) => {
+    await page.goto("/workflow");
+    await page.evaluate(() => localStorage.removeItem("pdfx.workflow.savedChains.v1"));
+    await page.reload();
+
+    await page.getByTestId("workflow-add-compress").click();
+    await page.getByTestId("workflow-add-watermark").click();
+    await page.getByTestId("workflow-save-name").fill("Court filing");
+    await page.getByTestId("workflow-save-chain").click();
+
+    await expect(page.getByTestId("workflow-saved-chain")).toContainText("Court filing");
+
+    await page.reload();
+    await expect(page.getByTestId("workflow-saved-chain")).toContainText("Court filing");
+
+    await page.getByTestId("workflow-load-chain").click();
+    await expect(page.getByTestId("workflow-pipeline").locator("> li")).toHaveCount(2);
+    await expect(page.getByTestId("workflow-run")).toBeDisabled();
+
+    const stored = await page.evaluate(() => localStorage.getItem("pdfx.workflow.savedChains.v1"));
+    expect(stored).not.toContain("client-only");
+    expect(stored).not.toContain("fileName");
+  });
 });

@@ -4,6 +4,26 @@
 
 ---
 
+## 2026-06-21 — Round 5 Phase B: saved workflow chains
+
+### Добавлено
+- `client/src/lib/workflow-storage.ts` — безопасное сохранение workflow-цепочек в `localStorage` как `stepId` + sanitized options, без файлов, имён файлов, uid и байтов документов.
+- UI на `/workflow`: поле имени, Save chain, список сохранённых цепочек, Load/Delete.
+- Unit-тест `workflow-storage.test.ts` на sanitizer, повреждённый JSON, удаление и восстановление свежих React uid.
+- E2E-сценарий workflow на сохранение, reload и загрузку цепочки обратно в конструктор.
+
+### Ограничение
+- Сохраняется только шаблон цепочки. Перед запуском пользователь заново загружает PDF; документы не восстанавливаются из storage.
+
+### Проверка
+- `npm run check` — OK.
+- `npm test -- --run` — OK, 93/93.
+- `npx playwright test tests/e2e/workflow.spec.ts` — OK, 6/6.
+- `npm run build` — OK, с существующим PostCSS warning.
+- `npm run test:e2e` — OK, 51 passed / 3 skipped.
+
+---
+
 ## 2026-06-21 — Round 5 Phase A: Workflow cancellation
 
 ### Добавлено

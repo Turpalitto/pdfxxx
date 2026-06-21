@@ -1,7 +1,7 @@
 # PDFX — Architecture Decision Records (ADR)
 
 > Журнал архитектурных решений. Добавлять новые ADR снизу.  
-> Last updated: 2026-06-20
+> Last updated: 2026-06-21
 
 ---
 
@@ -209,8 +209,9 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 - Порядок шагов ответственность пользователя: `protect` шифрует PDF, поэтому последующие pdfjs-шаги (grayscale/scanner/invert/remove-blank) на нём упадут. Раннер не переупорядочивает шаги, а показывает ошибку конкретного шага и прерывает прогон (fail-fast).
 - Шаги выполняются на main thread (как и одиночные вызовы со страницы инструмента). Перевод в воркер — отдельная задача (см. ADR-010), напрямую совместимая.
 - Отмена workflow cooperative: `AbortSignal` проверяется перед стартом и между шагами; уже начатая синхронная PDF-функция может завершиться, но следующий шаг не стартует.
+- Saved workflow chains persist only reusable templates (`stepId` + sanitized options) through `client/src/lib/workflow-storage.ts`; uploaded PDFs, filenames, React uid and document bytes are never stored.
 
-**Правило:** Новый сцепляемый шаг = добавить объект в `WORKFLOW_STEPS` (id, label EN/RU, icon из существующих lucide, accent из текущей палитры, опции, `run`, оборачивающий функцию `pdf-utils`). Функция шага обязана быть PDF→PDF. Цвета/палитру не вводить новые.
+**Правило:** Новый сцепляемый шаг = добавить объект в `WORKFLOW_STEPS` (id, label EN/RU, icon из существующих lucide, accent из текущей палитры, опции, `run`, оборачивающий функцию `pdf-utils`). Функция шага обязана быть PDF→PDF. Цвета/палитру не вводить новые. Workflow persistence читать/писать только через `workflow-storage.ts`, без файлов и имён файлов.
 
 ---
 

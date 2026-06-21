@@ -1,6 +1,6 @@
 # PDFX — Architecture
 
-> Source of truth. Last updated: 2026-06-20. Update after structural changes.
+> Source of truth. Last updated: 2026-06-21. Update after structural changes.
 
 ---
 
@@ -83,6 +83,7 @@ handleDownload() → downloadBlob() / downloadText()
      → если файлов несколько: mergePdfs как неявный первый шаг
      → каждый PDF→PDF шаг: Uint8Array → File → следующий step.run()
      → Cancel: AbortSignal останавливает цепочку перед стартом/между шагами
+     → Saved chains: localStorage хранит только stepId/options, без файлов/имён/bytes
      → downloadBlob(result.bytes, "workflow.pdf")
 ```
 
@@ -128,6 +129,12 @@ handleDownload() → downloadBlob() / downloadText()
 `client/src/tools/registry.ts` строит типизированные производные metadata поверх текущего `lib/tools.ts`: maturity, limits, output kind/mime, execution mode/worker op и search keywords. Это переходный слой: UI продолжает читать существующий каталог, а новые подсистемы (поиск, workflow, SEO-аудит, runner) должны брать производные metadata из typed registry, чтобы не плодить ручные списки.
 
 **Правило:** новые registry-facing metadata добавлять в `client/src/tools/types.ts`/`registry.ts`; не дублировать worker/output/search списки в компонентах.
+
+### `client/src/lib/workflow-storage.ts` — Saved Workflow chains
+
+`workflow-storage.ts` — единственный слой persistence для сохранённых `/workflow` цепочек. Он читает `localStorage` как недоверенный JSON, валидирует шаги через `getWorkflowStep()`, нормализует опции через определения `WORKFLOW_STEPS` и сохраняет только `stepId` + sanitized options. React `uid`, файлы, имена файлов, пути и содержимое PDF не пишутся в storage.
+
+**Правило:** новые workflow persistence-сценарии должны проходить через `workflow-storage.ts`; не читать/писать workflow JSON напрямую из компонентов.
 
 ### `GlobalCommandPalette` + home search
 

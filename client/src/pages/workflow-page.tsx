@@ -12,6 +12,9 @@ import {
   Workflow as WorkflowIcon,
   ArrowDownToLine,
   Merge,
+  Save,
+  FolderOpen,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FileUpload } from "@/components/file-upload";
@@ -32,6 +35,13 @@ import {
   type StepStatus,
   type WorkflowRunResult,
 } from "@/lib/workflow-engine";
+import {
+  deleteSavedWorkflowChain,
+  loadSavedWorkflowChains,
+  saveWorkflowChain,
+  savedItemsToWorkflowItems,
+  type SavedWorkflowChain,
+} from "@/lib/workflow-storage";
 
 export default function WorkflowPage() {
   const { lang } = useLang();
@@ -52,6 +62,10 @@ export default function WorkflowPage() {
   const [result, setResult] = useState<WorkflowRunResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [savedChains, setSavedChains] = useState<SavedWorkflowChain[]>(() =>
+    loadSavedWorkflowChains(),
+  );
+  const [chainName, setChainName] = useState("");
   const uidRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -128,6 +142,32 @@ export default function WorkflowPage() {
     setItems([]);
     resetRun();
   }, [resetRun]);
+
+  const handleSaveChain = useCallback(() => {
+    if (items.length === 0 || running) return;
+
+    const fallbackName = ru ? "Моя цепочка" : "My workflow";
+    const next = saveWorkflowChain({
+      name: chainName || fallbackName,
+      items,
+    });
+    setSavedChains(next);
+    setChainName("");
+  }, [chainName, items, ru, running]);
+
+  const handleLoadChain = useCallback(
+    (chain: SavedWorkflowChain) => {
+      if (running) return;
+
+      setItems(savedItemsToWorkflowItems(chain.items, nextUid));
+      resetRun();
+    },
+    [nextUid, resetRun, running],
+  );
+
+  const handleDeleteChain = useCallback((id: string) => {
+    setSavedChains(deleteSavedWorkflowChain(id));
+  }, []);
 
   const handleRun = useCallback(async () => {
     if (files.length === 0 || items.length === 0 || running) return;
@@ -447,6 +487,87 @@ export default function WorkflowPage() {
                 </button>
               ))}
             </div>
+          </section>
+
+          {/* Saved chains */}
+          <section className="pdfx-panel rounded-2xl p-5">
+            <h2 className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-foreground">
+              <Save className="h-3.5 w-3.5 text-muted-foreground" />
+              {ru ? "Сохранённые цепочки" : "Saved chains"}
+            </h2>
+            <p className="mb-3 text-xs text-muted-foreground">
+              {ru
+                ? "Сохраняются только шаги и настройки. PDF и имена файлов не записываются."
+                : "Only steps and options are saved. PDFs and file names are never stored."}
+            </p>
+            <div className="flex flex-col gap-2">
+              <input
+                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary disabled:opacity-50"
+                value={chainName}
+                placeholder={ru ? "Название цепочки" : "Chain name"}
+                disabled={running}
+                data-testid="workflow-save-name"
+                onChange={(event) => setChainName(event.target.value)}
+              />
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={handleSaveChain}
+                disabled={items.length === 0 || running}
+                data-testid="workflow-save-chain"
+              >
+                <Save className="h-4 w-4" />
+                {ru ? "Сохранить цепочку" : "Save chain"}
+              </Button>
+            </div>
+
+            {savedChains.length === 0 ? (
+              <p className="mt-3 rounded-xl border border-dashed border-border px-3 py-3 text-center text-xs text-muted-foreground">
+                {ru ? "Пока нет сохранённых цепочек." : "No saved chains yet."}
+              </p>
+            ) : (
+              <div className="mt-3 flex flex-col gap-2" data-testid="workflow-saved-chains">
+                {savedChains.map((chain) => (
+                  <div
+                    key={chain.id}
+                    className="rounded-xl border border-border bg-card px-3 py-2.5"
+                    data-testid="workflow-saved-chain"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">
+                          {chain.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {chain.items.length} {ru ? "шаг(а)" : "step(s)"}
+                        </p>
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 shrink-0 text-muted-foreground hover:text-rose-500"
+                        onClick={() => handleDeleteChain(chain.id)}
+                        disabled={running}
+                        aria-label={ru ? "Удалить цепочку" : "Delete chain"}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-2 w-full justify-start gap-2 px-0 text-xs"
+                      onClick={() => handleLoadChain(chain)}
+                      disabled={running}
+                      data-testid="workflow-load-chain"
+                    >
+                      <FolderOpen className="h-3.5 w-3.5" />
+                      {ru ? "Загрузить в конструктор" : "Load into builder"}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
 
           {/* Palette */}

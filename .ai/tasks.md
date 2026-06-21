@@ -20,12 +20,13 @@
 
 ## 🔄 Текущие задачи (In Progress)
 
-- [ ] Round 5 Phase B: добавить сохранение workflow-цепочек в localStorage как step ids/options без имён файлов и без содержимого документов.
 - [ ] Round 6 Phase B: расширить command palette workflow-пресетами и recent tools, не сохраняя имена файлов или содержимое документов.
 - [ ] Round 4 Phase B: постепенно вынести process/download runner из `tool-page.tsx` на typed registry metadata без изменения UX и slug.
 - [ ] TD-02 Phase 5: Дальнейшая декомпозиция edit-pdf-page.tsx (~2291 строк) — выигрыш мал (каждый хук 10+ параметров)
 
 ## ✅ Решено
+
+- [x] **Round 5 Phase B saved workflow chains (2026-06-21)** — `/workflow` сохраняет шаблоны цепочек в `localStorage` только как `stepId` + sanitized options; файлы, имена файлов, uid и содержимое документов не сохраняются. Добавлены Save/Load/Delete UI, `workflow-storage.ts`, unit-тест sanitizer/storage и e2e reload/load сценарий. Проверки: check OK, vitest 93/93, workflow e2e 6/6, build OK, full e2e 51 passed / 3 skipped.
 
 - [x] **Round 5 Phase A Workflow cancellation (2026-06-21)** — `runWorkflow()` принимает `AbortSignal`, добавлен `WorkflowAbortError`, `/workflow` показывает Cancel во время обработки и не продолжает цепочку после abort, добавлен unit-тест. Проверки: check OK, vitest 88/88, workflow e2e 4/4, build OK, full e2e 49 passed / 3 skipped.
 
