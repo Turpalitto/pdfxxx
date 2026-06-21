@@ -285,19 +285,22 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 **Дата:** 2026-06-21
 **Статус:** ✅ Принято
 
-**Решение:** Главная страница и command palette используют единый `searchToolRegistry()` из `client/src/tools/search-index.ts`.
+**Решение:** Главная страница и command palette используют единый `searchToolRegistry()` из `client/src/tools/search-index.ts` для поиска инструментов. Command palette может добавлять отдельные lightweight command sources для Workflow presets и recent tools через `client/src/components/command-palette-sources.ts`: presets читаются из `client/src/lib/workflow-presets.ts`, recent tools строятся из sanitized recent storage без имён файлов.
 
 **Причины:**
 - Поиск должен отвечать на пользовательскую задачу, а не только на видимые названия карточек.
-- Единый индекс предотвращает drift между home search, command palette и будущими workflow/recent-tool поверхностями.
+- Единый индекс предотвращает drift между home search, command palette и workflow/recent-tool поверхностями.
 - Search metadata уже строится из typed registry и EN/RU переводов, поэтому не требует новых ручных списков.
+- Preset metadata нужна в command palette, но импорт `workflow-engine.ts` тянет PDF engine; поэтому copy/stepId пресетов вынесены в lightweight `workflow-presets.ts`, а `workflow-engine.ts` только re-export для совместимости.
+- Recent tools должны быть быстрым переходом по slug, а не историей документов: имена файлов, пути и bytes остаются вне command palette.
 
 **Последствия:**
 - Добавление новых поисковых keywords должно идти через registry/search-index, а не через отдельные компоненты.
 - Command palette остаётся browser-only и не отправляет запросы на сервер.
 - UI использует существующую palette/classes, без изменения дизайн-системы.
+- `/workflow?preset=<id>` применяет preset на странице Workflow и затем очищает query через replace navigation.
 
-**Правило:** Любая новая поисковая поверхность PDFX должна вызывать `searchToolRegistry()` или тонкую обёртку над ним.
+**Правило:** Любая новая поисковая поверхность PDFX должна вызывать `searchToolRegistry()` или тонкую обёртку над ним. Workflow preset commands должны импортировать metadata из `workflow-presets.ts`, а recent-tool commands обязаны быть privacy-safe: без имён файлов, путей и содержимого документов.
 
 ---
 

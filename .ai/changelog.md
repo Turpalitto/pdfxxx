@@ -4,6 +4,32 @@
 
 ---
 
+## 2026-06-21 — Round 6 Phase B: command palette presets + recent tools
+
+### Добавлено
+- `client/src/components/command-palette-sources.ts` — lightweight command sources для Workflow presets и recent tools без импорта PDF engine.
+- `client/src/lib/workflow-presets.ts` — лёгкий metadata-модуль для Workflow preset titles/descriptions/stepIds; `workflow-engine.ts` re-export сохраняет совместимость.
+- Command palette показывает Workflow presets и privacy-safe recent tools.
+- `/workflow?preset=<id>` применяет preset и собирает pipeline автоматически.
+- Unit-тест `command-palette-sources.test.ts` проверяет deep links и отсутствие приватных имён файлов в recent commands.
+- Smoke E2E проверяет preset navigation и recent tool command без показа исходного имени файла.
+
+### Изменено
+- `use-recent-files.ts` получил `loadRecentFiles()` и typed sanitizer для чтения legacy localStorage как недоверенного JSON.
+- Command palette обновляет recent tools при открытии, не сохраняя и не читая содержимое документов.
+
+### Проверка
+- `npm run check` — OK.
+- `npm test -- --run` — OK, 95/95.
+- `npx playwright test tests/e2e/smoke.spec.ts` — OK, 12/12.
+- `npx playwright test tests/e2e/workflow.spec.ts` — OK, 6/6.
+- `npm run build` — OK, с существующим PostCSS warning; startup chunk не тянет PDF engine через presets.
+- `npm run test:e2e` — OK, 55 passed / 3 skipped.
+- `git diff --check` — OK.
+- Guard: `client/src/index.css` и `client/src/lib/tools.ts` без изменений.
+
+---
+
 ## 2026-06-21 — Round 5 Phase B: saved workflow chains
 
 ### Добавлено

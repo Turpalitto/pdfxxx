@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 
-const STORAGE_KEY = "pdfx_recent_files";
+export const RECENT_FILES_STORAGE_KEY = "pdfx_recent_files";
 const MAX_RECENT = 10;
+type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
 export interface RecentFile {
   name: string;
@@ -24,20 +25,70 @@ function sanitizeRecentFile(file: RecentFile): RecentFile {
   };
 }
 
+function isRecentFile(value: unknown): value is RecentFile {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "name" in value &&
+    "size" in value &&
+    "lastOpened" in value &&
+    "slug" in value &&
+    typeof value.name === "string" &&
+    typeof value.size === "number" &&
+    typeof value.lastOpened === "number" &&
+    typeof value.slug === "string" &&
+    Number.isFinite(value.size) &&
+    Number.isFinite(value.lastOpened)
+  );
+}
+
+function getBrowserStorage(): StorageLike | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+export function loadRecentFiles(storage: StorageLike | null = getBrowserStorage()): RecentFile[] {
+  if (!storage) {
+    return [];
+  }
+
+  try {
+    const stored = storage.getItem(RECENT_FILES_STORAGE_KEY);
+
+    if (!stored) {
+      return [];
+    }
+
+    const parsed: unknown = JSON.parse(stored);
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    const sanitized = parsed
+      .filter(isRecentFile)
+      .map(sanitizeRecentFile)
+      .slice(0, MAX_RECENT);
+    storage.setItem(RECENT_FILES_STORAGE_KEY, JSON.stringify(sanitized));
+
+    return sanitized;
+  } catch {
+    return [];
+  }
+}
+
 export function useRecentFiles() {
-  const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
+  const [recentFiles, setRecentFiles] = useState<RecentFile[]>(() => loadRecentFiles());
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as unknown;
-        if (!Array.isArray(parsed)) return;
-        const sanitized = parsed.map(sanitizeRecentFile);
-        setRecentFiles(sanitized);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
-      }
-    } catch {}
+    setRecentFiles(loadRecentFiles());
   }, []);
 
   const addRecentFile = useCallback((file: RecentFile) => {
@@ -46,7 +97,7 @@ export function useRecentFiles() {
       const filtered = prev.filter((f) => f.slug !== safeFile.slug || f.size !== safeFile.size);
       const next = [safeFile, ...filtered].slice(0, MAX_RECENT);
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        localStorage.setItem(RECENT_FILES_STORAGE_KEY, JSON.stringify(next));
       } catch {}
       return next;
     });
@@ -55,7 +106,7 @@ export function useRecentFiles() {
   const clearRecentFiles = useCallback(() => {
     setRecentFiles([]);
     try {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(RECENT_FILES_STORAGE_KEY);
     } catch {}
   }, []);
 

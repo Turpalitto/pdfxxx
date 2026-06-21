@@ -1,4 +1,5 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocation } from "wouter";
 import {
   Plus,
   Play,
@@ -45,6 +46,7 @@ import {
 
 export default function WorkflowPage() {
   const { lang } = useLang();
+  const [location, navigate] = useLocation();
   const ru = lang === "ru";
 
   useSeo({
@@ -68,6 +70,7 @@ export default function WorkflowPage() {
   const [chainName, setChainName] = useState("");
   const uidRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+  const appliedPresetRef = useRef<string | null>(null);
 
   const nextUid = useCallback(() => `wf-${uidRef.current++}`, []);
 
@@ -137,6 +140,25 @@ export default function WorkflowPage() {
     },
     [nextUid, resetRun],
   );
+
+  useEffect(() => {
+    const query = typeof window === "undefined" ? "" : window.location.search;
+    const presetId = new URLSearchParams(query).get("preset");
+
+    if (!presetId || appliedPresetRef.current === presetId) {
+      return;
+    }
+
+    const preset = WORKFLOW_PRESETS.find((item) => item.id === presetId);
+
+    if (!preset) {
+      return;
+    }
+
+    appliedPresetRef.current = presetId;
+    applyPreset(preset.stepIds);
+    navigate("/workflow", { replace: true });
+  }, [applyPreset, location, navigate]);
 
   const clearAll = useCallback(() => {
     setItems([]);

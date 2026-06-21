@@ -35,6 +35,41 @@ test.describe("public pages", () => {
     await expect(page.getByRole("heading", { level: 1 })).toContainText(/PDF to PowerPoint/i);
   });
 
+  test("command palette opens workflow presets", async ({ page }) => {
+    await page.goto("/");
+
+    await page.keyboard.press("Control+K");
+    await page.getByTestId("palette-workflow-send-ready").click();
+
+    await expect(page).toHaveURL(/\/workflow$/);
+    await expect(page.getByTestId("workflow-pipeline").locator("> li")).toHaveCount(3);
+  });
+
+  test("command palette shows privacy-safe recent tools", async ({ page }) => {
+    await page.goto("/");
+    await page.evaluate(() => {
+      localStorage.setItem(
+        "pdfx_recent_files",
+        JSON.stringify([
+          {
+            name: "private-client-contract.pdf",
+            size: 12345,
+            lastOpened: Date.now(),
+            slug: "pdf-to-excel",
+          },
+        ]),
+      );
+    });
+
+    await page.keyboard.press("Control+K");
+
+    await expect(page.getByTestId("palette-recent-pdf-to-excel")).toBeVisible();
+    await expect(page.getByText("private-client-contract")).toHaveCount(0);
+
+    await page.getByTestId("palette-recent-pdf-to-excel").click();
+    await expect(page).toHaveURL(/\/tools\/pdf-to-excel$/);
+  });
+
   test("pricing page renders plans", async ({ page }) => {
     await page.goto("/pricing");
 

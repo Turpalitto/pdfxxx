@@ -136,11 +136,17 @@ handleDownload() → downloadBlob() / downloadText()
 
 **Правило:** новые workflow persistence-сценарии должны проходить через `workflow-storage.ts`; не читать/писать workflow JSON напрямую из компонентов.
 
+### `client/src/lib/workflow-presets.ts` — Lightweight Workflow presets
+
+`workflow-presets.ts` хранит только metadata пресетов `/workflow`: id, EN/RU copy и список `stepId`. `workflow-engine.ts` re-export делает старые импорты совместимыми, но UI-поверхности вроде command palette должны импортировать presets из lightweight-модуля, чтобы не тянуть `pdf-utils`/PDF engine в startup chunk.
+
+**Правило:** новые preset-facing UI должны читать `WORKFLOW_PRESETS` из `workflow-presets.ts`; `workflow-engine.ts` использовать только там, где реально нужен запуск PDF-цепочки.
+
 ### `GlobalCommandPalette` + home search
 
-`client/src/components/global-command-palette.tsx` и поиск на главной используют один источник — `client/src/tools/search-index.ts`. Palette открывается через `Ctrl/⌘+K`, ищет по slug/category/output/maturity и EN/RU названиям/описаниям, затем ведёт на `/tools/{slug}` или `/workflow`.
+`client/src/components/global-command-palette.tsx` и поиск на главной используют один источник для инструментов — `client/src/tools/search-index.ts`. Palette открывается через `Ctrl/⌘+K`, ищет по slug/category/output/maturity и EN/RU названиям/описаниям, затем ведёт на `/tools/{slug}` или `/workflow`. Дополнительные command sources живут в `client/src/components/command-palette-sources.ts`: Workflow presets строят deep link `/workflow?preset=<id>`, а recent tools читают sanitized recent storage без имён файлов, путей и содержимого документов.
 
-**Правило:** новые поисковые поверхности должны переиспользовать `searchToolRegistry()`, а не строить отдельные локальные индексы.
+**Правило:** новые поисковые поверхности должны переиспользовать `searchToolRegistry()`, а не строить отдельные локальные индексы. Recent/preset команды не должны хранить или показывать приватные имена файлов; для workflow preset metadata использовать lightweight `workflow-presets.ts`.
 
 ### `client/src/tools/shared/output.ts` — Output validation/report
 

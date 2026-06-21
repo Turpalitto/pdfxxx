@@ -1,7 +1,7 @@
 ﻿# PDFX — Tasks & Technical Debt
 
 > Обновляется AI-агентами после каждой значимой задачи.  
-> Last updated: 2026-06-20
+> Last updated: 2026-06-21
 
 ---
 
@@ -20,11 +20,12 @@
 
 ## 🔄 Текущие задачи (In Progress)
 
-- [ ] Round 6 Phase B: расширить command palette workflow-пресетами и recent tools, не сохраняя имена файлов или содержимое документов.
 - [ ] Round 4 Phase B: постепенно вынести process/download runner из `tool-page.tsx` на typed registry metadata без изменения UX и slug.
 - [ ] TD-02 Phase 5: Дальнейшая декомпозиция edit-pdf-page.tsx (~2291 строк) — выигрыш мал (каждый хук 10+ параметров)
 
 ## ✅ Решено
+
+- [x] **Round 6 Phase B command palette presets + recent tools (2026-06-21)** — command palette получила Workflow presets с deep link `/workflow?preset=...` и recent tools из sanitized recent storage; имена файлов, пути и содержимое документов не читаются/не показываются. Presets вынесены в lightweight `workflow-presets.ts`, чтобы palette не тянула PDF engine в startup chunk. Проверки: check OK, vitest 95/95, build OK, smoke e2e 12/12, workflow e2e 6/6, full e2e 55 passed / 3 skipped.
 
 - [x] **Round 5 Phase B saved workflow chains (2026-06-21)** — `/workflow` сохраняет шаблоны цепочек в `localStorage` только как `stepId` + sanitized options; файлы, имена файлов, uid и содержимое документов не сохраняются. Добавлены Save/Load/Delete UI, `workflow-storage.ts`, unit-тест sanitizer/storage и e2e reload/load сценарий. Проверки: check OK, vitest 93/93, workflow e2e 6/6, build OK, full e2e 51 passed / 3 skipped.
 
