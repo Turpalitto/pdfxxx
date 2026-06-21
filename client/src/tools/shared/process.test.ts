@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { runPdfTask } from "@/workers/worker-client";
 import { getToolRegistryEntry } from "../registry";
 import {
+  createToolNamedPartsResult,
   createToolTextResult,
+  runToolAudioSideEffectTask,
   runToolMainThreadTask,
   runToolWorkerTask,
   shouldSimulateToolProgress,
@@ -100,6 +102,47 @@ describe("tool process metadata", () => {
       .toThrow('Tool "merge-pdf" does not produce a text-like result.');
   });
 
+  it("returns the original bytes for a single named split part", async () => {
+    const entry = expectEntry("split-by-chapters");
+
+    if (!entry) {
+      return;
+    }
+
+    const result = await createToolNamedPartsResult(entry, [
+      { name: "chapter-1.pdf", bytes: new Uint8Array([37, 80, 68, 70]) },
+    ]);
+
+    expect(result).toEqual(new Uint8Array([37, 80, 68, 70]));
+  });
+
+  it("packages multiple named split parts into a zip archive", async () => {
+    const entry = expectEntry("split-by-chapters");
+
+    if (!entry) {
+      return;
+    }
+
+    const result = await createToolNamedPartsResult(entry, [
+      { name: "chapter-1.pdf", bytes: new Uint8Array([1, 2, 3]) },
+      { name: "chapter-2.pdf", bytes: new Uint8Array([4, 5, 6]) },
+    ]);
+
+    expect(new TextDecoder().decode(result.slice(0, 2))).toBe("PK");
+  });
+
+  it("rejects named split packaging for non-archive outputs", async () => {
+    const entry = expectEntry("merge-pdf");
+
+    if (!entry) {
+      return;
+    }
+
+    await expect(createToolNamedPartsResult(entry, [
+      { name: "part.pdf", bytes: new Uint8Array([1, 2, 3]) },
+    ])).rejects.toThrow('Tool "merge-pdf" does not produce a split archive result.');
+  });
+
   it("runs worker tools through the registry worker op", async () => {
     const entry = expectEntry("grayscale-pdf");
     const file = new File(["%PDF-1.7"], "input.pdf", { type: "application/pdf" });
@@ -141,6 +184,32 @@ describe("tool process metadata", () => {
     expect(result).toEqual(new Uint8Array([4, 5, 6]));
     expect(task).toHaveBeenCalledOnce();
     expect(mockedRunPdfTask).not.toHaveBeenCalled();
+  });
+
+  it("runs audio side-effect tools as guarded main-thread tasks", async () => {
+    const entry = expectEntry("pdf-to-audio");
+    const task = vi.fn(async () => undefined);
+
+    if (!entry) {
+      return;
+    }
+
+    await runToolAudioSideEffectTask(entry, task);
+
+    expect(task).toHaveBeenCalledOnce();
+    expect(mockedRunPdfTask).not.toHaveBeenCalled();
+  });
+
+  it("rejects audio side-effect execution for non-audio outputs", async () => {
+    const entry = expectEntry("merge-pdf");
+
+    if (!entry) {
+      return;
+    }
+
+    await expect(runToolAudioSideEffectTask(entry, async () => undefined))
+      .rejects
+      .toThrow('Tool "merge-pdf" does not produce an audio side-effect result.');
   });
 
   it("rejects main-thread execution for hybrid worker tools", async () => {

@@ -119,7 +119,9 @@ import {
 } from "@/tools/shared/output";
 import { createToolDownloadPlan } from "@/tools/shared/download";
 import {
+  createToolNamedPartsResult,
   createToolTextResult,
+  runToolAudioSideEffectTask,
   runToolMainThreadTask,
   runToolWorkerTask,
   shouldSimulateToolProgress,
@@ -650,15 +652,8 @@ export default function ToolPage() {
           result = await runToolMainThreadTask(registryEntry, () => fillPdfForm(files[0], formValues));
           break;
         case "split-by-chapters": {
-          const parts = await splitByChapters(files[0], setProgress);
-          if (parts.length === 1) {
-            result = parts[0].bytes;
-          } else {
-            const JSZip = (await import("jszip")).default;
-            const zip = new JSZip();
-            parts.forEach(({ name, bytes: b }) => zip.file(name, b));
-            result = await zip.generateAsync({ type: "uint8array" });
-          }
+          const parts = await runToolMainThreadTask(registryEntry, () => splitByChapters(files[0], setProgress));
+          result = await createToolNamedPartsResult(registryEntry, parts);
           break;
         }
         case "booklet-imposition":
@@ -837,8 +832,10 @@ export default function ToolPage() {
           break;
         }
         case "pdf-to-audio": {
-          const text = await pdfToText(files[0]);
-          pdfToAudioFn(text, audioLang, audioRate[0]);
+          await runToolAudioSideEffectTask(registryEntry, async () => {
+            const text = await pdfToText(files[0]);
+            pdfToAudioFn(text, audioLang, audioRate[0]);
+          });
           setState("idle");
           setProgress(0);
           return;

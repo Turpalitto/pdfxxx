@@ -4,6 +4,28 @@
 
 ---
 
+## 2026-06-21 — Round 4 Phase G: special result adapters
+
+### Добавлено
+- `createToolNamedPartsResult()` в `client/src/tools/shared/process.ts`: typed adapter для split-like named parts; одна часть остаётся PDF, несколько частей собираются в ZIP.
+- `runToolAudioSideEffectTask()` в `client/src/tools/shared/process.ts`: guard-helper для audio side-effect инструментов без downloadable result.
+- Unit-тесты фиксируют single/multi split packaging, archive-output guard и audio-output guard.
+
+### Изменено
+- `split-by-chapters` в `tool-page.tsx` больше не собирает JSZip вручную; result shaping идёт через shared helper.
+- `pdf-to-audio` выполняется через audio side-effect guard, сохраняя прежний speech synthesis UX и отсутствие download result.
+- `pdf-metadata` намеренно оставлен на отдельный Phase H из-за двухшагового load/edit/save UI-state контракта.
+
+### Проверка
+- `npm run check` — OK.
+- `npm test -- --run` — OK, 114/114.
+- `npm run build` — OK, с существующим PostCSS warning.
+- `npx playwright test tests/e2e/smoke.spec.ts` — OK, 12/12.
+- `git diff --check` — OK.
+- Guard: `client/src/index.css` и `client/src/lib/tools.ts` без изменений.
+
+---
+
 ## 2026-06-21 — Round 4 Phase F: text-like process result adapters
 
 ### Добавлено

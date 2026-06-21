@@ -275,10 +275,10 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 - `tools.ts` временно остаётся UI source of truth для отображения карточек и иконок.
 - Новые подсистемы должны брать execution/output/search/progress metadata из typed registry.
 - Download runner использует output metadata через `client/src/tools/shared/download.ts`; динамические PDF/ZIP split-исключения остаются маленьким runtime-контекстом, а не ручной MIME-матрицей в `tool-page.tsx`.
-- Process runner использует progress, execution routing и text-like result shaping metadata через `client/src/tools/shared/process.ts`; callback-progress slug, строковые `WorkerOp`, ручные text/html/json/markdown adapters и обходные main-thread paths не должны дублироваться в `tool-page.tsx`.
+- Process runner использует progress, execution routing и result shaping metadata через `client/src/tools/shared/process.ts`; callback-progress slug, строковые `WorkerOp`, ручные text/html/json/markdown/split/audio adapters и обходные main-thread paths не должны дублироваться в `tool-page.tsx`.
 - Полная миграция каталога возможна позже маленькими PR/раундами.
 
-**Правило:** Не плодить новые ручные списки output/worker/search/download/progress metadata, строковые worker op, ручные text-like result adapters или обходные execution paths в компонентах; добавлять стабильные metadata в `client/src/tools/types.ts` и `client/src/tools/registry.ts`, а runtime-only исключения держать в маленьких тестируемых shared helpers.
+**Правило:** Не плодить новые ручные списки output/worker/search/download/progress metadata, строковые worker op, ручные text-like/split/audio result adapters или обходные execution paths в компонентах; добавлять стабильные metadata в `client/src/tools/types.ts` и `client/src/tools/registry.ts`, а runtime-only исключения держать в маленьких тестируемых shared helpers.
 
 ---
 
