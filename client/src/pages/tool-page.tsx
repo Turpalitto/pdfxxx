@@ -117,6 +117,7 @@ import {
   validateToolOutput,
   type ToolResultReport,
 } from "@/tools/shared/output";
+import { createToolDownloadPlan } from "@/tools/shared/download";
 
 type ProcessingState = "idle" | "processing" | "done" | "error";
 
@@ -858,52 +859,32 @@ export default function ToolPage() {
   ]);
 
   const handleDownload = useCallback(() => {
-    if (!tool) return;
-    const origName = files[0]?.name?.replace(/\.[^.]+$/, "") || "output";
-    if (resultText !== null && (slug === "pdf-to-text" || slug === "pdf-bookmarks" || slug === "extract-forms" || slug === "pdf-to-markdown")) {
-      const ext = slug === "extract-forms" ? "json" : slug === "pdf-to-markdown" ? "md" : "txt";
-      downloadText(resultText, `${origName}-pdfx.${ext}`);
+    if (!tool || !registryEntry) return;
+
+    const plan = createToolDownloadPlan({
+      slug,
+      originalFilename: files[0]?.name,
+      output: registryEntry.output,
+      resultBytes,
+      resultText,
+      resultHtml,
+      splitMode,
+    });
+
+    if (!plan) return;
+
+    if (plan.kind === "text") {
+      downloadText(plan.text, plan.filename);
       return;
     }
-    if (resultHtml !== null && slug === "pdf-to-html") {
-      downloadHtml(resultHtml, `${origName}-pdfx.html`);
+
+    if (plan.kind === "html") {
+      downloadHtml(plan.html, plan.filename);
       return;
     }
-    if (!resultBytes) return;
-    if (slug === "pdf-to-pptx") {
-      downloadBlob(resultBytes, `${origName}-pdfx.pptx`, "application/vnd.openxmlformats-officedocument.presentationml.presentation");
-      return;
-    }
-    if (slug === "pdf-to-jpg" || slug === "pdf-to-png" || slug === "extract-images") {
-      downloadBlob(resultBytes, `${origName}-pdfx-images.zip`, "application/zip");
-      return;
-    }
-    if (slug === "split-pdf" && (splitMode === "all" || splitMode === "every-n")) {
-      downloadBlob(resultBytes, `${origName}-split.zip`, "application/zip");
-      return;
-    }
-    if (slug === "split-by-size") {
-      const isZip = resultBytes[0] === 0x50 && resultBytes[1] === 0x4B;
-      downloadBlob(resultBytes, isZip ? `${origName}-split-by-size.zip` : `${origName}-pdfx.pdf`, isZip ? "application/zip" : "application/pdf");
-      return;
-    }
-    if (slug === "split-by-chapters") {
-      const isZip = resultBytes[0] === 0x50 && resultBytes[1] === 0x4B;
-      downloadBlob(
-        resultBytes,
-        isZip ? `${origName}-chapters.zip` : `${origName}-chapters.pdf`,
-        isZip ? "application/zip" : "application/pdf"
-      );
-      return;
-    }
-    const mimeType =
-      tool.outputExt === "docx"
-        ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        : tool.outputExt === "xlsx"
-          ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-          : "application/pdf";
-    downloadBlob(resultBytes, `${origName}-pdfx.${tool.outputExt || "pdf"}`, mimeType);
-  }, [resultBytes, resultText, resultHtml, files, tool, slug, splitMode]);
+
+    downloadBlob(plan.bytes, plan.filename, plan.mimeType);
+  }, [files, registryEntry, resultBytes, resultText, resultHtml, tool, slug, splitMode]);
 
   // ВАЖНО: хуки должны вызываться безусловно, ДО любых ранних return,
   // иначе при переходе между launch-ready и не-launch-ready инструментами

@@ -4,6 +4,26 @@
 
 ---
 
+## 2026-06-21 — Round 4 Phase B: registry-backed download runner
+
+### Добавлено
+- `client/src/tools/shared/download.ts` — чистый typed planner для скачивания результата по `ToolRegistryEntry.output` и минимальному контексту инструмента.
+- Unit-тест `download.test.ts` покрывает text/html/json, office blob, image ZIP и динамические split PDF/ZIP имена.
+
+### Изменено
+- `tool-page.tsx` больше не держит ручную матрицу filename/mime для `handleDownload`; компонент только вызывает `downloadBlob`/`downloadText`/`downloadHtml` по готовому плану.
+- Сохранено прежнее UX-поведение имён: `-pdfx`, `-pdfx-images.zip`, `-split.zip`, `-split-by-size.zip`, `-chapters.*`.
+
+### Проверка
+- `npm run check` — OK.
+- `npm test -- --run` — OK, 100/100.
+- `npm run build` — OK, с существующим PostCSS warning.
+- `npx playwright test tests/e2e/smoke.spec.ts` — OK, 12/12.
+- `git diff --check` — OK.
+- Guard: `client/src/index.css` и `client/src/lib/tools.ts` без изменений.
+
+---
+
 ## 2026-06-21 — Round 6 Phase B: command palette presets + recent tools
 
 ### Добавлено

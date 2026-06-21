@@ -148,9 +148,11 @@ handleDownload() → downloadBlob() / downloadText()
 
 **Правило:** новые поисковые поверхности должны переиспользовать `searchToolRegistry()`, а не строить отдельные локальные индексы. Recent/preset команды не должны хранить или показывать приватные имена файлов; для workflow preset metadata использовать lightweight `workflow-presets.ts`.
 
-### `client/src/tools/shared/output.ts` — Output validation/report
+### `client/src/tools/shared/output.ts` + `download.ts` — Output validation/report/download
 
 Перед показом успешного состояния `tool-page.tsx` проверяет результат через `validateToolOutput()` на базе output metadata из registry. Минимальный контракт: результат не пустой, PDF начинается с `%PDF`, ZIP/Office-контейнер начинается с `PK`; динамические split-операции могут вернуть ZIP или PDF. `createToolResultReport()` формирует компактную метрику input/output/format/saved для UI.
+
+`download.ts` строит typed download plan (`blob`/`text`/`html`) из `ToolRegistryEntry.output` и минимального runtime-контекста: slug, исходное имя файла, результат и split mode. `tool-page.tsx` не должен вручную выбирать MIME/extension; он только исполняет готовый план через `downloadBlob`, `downloadText` или `downloadHtml`.
 
 ### `pdf-utils.ts` — PDF движок
 
