@@ -6,6 +6,7 @@ import {
   createToolTextResult,
   runToolAudioSideEffectTask,
   runToolMainThreadTask,
+  runToolMetadataEditTask,
   runToolWorkerTask,
   shouldSimulateToolProgress,
 } from "./process";
@@ -210,6 +211,53 @@ describe("tool process metadata", () => {
     await expect(runToolAudioSideEffectTask(entry, async () => undefined))
       .rejects
       .toThrow('Tool "merge-pdf" does not produce an audio side-effect result.');
+  });
+
+  it("loads metadata fields before saving the metadata editor output", async () => {
+    const entry = expectEntry("pdf-metadata");
+    const loadMetadata = vi.fn(async () => ({ title: "Loaded title" }));
+    const saveMetadata = vi.fn(async () => new Uint8Array([1, 2, 3]));
+
+    if (!entry) {
+      return;
+    }
+
+    const result = await runToolMetadataEditTask(entry, false, loadMetadata, saveMetadata);
+
+    expect(result).toEqual({ status: "loaded", fields: { title: "Loaded title" } });
+    expect(loadMetadata).toHaveBeenCalledOnce();
+    expect(saveMetadata).not.toHaveBeenCalled();
+  });
+
+  it("saves metadata bytes after metadata fields are loaded", async () => {
+    const entry = expectEntry("pdf-metadata");
+    const loadMetadata = vi.fn(async () => ({ title: "Loaded title" }));
+    const saveMetadata = vi.fn(async () => new Uint8Array([4, 5, 6]));
+
+    if (!entry) {
+      return;
+    }
+
+    const result = await runToolMetadataEditTask(entry, true, loadMetadata, saveMetadata);
+
+    expect(result).toEqual({ status: "saved", bytes: new Uint8Array([4, 5, 6]) });
+    expect(loadMetadata).not.toHaveBeenCalled();
+    expect(saveMetadata).toHaveBeenCalledOnce();
+  });
+
+  it("rejects metadata edit flow for non-metadata tools", async () => {
+    const entry = expectEntry("merge-pdf");
+
+    if (!entry) {
+      return;
+    }
+
+    await expect(runToolMetadataEditTask(
+      entry,
+      false,
+      async () => ({ title: "Loaded title" }),
+      async () => new Uint8Array([1, 2, 3])
+    )).rejects.toThrow('Tool "merge-pdf" is not registered as a metadata editor.');
   });
 
   it("rejects main-thread execution for hybrid worker tools", async () => {

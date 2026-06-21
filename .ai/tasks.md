@@ -20,10 +20,12 @@
 
 ## 🔄 Текущие задачи (In Progress)
 
-- [ ] Round 4 Phase H: постепенно вынести metadata two-step result adapter из `tool-page.tsx` в typed process result helpers без изменения UX и slug.
+- [ ] Round 4 Phase I: постепенно вынести numbered split-pdf packaging из `tool-page.tsx` в typed process result helpers без изменения UX и slug.
 - [ ] TD-02 Phase 5: Дальнейшая декомпозиция edit-pdf-page.tsx (~2291 строк) — выигрыш мал (каждый хук 10+ параметров)
 
 ## ✅ Решено
+
+- [x] **Round 4 Phase H metadata two-step adapter (2026-06-21)** — `pdf-metadata` использует `runToolMetadataEditTask()` для load-before-save flow: первый запуск возвращает editable fields и idle, второй сохраняет PDF bytes. UX, slug и metadata fields state сохранены. Проверки: check OK, vitest 117/117, build OK, smoke e2e 12/12.
 
 - [x] **Round 4 Phase G special result adapters (2026-06-21)** — `split-by-chapters` использует `createToolNamedPartsResult()` для single-PDF/multi-ZIP packaging, а `pdf-to-audio` использует `runToolAudioSideEffectTask()` для audio side-effect guard без downloadable result. `pdf-metadata` оставлен на Phase H из-за двухшагового UI-state контракта. Проверки: check OK, vitest 114/114, build OK, smoke e2e 12/12.
 

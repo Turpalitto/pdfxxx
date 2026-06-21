@@ -14,6 +14,12 @@ export interface ToolNamedBytesPart {
   bytes: Uint8Array;
 }
 
+export type ToolMetadataFields = Record<string, string>;
+
+export type ToolMetadataResult =
+  | { status: "loaded"; fields: ToolMetadataFields }
+  | { status: "saved"; bytes: Uint8Array };
+
 const TEXT_RESULT_TARGET_BY_OUTPUT_KIND: Partial<Record<ToolOutputKind, ToolTextResultTarget>> = {
   html: "html",
   json: "text",
@@ -90,6 +96,27 @@ export async function runToolAudioSideEffectTask(
   }
 
   await runToolMainThreadTask(entry, task);
+}
+
+export async function runToolMetadataEditTask(
+  entry: ToolRegistryEntry,
+  isLoaded: boolean,
+  loadMetadata: () => Promise<ToolMetadataFields>,
+  saveMetadata: () => Promise<Uint8Array>
+): Promise<ToolMetadataResult> {
+  if (entry.slug !== "pdf-metadata") {
+    throw new Error(`Tool "${entry.slug}" is not registered as a metadata editor.`);
+  }
+
+  if (!isLoaded) {
+    const fields = await runToolMainThreadTask(entry, loadMetadata);
+
+    return { status: "loaded", fields };
+  }
+
+  const bytes = await runToolMainThreadTask(entry, saveMetadata);
+
+  return { status: "saved", bytes };
 }
 
 export async function runToolWorkerTask<T>(

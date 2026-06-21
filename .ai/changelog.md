@@ -4,6 +4,26 @@
 
 ---
 
+## 2026-06-21 — Round 4 Phase H: metadata two-step adapter
+
+### Добавлено
+- `runToolMetadataEditTask()` в `client/src/tools/shared/process.ts`: typed helper для двухшагового `pdf-metadata` flow (`loaded(fields)` или `saved(bytes)`).
+- Unit-тесты фиксируют load-before-save, save-after-load и запрет запуска metadata flow для других инструментов.
+
+### Изменено
+- `pdf-metadata` в `tool-page.tsx` больше не держит load/save branching напрямую в switch; страница только применяет результат helper к существующему UI state.
+- Двухшаговый UX сохранён: первый запуск загружает поля и возвращает idle, второй сохраняет PDF bytes.
+
+### Проверка
+- `npm run check` — OK.
+- `npm test -- --run` — OK, 117/117.
+- `npm run build` — OK, с существующим PostCSS warning.
+- `npx playwright test tests/e2e/smoke.spec.ts` — OK, 12/12.
+- `git diff --check` — OK.
+- Guard: `client/src/index.css` и `client/src/lib/tools.ts` без изменений.
+
+---
+
 ## 2026-06-21 — Round 4 Phase G: special result adapters
 
 ### Добавлено

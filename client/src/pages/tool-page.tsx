@@ -123,6 +123,7 @@ import {
   createToolTextResult,
   runToolAudioSideEffectTask,
   runToolMainThreadTask,
+  runToolMetadataEditTask,
   runToolWorkerTask,
   shouldSimulateToolProgress,
 } from "@/tools/shared/process";
@@ -683,15 +684,22 @@ export default function ToolPage() {
           );
           break;
         case "pdf-metadata": {
-          if (!metadataLoaded) {
-            const meta = await getPdfMetadata(files[0]);
-            setMetadataFields(meta);
+          const metadataResult = await runToolMetadataEditTask(
+            registryEntry,
+            metadataLoaded,
+            () => getPdfMetadata(files[0]),
+            () => setPdfMetadata(files[0], metadataFields)
+          );
+
+          if (metadataResult.status === "loaded") {
+            setMetadataFields(metadataResult.fields);
             setMetadataLoaded(true);
             setState("idle");
             setProgress(0);
             return;
           }
-          result = await setPdfMetadata(files[0], metadataFields);
+
+          result = metadataResult.bytes;
           break;
         }
         case "compare-pdf": {
