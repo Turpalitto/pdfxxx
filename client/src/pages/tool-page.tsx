@@ -118,7 +118,12 @@ import {
   type ToolResultReport,
 } from "@/tools/shared/output";
 import { createToolDownloadPlan } from "@/tools/shared/download";
-import { runToolMainThreadTask, runToolWorkerTask, shouldSimulateToolProgress } from "@/tools/shared/process";
+import {
+  createToolTextResult,
+  runToolMainThreadTask,
+  runToolWorkerTask,
+  shouldSimulateToolProgress,
+} from "@/tools/shared/process";
 
 type ProcessingState = "idle" | "processing" | "done" | "error";
 
@@ -449,6 +454,18 @@ export default function ToolPage() {
         throw new Error("Missing tool registry metadata for process runner.");
       }
 
+      const applyTextLikeResult = (content: string) => {
+        const textResult = createToolTextResult(registryEntry, content);
+
+        if (textResult.target === "html") {
+          setResultHtml(textResult.content);
+        } else {
+          setResultText(textResult.content);
+        }
+
+        return textResult.bytes;
+      };
+
       if (shouldSimulateToolProgress(registryEntry)) {
         simulateProgress(10, 85);
       }
@@ -583,15 +600,13 @@ export default function ToolPage() {
           result = await runToolMainThreadTask(registryEntry, () => pdfToExcel(files[0]));
           break;
         case "pdf-to-text": {
-          const text = await pdfToText(files[0]);
-          setResultText(text);
-          result = new Uint8Array(new TextEncoder().encode(text));
+          const text = await runToolMainThreadTask(registryEntry, () => pdfToText(files[0]));
+          result = applyTextLikeResult(text);
           break;
         }
         case "pdf-to-html": {
-          const html = await pdfToHtml(files[0]);
-          setResultHtml(html);
-          result = new Uint8Array(new TextEncoder().encode(html));
+          const html = await runToolMainThreadTask(registryEntry, () => pdfToHtml(files[0]));
+          result = applyTextLikeResult(html);
           break;
         }
         case "pdf-to-jpg":
@@ -719,18 +734,16 @@ export default function ToolPage() {
           );
           break;
         case "pdf-bookmarks": {
-          const text = await pdfBookmarks(files[0]);
-          setResultText(text);
-          result = new Uint8Array(new TextEncoder().encode(text));
+          const text = await runToolMainThreadTask(registryEntry, () => pdfBookmarks(files[0]));
+          result = applyTextLikeResult(text);
           break;
         }
         case "sanitize-pdf":
           result = await runToolMainThreadTask(registryEntry, () => sanitizePdf(files[0]));
           break;
         case "extract-forms": {
-          const json = await extractFormFields(files[0]);
-          setResultText(json);
-          result = new Uint8Array(new TextEncoder().encode(json));
+          const json = await runToolMainThreadTask(registryEntry, () => extractFormFields(files[0]));
+          result = applyTextLikeResult(json);
           break;
         }
         case "pdf-to-pdfa":
@@ -794,9 +807,8 @@ export default function ToolPage() {
           break;
         }
         case "pdf-to-markdown": {
-          const md = await pdfToMarkdown(files[0]);
-          setResultText(md);
-          result = new Uint8Array(new TextEncoder().encode(md));
+          const md = await runToolMainThreadTask(registryEntry, () => pdfToMarkdown(files[0]));
+          result = applyTextLikeResult(md);
           break;
         }
         case "add-background": {

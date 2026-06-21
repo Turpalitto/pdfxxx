@@ -4,6 +4,27 @@
 
 ---
 
+## 2026-06-21 — Round 4 Phase F: text-like process result adapters
+
+### Добавлено
+- `createToolTextResult()` в `client/src/tools/shared/process.ts`: typed adapter для text/html/json/markdown результатов на базе `ToolRegistryEntry.output`.
+- Unit-тесты фиксируют mapping display target: text/json/markdown/bookmarks показываются как text, html — как html; binary output не может пройти через text adapter.
+
+### Изменено
+- `pdf-to-text`, `pdf-to-html`, `pdf-bookmarks`, `extract-forms` и `pdf-to-markdown` в `tool-page.tsx` больше не кодируют результат вручную через `TextEncoder`.
+- Эти ветки теперь используют `runToolMainThreadTask()` для execution guard и `createToolTextResult()` для bytes + display target.
+- UX, slug, download naming и output validation сохранены.
+
+### Проверка
+- `npm run check` — OK.
+- `npm test -- --run` — OK, 109/109.
+- `npm run build` — OK, с существующим PostCSS warning.
+- `npx playwright test tests/e2e/smoke.spec.ts` — OK, 12/12.
+- `git diff --check` — OK.
+- Guard: `client/src/index.css` и `client/src/lib/tools.ts` без изменений.
+
+---
+
 ## 2026-06-21 — Round 4 Phase E: registry-guarded main-thread process adapters
 
 ### Добавлено

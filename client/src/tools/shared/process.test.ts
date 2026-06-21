@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { runPdfTask } from "@/workers/worker-client";
 import { getToolRegistryEntry } from "../registry";
 import {
+  createToolTextResult,
   runToolMainThreadTask,
   runToolWorkerTask,
   shouldSimulateToolProgress,
@@ -62,6 +63,41 @@ describe("tool process metadata", () => {
 
     expect(entry.execution.mode).toBe("main-thread");
     expect(shouldSimulateToolProgress(entry)).toBe(true);
+  });
+
+  it("creates display-ready bytes for text-like tool results from output metadata", () => {
+    const expectations = [
+      { slug: "pdf-to-text", target: "text" },
+      { slug: "pdf-to-html", target: "html" },
+      { slug: "pdf-bookmarks", target: "text" },
+      { slug: "extract-forms", target: "text" },
+      { slug: "pdf-to-markdown", target: "text" },
+    ] as const;
+
+    for (const expectation of expectations) {
+      const entry = expectEntry(expectation.slug);
+
+      if (!entry) {
+        continue;
+      }
+
+      const result = createToolTextResult(entry, "Generated content");
+
+      expect(result.target).toBe(expectation.target);
+      expect(result.content).toBe("Generated content");
+      expect(new TextDecoder().decode(result.bytes)).toBe("Generated content");
+    }
+  });
+
+  it("rejects text result creation for binary outputs", () => {
+    const entry = expectEntry("merge-pdf");
+
+    if (!entry) {
+      return;
+    }
+
+    expect(() => createToolTextResult(entry, "Generated content"))
+      .toThrow('Tool "merge-pdf" does not produce a text-like result.');
   });
 
   it("runs worker tools through the registry worker op", async () => {

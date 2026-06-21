@@ -1,8 +1,40 @@
 import { runPdfTask, type RunPdfTaskOptions } from "@/workers/worker-client";
-import type { ToolRegistryEntry } from "../types";
+import type { ToolOutputKind, ToolRegistryEntry } from "../types";
+
+export type ToolTextResultTarget = "text" | "html";
+
+export interface ToolTextResult {
+  bytes: Uint8Array;
+  content: string;
+  target: ToolTextResultTarget;
+}
+
+const TEXT_RESULT_TARGET_BY_OUTPUT_KIND: Partial<Record<ToolOutputKind, ToolTextResultTarget>> = {
+  html: "html",
+  json: "text",
+  markdown: "text",
+  text: "text",
+};
 
 export function shouldSimulateToolProgress(entry: ToolRegistryEntry): boolean {
   return entry.execution.progress === "simulated";
+}
+
+export function createToolTextResult(
+  entry: ToolRegistryEntry,
+  content: string
+): ToolTextResult {
+  const target = TEXT_RESULT_TARGET_BY_OUTPUT_KIND[entry.output.kind];
+
+  if (!target) {
+    throw new Error(`Tool "${entry.slug}" does not produce a text-like result.`);
+  }
+
+  return {
+    bytes: new TextEncoder().encode(content),
+    content,
+    target,
+  };
 }
 
 export async function runToolMainThreadTask<T>(
