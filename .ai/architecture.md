@@ -154,7 +154,7 @@ handleDownload() → downloadBlob() / downloadText()
 
 `download.ts` строит typed download plan (`blob`/`text`/`html`) из `ToolRegistryEntry.output` и минимального runtime-контекста: slug, исходное имя файла, результат и split mode. `tool-page.tsx` не должен вручную выбирать MIME/extension; он только исполняет готовый план через `downloadBlob`, `downloadText` или `downloadHtml`.
 
-`process.ts` читает `ToolRegistryEntry.execution.progress` и решает, нужен ли simulated progress. Для worker-backed инструментов `runToolWorkerTask()` берёт `entry.execution.workerOp` из typed registry и делегирует в `runPdfTask()` с прежним fallback/cancel/progress контрактом. `tool-page.tsx` не должен держать локальные списки real-progress slug или строковые worker op; callback/simulated и worker routing поведение фиксируется в typed registry и покрывается unit-тестами.
+`process.ts` читает `ToolRegistryEntry.execution.progress` и решает, нужен ли simulated progress. Для worker-backed инструментов `runToolWorkerTask()` берёт `entry.execution.workerOp` из typed registry и делегирует в `runPdfTask()` с прежним fallback/cancel/progress контрактом. Для простых main-thread инструментов `runToolMainThreadTask()` проверяет, что entry действительно зарегистрирован как `main-thread`, и только после этого исполняет task. `tool-page.tsx` не должен держать локальные списки real-progress slug, строковые worker op или обходные execution paths; callback/simulated и worker/main-thread routing поведение фиксируется в typed registry и покрывается unit-тестами.
 
 ### `pdf-utils.ts` — PDF движок
 

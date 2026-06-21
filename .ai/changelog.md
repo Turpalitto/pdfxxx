@@ -4,6 +4,26 @@
 
 ---
 
+## 2026-06-21 — Round 4 Phase E: registry-guarded main-thread process adapters
+
+### Добавлено
+- `runToolMainThreadTask()` в `client/src/tools/shared/process.ts`: typed guard-helper для main-thread инструментов.
+- Unit-тесты фиксируют, что main-thread task исполняется без worker client, а hybrid/worker инструмент не может случайно пройти через main-thread path.
+
+### Изменено
+- Простые main-thread cases в `tool-page.tsx` теперь запускаются через `runToolMainThreadTask(registryEntry, ...)`.
+- Сложные ветки со своим UI state/result shaping (`split-*`, text/html/json/metadata/audio/OCR) оставлены без изменения для отдельного безопасного среза.
+
+### Проверка
+- `npm run check` — OK.
+- `npm test -- --run` — OK, 107/107.
+- `npm run build` — OK, с существующим PostCSS warning.
+- `npx playwright test tests/e2e/smoke.spec.ts` — OK, 12/12.
+- `git diff --check` — OK.
+- Guard: `client/src/index.css` и `client/src/lib/tools.ts` без изменений.
+
+---
+
 ## 2026-06-21 — Round 4 Phase D: registry-backed worker invocation wrapper
 
 ### Добавлено

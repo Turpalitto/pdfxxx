@@ -118,7 +118,7 @@ import {
   type ToolResultReport,
 } from "@/tools/shared/output";
 import { createToolDownloadPlan } from "@/tools/shared/download";
-import { runToolWorkerTask, shouldSimulateToolProgress } from "@/tools/shared/process";
+import { runToolMainThreadTask, runToolWorkerTask, shouldSimulateToolProgress } from "@/tools/shared/process";
 
 type ProcessingState = "idle" | "processing" | "done" | "error";
 
@@ -455,7 +455,7 @@ export default function ToolPage() {
 
       switch (slug) {
         case "merge-pdf":
-          result = await mergePdfs(files);
+          result = await runToolMainThreadTask(registryEntry, () => mergePdfs(files));
           break;
         case "split-pdf": {
           const origName = files[0].name.replace(/\.[^.]+$/, "");
@@ -479,12 +479,15 @@ export default function ToolPage() {
           break;
         }
         case "rotate-pdf":
-          result = await rotatePdf(files[0], parseInt(rotation) as 90 | 180 | 270);
+          result = await runToolMainThreadTask(
+            registryEntry,
+            () => rotatePdf(files[0], parseInt(rotation) as 90 | 180 | 270)
+          );
           break;
         case "delete-pages": {
           const pageCount = await getPdfPageCount(files[0]);
           const indices = parsePageSelection(pagesToDelete, pageCount, { allowDuplicates: false });
-          result = await deletePages(files[0], indices);
+          result = await runToolMainThreadTask(registryEntry, () => deletePages(files[0], indices));
           break;
         }
         case "extract-pages":
@@ -493,58 +496,72 @@ export default function ToolPage() {
           const indices = parsePageSelection(pagesToExtract, pageCount, {
             allowDuplicates: slug === "reorder-pages",
           });
-          result = slug === "reorder-pages"
-            ? await reorderPages(files[0], indices)
-            : await extractPages(files[0], indices);
+          result = await runToolMainThreadTask(registryEntry, () => (
+            slug === "reorder-pages"
+              ? reorderPages(files[0], indices)
+              : extractPages(files[0], indices)
+          ));
           break;
         }
         case "compress-pdf":
-          result = await compressPdf(files[0], compressionLevel);
+          result = await runToolMainThreadTask(registryEntry, () => compressPdf(files[0], compressionLevel));
           break;
         case "watermark-pdf":
-          result = await addWatermark(files[0], watermarkText, watermarkOpacity[0], 45, watermarkPosition);
+          result = await runToolMainThreadTask(
+            registryEntry,
+            () => addWatermark(files[0], watermarkText, watermarkOpacity[0], 45, watermarkPosition)
+          );
           break;
         case "pdf-page-numbers":
-          result = await addPageNumbers(files[0], pageNumPosition, 1, pageNumFormat);
+          result = await runToolMainThreadTask(
+            registryEntry,
+            () => addPageNumbers(files[0], pageNumPosition, 1, pageNumFormat)
+          );
           break;
         case "bates-numbering":
-          result = await batesNumbering(files[0], {
-            prefix: batesPrefix,
-            startNumber: batesStart,
-            digits: batesDigits,
-            suffix: batesSuffix,
-            position: batesPosition,
-            fontSize: batesFontSize,
-          });
+          result = await runToolMainThreadTask(
+            registryEntry,
+            () => batesNumbering(files[0], {
+              prefix: batesPrefix,
+              startNumber: batesStart,
+              digits: batesDigits,
+              suffix: batesSuffix,
+              position: batesPosition,
+              fontSize: batesFontSize,
+            })
+          );
           break;
         case "images-to-pdf":
         case "photo-to-pdf":
-          result = await imagesToPdf(files);
+          result = await runToolMainThreadTask(registryEntry, () => imagesToPdf(files));
           break;
         case "text-to-pdf": {
           const text = files.length > 0
             ? await files[0].text()
             : freeTextContent;
-          result = await textToPdf(text);
+          result = await runToolMainThreadTask(registryEntry, () => textToPdf(text));
           break;
         }
         case "pdf-header-footer":
-          result = await addHeaderFooter(files[0], headerText, footerText);
+          result = await runToolMainThreadTask(
+            registryEntry,
+            () => addHeaderFooter(files[0], headerText, footerText)
+          );
           break;
         case "repair-pdf":
-          result = await repairPdf(files[0]);
+          result = await runToolMainThreadTask(registryEntry, () => repairPdf(files[0]));
           break;
         case "flatten-pdf":
-          result = await flattenPdf(files[0]);
+          result = await runToolMainThreadTask(registryEntry, () => flattenPdf(files[0]));
           break;
         case "protect-pdf":
-          result = await protectPdf(files[0], password);
+          result = await runToolMainThreadTask(registryEntry, () => protectPdf(files[0], password));
           break;
         case "unlock-pdf":
-          result = await unlockPdf(files[0], password);
+          result = await runToolMainThreadTask(registryEntry, () => unlockPdf(files[0], password));
           break;
         case "sign-pdf":
-          result = await signPdf(files[0], signatureText);
+          result = await runToolMainThreadTask(registryEntry, () => signPdf(files[0], signatureText));
           break;
         case "redact-pdf":
           result = await runToolWorkerTask(
@@ -554,16 +571,16 @@ export default function ToolPage() {
           );
           break;
         case "word-to-pdf":
-          result = await wordToPdf(files[0]);
+          result = await runToolMainThreadTask(registryEntry, () => wordToPdf(files[0]));
           break;
         case "excel-to-pdf":
-          result = await excelToPdf(files[0]);
+          result = await runToolMainThreadTask(registryEntry, () => excelToPdf(files[0]));
           break;
         case "pdf-to-word":
-          result = await pdfToWord(files[0]);
+          result = await runToolMainThreadTask(registryEntry, () => pdfToWord(files[0]));
           break;
         case "pdf-to-excel":
-          result = await pdfToExcel(files[0]);
+          result = await runToolMainThreadTask(registryEntry, () => pdfToExcel(files[0]));
           break;
         case "pdf-to-text": {
           const text = await pdfToText(files[0]);
@@ -612,10 +629,10 @@ export default function ToolPage() {
           );
           break;
         case "remove-images":
-          result = await removeImages(files[0]);
+          result = await runToolMainThreadTask(registryEntry, () => removeImages(files[0]));
           break;
         case "form-fill":
-          result = await fillPdfForm(files[0], formValues);
+          result = await runToolMainThreadTask(registryEntry, () => fillPdfForm(files[0], formValues));
           break;
         case "split-by-chapters": {
           const parts = await splitByChapters(files[0], setProgress);
@@ -644,13 +661,16 @@ export default function ToolPage() {
           );
           break;
         case "crop-pdf":
-          result = await cropPdf(files[0], {
-            topMm: parseFloat(cropTop) || 0,
-            rightMm: parseFloat(cropRight) || 0,
-            bottomMm: parseFloat(cropBottom) || 0,
-            leftMm: parseFloat(cropLeft) || 0,
-            autoCrop: cropAutoMode,
-          });
+          result = await runToolMainThreadTask(
+            registryEntry,
+            () => cropPdf(files[0], {
+              topMm: parseFloat(cropTop) || 0,
+              rightMm: parseFloat(cropRight) || 0,
+              bottomMm: parseFloat(cropBottom) || 0,
+              leftMm: parseFloat(cropLeft) || 0,
+              autoCrop: cropAutoMode,
+            })
+          );
           break;
         case "pdf-metadata": {
           if (!metadataLoaded) {
@@ -686,7 +706,10 @@ export default function ToolPage() {
           );
           break;
         case "resize-pages":
-          result = await resizePages(files[0], resizeTarget, setProgress);
+          result = await runToolMainThreadTask(
+            registryEntry,
+            () => resizePages(files[0], resizeTarget, setProgress)
+          );
           break;
         case "grayscale-pdf":
           result = await runToolWorkerTask(
@@ -702,7 +725,7 @@ export default function ToolPage() {
           break;
         }
         case "sanitize-pdf":
-          result = await sanitizePdf(files[0]);
+          result = await runToolMainThreadTask(registryEntry, () => sanitizePdf(files[0]));
           break;
         case "extract-forms": {
           const json = await extractFormFields(files[0]);
@@ -711,11 +734,11 @@ export default function ToolPage() {
           break;
         }
         case "pdf-to-pdfa":
-          result = await convertToPdfA(files[0]);
+          result = await runToolMainThreadTask(registryEntry, () => convertToPdfA(files[0]));
           break;
         case "add-blank-pages": {
           const positions = pagesToExtract.split(",").map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n >= 0);
-          result = await addBlankPages(files[0], positions);
+          result = await runToolMainThreadTask(registryEntry, () => addBlankPages(files[0], positions));
           break;
         }
         case "auto-redact": {
@@ -742,7 +765,10 @@ export default function ToolPage() {
           break;
         case "split-by-size": {
           const maxMb = parseFloat(splitMaxMb) || 5;
-          result = await splitBySize(files[0], maxMb, setProgress);
+          result = await runToolMainThreadTask(
+            registryEntry,
+            () => splitBySize(files[0], maxMb, setProgress)
+          );
           break;
         }
         case "overlay-pdf": {
@@ -751,7 +777,10 @@ export default function ToolPage() {
             setState("error");
             return;
           }
-          result = await overlayPdf(files[0], overlayFile2, overlayOpacity[0], setProgress);
+          result = await runToolMainThreadTask(
+            registryEntry,
+            () => overlayPdf(files[0], overlayFile2, overlayOpacity[0], setProgress)
+          );
           break;
         }
         case "extract-images": {
@@ -775,7 +804,10 @@ export default function ToolPage() {
           const r = parseInt(hex.substring(0, 2), 16);
           const g = parseInt(hex.substring(2, 4), 16);
           const b = parseInt(hex.substring(4, 6), 16);
-          result = await addBackground(files[0], { r, g, b }, bgOpacity[0] / 100);
+          result = await runToolMainThreadTask(
+            registryEntry,
+            () => addBackground(files[0], { r, g, b }, bgOpacity[0] / 100)
+          );
           break;
         }
         case "pdf-diff": {

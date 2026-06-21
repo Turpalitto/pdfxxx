@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { runPdfTask } from "@/workers/worker-client";
 import { getToolRegistryEntry } from "../registry";
-import { runToolWorkerTask, shouldSimulateToolProgress } from "./process";
+import {
+  runToolMainThreadTask,
+  runToolWorkerTask,
+  shouldSimulateToolProgress,
+} from "./process";
 
 vi.mock("@/workers/worker-client", () => ({
   runPdfTask: vi.fn(async (_op, fallback) => fallback()),
@@ -86,5 +90,32 @@ describe("tool process metadata", () => {
     await expect(runToolWorkerTask(entry, async () => new Uint8Array(), { file }))
       .rejects
       .toThrow('Tool "merge-pdf" is missing worker metadata.');
+  });
+
+  it("runs main-thread tools without touching the worker client", async () => {
+    const entry = expectEntry("merge-pdf");
+    const task = vi.fn(async () => new Uint8Array([4, 5, 6]));
+
+    if (!entry) {
+      return;
+    }
+
+    const result = await runToolMainThreadTask(entry, task);
+
+    expect(result).toEqual(new Uint8Array([4, 5, 6]));
+    expect(task).toHaveBeenCalledOnce();
+    expect(mockedRunPdfTask).not.toHaveBeenCalled();
+  });
+
+  it("rejects main-thread execution for hybrid worker tools", async () => {
+    const entry = expectEntry("grayscale-pdf");
+
+    if (!entry) {
+      return;
+    }
+
+    await expect(runToolMainThreadTask(entry, async () => new Uint8Array()))
+      .rejects
+      .toThrow('Tool "grayscale-pdf" is not registered as a main-thread tool.');
   });
 });
