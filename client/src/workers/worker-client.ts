@@ -10,14 +10,24 @@
 
 import type { WorkerOp, WorkerRequest, WorkerResponse } from "./pdf-worker-types";
 
+export interface WorkerRuntimeCapabilities {
+  Worker?: unknown;
+  OffscreenCanvas?: unknown;
+  URL?: unknown;
+}
+
 /** Воркер пригоден, только если есть и Worker, и OffscreenCanvas (для рендера). */
-export function isWorkerSupported(): boolean {
+export function canUsePdfWorker(capabilities: WorkerRuntimeCapabilities): boolean {
   return (
-    typeof Worker !== "undefined" &&
-    typeof OffscreenCanvas !== "undefined" &&
+    typeof capabilities.Worker !== "undefined" &&
+    typeof capabilities.OffscreenCanvas !== "undefined" &&
     // module-worker через import.meta.url нужен для бандла воркера
-    typeof URL !== "undefined"
+    typeof capabilities.URL !== "undefined"
   );
+}
+
+export function isWorkerSupported(): boolean {
+  return canUsePdfWorker(globalThis);
 }
 
 /** Ошибка отмены — отличаем от настоящих сбоев, чтобы не уходить в fallback. */
@@ -37,6 +47,11 @@ interface Pending {
 let worker: Worker | null = null;
 const pending = new Map<number, Pending>();
 let seq = 0;
+
+function rejectPending(reason: unknown) {
+  pending.forEach((p) => p.reject(reason));
+  pending.clear();
+}
 
 function getWorker(): Worker {
   if (!worker) {
@@ -58,8 +73,7 @@ function getWorker(): Worker {
     worker.onerror = (e) => {
       // Фатальный сбой воркера — реджектим все ожидающие и пересоздаём.
       const err = new Error(e.message || "PDF worker crashed");
-      pending.forEach((p) => p.reject(err));
-      pending.clear();
+      rejectPending(err);
       worker?.terminate();
       worker = null;
     };
@@ -72,7 +86,6 @@ function terminateWorker() {
     worker.terminate();
     worker = null;
   }
-  pending.clear();
 }
 
 function runInWorker(
@@ -88,16 +101,26 @@ function runInWorker(
       return;
     }
     const id = ++seq;
-    pending.set(id, { resolve, reject, onProgress });
 
     const onAbort = () => {
       if (!pending.has(id)) return;
-      pending.delete(id);
       // Убиваем воркер целиком — единственный надёжный способ прервать
       // синхронные циклы pdfjs/pdf-lib. Следующая операция поднимет новый.
       terminateWorker();
-      reject(new WorkerAbortError());
+      rejectPending(new WorkerAbortError());
     };
+    const cleanup = () => signal?.removeEventListener("abort", onAbort);
+    pending.set(id, {
+      resolve: (value) => {
+        cleanup();
+        resolve(value);
+      },
+      reject: (reason) => {
+        cleanup();
+        reject(reason);
+      },
+      onProgress,
+    });
     signal?.addEventListener("abort", onAbort, { once: true });
 
     const req: WorkerRequest = { id, op, file, args };
@@ -105,6 +128,7 @@ function runInWorker(
       getWorker().postMessage(req);
     } catch (err) {
       pending.delete(id);
+      cleanup();
       reject(err);
     }
   });
@@ -143,8 +167,9 @@ export async function runPdfTask<T>(
     if (signal?.aborted) throw new WorkerAbortError();
     // Воркер не справился (нет nested worker, ошибка рендера и т.п.) →
     // повторяем в main thread, чтобы пользователь всё равно получил результат.
-    // eslint-disable-next-line no-console
-    console.warn(`[pdf-worker] "${op}" failed in worker, falling back to main thread:`, err);
+    if (import.meta.env.DEV) {
+      console.warn(`[pdf-worker] "${op}" failed in worker, falling back to main thread:`, err);
+    }
     return fallback();
   }
 }

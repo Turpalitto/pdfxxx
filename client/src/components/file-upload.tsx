@@ -3,7 +3,13 @@ import { Upload, File, X, CheckCircle, ArrowUp, ArrowDown, Clock } from "lucide-
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatBytes, looksLikePdfFile } from "@/lib/pdf-utils";
-import { DEFAULT_MAX_FILE_SIZE_MB, mbToBytes } from "@/lib/upload-limits";
+import {
+  DEFAULT_MAX_FILE_SIZE_MB,
+  estimateUploadRisk,
+  highestUploadRisk,
+  mbToBytes,
+  type UploadRiskEstimate,
+} from "@/lib/upload-limits";
 import { useLang } from "@/lib/lang-context";
 import { useRecentFiles } from "@/hooks/use-recent-files";
 
@@ -39,6 +45,7 @@ export function FileUpload({
   const [isDragging, setIsDragging] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dropIdx, setDropIdx] = useState<number | null>(null);
+  const [uploadRisk, setUploadRisk] = useState<UploadRiskEstimate | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { lang } = useLang();
   const { recentFiles } = useRecentFiles();
@@ -101,6 +108,9 @@ export function FileUpload({
       }
 
       if (acceptedFiles.length > 0) {
+        setUploadRisk(
+          highestUploadRisk(acceptedFiles.map((file) => estimateUploadRisk(file.size, maxSizeMb))),
+        );
         onFiles(acceptedFiles);
       }
       onValidationError?.(rejectedMessages.length > 0 ? rejectedMessages.join(" ") : null);
@@ -127,6 +137,15 @@ export function FileUpload({
   );
 
   const hasFiles = files.length > 0;
+  const riskCopy = uploadRisk?.level === "high"
+    ? lang === "ru"
+      ? "Крупный файл: обработка может занять больше времени и памяти."
+      : "Large file: processing may need more time and memory."
+    : uploadRisk?.level === "medium"
+      ? lang === "ru"
+        ? "Средний размер: обработка должна пройти нормально, но может быть не мгновенной."
+        : "Medium size: processing should work, but may not be instant."
+      : null;
 
   return (
     <div className="flex flex-col gap-3">
@@ -280,6 +299,12 @@ export function FileUpload({
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {hasFiles && riskCopy && (
+        <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          {riskCopy}
         </div>
       )}
 

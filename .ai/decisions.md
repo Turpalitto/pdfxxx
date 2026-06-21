@@ -1,7 +1,7 @@
 # PDFX — Architecture Decision Records (ADR)
 
 > Журнал архитектурных решений. Добавлять новые ADR снизу.  
-> Last updated: 2026-05-30
+> Last updated: 2026-06-20
 
 ---
 
@@ -233,6 +233,48 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 - bold/italic зависят от информативности имени шрифта; для субституированных шрифтов начертание может не определиться — заголовки страхуются детекцией по относительному размеру.
 
 **Правило:** Новые «office-fidelity» сигналы добавлять полями в `PdfLayoutItem/Line/Page` внутри `extractPdfLayout`, а чистую логику (классификация/кластеризация) выносить в экспортируемые тестируемые хелперы. Парсеры на отдельный инструмент не плодить.
+
+---
+
+## ADR-013 — Shared registry for sitemap slugs
+
+**Дата:** 2026-06-20
+**Статус:** ✅ Принято
+
+**Решение:** Slug инструментов и статические страницы для server-side sitemap вынесены в `shared/tool-registry.ts`. `server/routes.ts` строит `/sitemap.xml` из этого shared registry, а unit-тест сверяет `TOOL_SLUGS` с UI-каталогом `client/src/lib/tools.ts`.
+
+**Причины:**
+- Ручной список slug в `server/routes.ts` легко расходится с каталогом инструментов.
+- Server-side sitemap не должен импортировать `client/src/lib/tools.ts`, потому что там есть React/lucide icon metadata.
+- Pure shared registry даёт серверу лёгкий источник slug без клиентских зависимостей.
+
+**Последствия:**
+- При добавлении инструмента нужно обновлять shared registry и UI-каталог синхронно.
+- `tool-registry.test.ts` падает, если sitemap registry и UI-каталог расходятся.
+- Следующий этап может перенести больше метаданных в registry, но без риска для текущих URL.
+
+**Правило:** Sitemap-facing slug должны проходить через `shared/tool-registry.ts`; не добавлять новые ручные списки slug в server routes.
+
+---
+
+## ADR-014 — Typed client registry facade before full tool migration
+
+**Дата:** 2026-06-20
+**Статус:** ✅ Принято
+
+**Решение:** Производные metadata инструментов (maturity, limits, output, execution mode/worker op, search keywords) добавляются в `client/src/tools/registry.ts` как typed facade поверх существующего `client/src/lib/tools.ts`, а не через одномоментный перенос всего каталога.
+
+**Причины:**
+- `tools.ts` содержит React/lucide icon metadata и активно используется UI; резкий перенос создаёт высокий regression-risk.
+- Typed facade даёт новый единый слой для search/workflow/runner без смены публичных slug и без изменения цветовой палитры.
+- Тесты могут сверять `tools.ts`, typed registry и shared sitemap registry, ловя drift до runtime.
+
+**Последствия:**
+- `tools.ts` временно остаётся UI source of truth для отображения карточек и иконок.
+- Новые подсистемы должны брать execution/output/search metadata из typed registry.
+- Полная миграция каталога возможна позже маленькими PR/раундами.
+
+**Правило:** Не плодить новые ручные списки output/worker/search metadata в компонентах; добавлять их в `client/src/tools/types.ts` и `client/src/tools/registry.ts` с тестом на синхронизацию.
 
 ---
 

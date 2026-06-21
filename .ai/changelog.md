@@ -4,6 +4,118 @@
 
 ---
 
+## 2026-06-20 — Round 4 Phase A: output validation + result report
+
+### Добавлено
+- `client/src/tools/shared/output.ts` — единая проверка выходных файлов перед показом состояния `done`: PDF signature, ZIP/Office container signature, non-empty output для text/html/json/markdown.
+- Compact result report в `tool-page.tsx`: input size, output size, output format, saved percent.
+- Unit-тест `output.test.ts` на PDF/ZIP/Office validation и size report.
+
+### Изменено
+- `tool-page.tsx` использует output metadata из typed registry для валидации результата и отчёта, без изменения самих PDF-функций.
+
+### Проверка
+- `npm run check` — OK.
+- `npm test -- --run` — OK, 87/87.
+- `npm run build` — OK, с существующим PostCSS warning.
+- `npm run test:e2e` — OK после повторного запуска с увеличенным timeout, 47 passed / 3 skipped. Первый запуск был прерван runner-timeout и дал `EPIPE`, без test failure.
+
+---
+
+## 2026-06-20 — Round 3 Phase A: execution-layer cleanup
+
+### Исправлено
+- `worker-client.ts` теперь снимает `AbortSignal` listener после успешного завершения, ошибки или `postMessage` failure.
+- Abort одного worker-задания больше не очищает остальные pending-задания без reject: termination теперь реджектит все ожидания через общий `WorkerAbortError`.
+
+### Добавлено
+- `canUsePdfWorker()` — тестируемый helper проверки runtime-capabilities (`Worker`, `OffscreenCanvas`, `URL`) без прямой привязки к `globalThis`.
+- Unit-тест `worker-client.test.ts` на worker capability и отличимый abort error.
+
+### Проверка
+- `npm run check` — OK.
+- `npm test -- --run` — OK, 83/83.
+
+---
+
+## 2026-06-20 — Round 2 Phase B: typed client registry facade
+
+### Добавлено
+- `client/src/tools/types.ts` — строгие типы для tool registry: category, maturity, execution mode, output definition, limits, search keywords.
+- `client/src/tools/registry.ts` — typed facade поверх существующего `tools.ts`, вычисляет maturity, limits, output, execution mode/worker op и EN/RU search metadata.
+- `client/src/tools/search-index.ts` — единый search helper по slug/category/output/maturity и локализованным EN/RU названиям/описаниям.
+- `client/src/tools/registry.test.ts` — проверяет совпадение UI-каталога, typed registry и shared sitemap registry, а также worker metadata и RU/EN поиск.
+- ADR-014 — правило постепенного переноса метаданных через typed registry facade без массового переписывания `tools.ts`.
+
+### Проверка
+- `npm run check` — OK.
+- `npm test -- --run` — OK, 81/81.
+
+---
+
+## 2026-06-20 — Round 1 Phase A: privacy/logs/sitemap quick fixes
+
+### Исправлено
+- Убраны debug `console.log` из preview generation в `tool-page.tsx`; неуспешная генерация preview теперь просто отключает preview без production console noise.
+- Worker fallback warning в `worker-client.ts` оставлен только для dev-режима (`import.meta.env.DEV`).
+- `use-recent-files.ts` больше не сохраняет полные имена файлов в localStorage: новые и старые записи приводятся к generic label (`PDF file` и т.п.) + size/slug/time.
+- Privacy policy обновлена под фактическое хранение recent-file metadata без полного имени файла, содержимого PDF и самого файла.
+- `/workflow` добавлен в динамический sitemap (`server/routes.ts`) и в статический `client/public/sitemap.xml`.
+
+### Проверка
+- `npm run check` — OK.
+- `npm test` — OK, 70/70.
+- `npm run build` — OK, с существующим PostCSS warning.
+- `npm run test:e2e` — OK, 47 passed / 3 skipped.
+
+---
+
+## 2026-06-20 — Round 1 Phase B: maturity + upload risk
+
+### Добавлено
+- `getToolMaturity()` / `getToolMaturityLabel()` в `tools.ts`: каждый инструмент получает вычисляемый статус `Stable` / `Beta` / `Experimental` без изменения slug и цветовой палитры.
+- UI-статусы зрелости на карточках инструментов и странице инструмента.
+- `estimateUploadRisk()` / `highestUploadRisk()` в `upload-limits.ts`: предупреждение о крупных файлах в upload-зоне на основе доли от текущего лимита.
+- Unit-тесты `tools.test.ts` и `upload-limits.test.ts`.
+
+### Проверка
+- `npm run check` — OK.
+- `npm test` — OK, 75/75.
+
+---
+
+## 2026-06-20 — Round 2 Phase A: shared sitemap registry
+
+### Добавлено
+- `shared/tool-registry.ts` — pure registry для `LANG_CODES`, `STATIC_PAGES` и `TOOL_SLUGS`, пригодный для server-side sitemap без React/lucide зависимостей.
+- `tool-registry.test.ts` — сверяет shared `TOOL_SLUGS` с UI-каталогом `tools.ts` и проверяет наличие `/workflow` в static pages.
+- ADR-013 — правило: sitemap-facing slug проходят через shared registry.
+
+### Изменено
+- `server/routes.ts` больше не держит ручной список tool slug; `/sitemap.xml` строится из shared registry.
+
+### Проверка
+- `npm run check` — OK.
+- `npm test` — OK, 77/77.
+- `npm run test:e2e` — OK, 47 passed / 3 skipped.
+
+---
+
+## 2026-06-20 — Round 0: первичный аудит перед поэтапным рефакторингом
+
+### Добавлено
+- `docs/audit-before-refactor.md` — baseline текущего состояния перед раундами: git/node/npm, check/test/build/e2e, количество инструментов и категорий, worker/main-thread карта, размеры ключевых файлов и production chunks, localStorage/runtime surfaces, лимиты файлов и известные проблемы.
+
+### Проверка
+- `npm install` — OK, зависимости актуальны; npm audit сообщает 3 уязвимости (1 low, 1 moderate, 1 high), без автолечения зависимостей.
+- `npm run check` — OK.
+- `npm test` — OK, 70/70.
+- `npm run build` — OK, с существующим PostCSS warning.
+- `npx playwright install chromium` — OK.
+- `npm run test:e2e` — OK, 47 passed / 3 skipped.
+
+---
+
 ## 2026-06-18 — SEO + bates-numbering инструмент
 
 ### SEO для 12 языков

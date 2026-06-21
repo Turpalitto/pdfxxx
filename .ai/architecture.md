@@ -1,6 +1,6 @@
 # PDFX — Architecture
 
-> Source of truth. Last updated: 2026-05-30. Update after structural changes.
+> Source of truth. Last updated: 2026-06-20. Update after structural changes.
 
 ---
 
@@ -22,6 +22,16 @@ client/src/
 │   ├── lang-context.tsx       # React Context для языка
 │   ├── theme.tsx              # Dark/sepia/light theme
 │   └── utils.ts               # Хелперы: cn(), clamp()
+│
+├── tools/                     # Typed facade над каталогом инструментов
+│   ├── types.ts               # Категории, execution/output/limits/search типы
+│   ├── registry.ts            # Производные metadata из lib/tools.ts
+│   └── search-index.ts        # Поиск по slug/category/output/maturity + EN/RU
+│
+├── workers/
+│   ├── pdf-worker-types.ts    # Протокол WorkerOp/request/response
+│   ├── pdf-worker.ts          # Worker-side router в pdf-utils
+│   └── worker-client.ts       # runPdfTask + progress/cancel/fallback
 │
 ├── pages/
 │   ├── home.tsx               # Главная: сетка инструментов + поиск
@@ -57,7 +67,7 @@ FileUpload component
 files[] state в tool-page.tsx
         ↓
 handleProcess() → switch(slug) → pdf-utils функция
-        ↓         [всё в main thread браузера]
+        ↓         [worker-backed операции через runPdfTask, остальные main thread]
 result = Uint8Array
         ↓
 handleDownload() → downloadBlob() / downloadText()
@@ -101,6 +111,16 @@ handleDownload() → downloadBlob() / downloadText()
 ```
 
 `categoryColors` — маппинг color → CSS классы. **Не добавлять новые цвета.**
+
+### `client/src/tools/*` — Typed registry facade
+
+`client/src/tools/registry.ts` строит типизированные производные metadata поверх текущего `lib/tools.ts`: maturity, limits, output kind/mime, execution mode/worker op и search keywords. Это переходный слой: UI продолжает читать существующий каталог, а новые подсистемы (поиск, workflow, SEO-аудит, runner) должны брать производные metadata из typed registry, чтобы не плодить ручные списки.
+
+**Правило:** новые registry-facing metadata добавлять в `client/src/tools/types.ts`/`registry.ts`; не дублировать worker/output/search списки в компонентах.
+
+### `client/src/tools/shared/output.ts` — Output validation/report
+
+Перед показом успешного состояния `tool-page.tsx` проверяет результат через `validateToolOutput()` на базе output metadata из registry. Минимальный контракт: результат не пустой, PDF начинается с `%PDF`, ZIP/Office-контейнер начинается с `PK`; динамические split-операции могут вернуть ZIP или PDF. `createToolResultReport()` формирует компактную метрику input/output/format/saved для UI.
 
 ### `pdf-utils.ts` — PDF движок
 

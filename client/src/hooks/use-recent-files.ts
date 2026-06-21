@@ -10,20 +10,41 @@ export interface RecentFile {
   slug: string;
 }
 
+function privateRecentLabel(name: string): string {
+  const ext = name.split(".").pop()?.trim().toUpperCase();
+  return ext ? `${ext} file` : "Local file";
+}
+
+function sanitizeRecentFile(file: RecentFile): RecentFile {
+  return {
+    name: privateRecentLabel(file.name),
+    size: file.size,
+    lastOpened: file.lastOpened,
+    slug: file.slug,
+  };
+}
+
 export function useRecentFiles() {
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
 
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) setRecentFiles(JSON.parse(stored));
+      if (stored) {
+        const parsed = JSON.parse(stored) as unknown;
+        if (!Array.isArray(parsed)) return;
+        const sanitized = parsed.map(sanitizeRecentFile);
+        setRecentFiles(sanitized);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
+      }
     } catch {}
   }, []);
 
   const addRecentFile = useCallback((file: RecentFile) => {
     setRecentFiles((prev) => {
-      const filtered = prev.filter((f) => f.name !== file.name || f.slug !== file.slug);
-      const next = [file, ...filtered].slice(0, MAX_RECENT);
+      const safeFile = sanitizeRecentFile(file);
+      const filtered = prev.filter((f) => f.slug !== safeFile.slug || f.size !== safeFile.size);
+      const next = [safeFile, ...filtered].slice(0, MAX_RECENT);
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       } catch {}

@@ -17,6 +17,8 @@ export interface Tool {
   outputExt?: string;
 }
 
+export type ToolMaturity = "stable" | "beta" | "experimental";
+
 export interface Category {
   id: string;
   label: string;
@@ -762,6 +764,41 @@ export function getLaunchReadyTools(): Tool[] {
 
 export function getRoadmapTools(): Tool[] {
   return tools.filter((tool) => !isToolLaunchReady(tool));
+}
+
+const TOOL_MATURITY_OVERRIDES: Partial<Record<string, ToolMaturity>> = {
+  "pdf-to-audio": "experimental",
+  "pdf-to-pdfa": "experimental",
+  "extract-forms": "beta",
+  "form-fill": "beta",
+  "pdf-diff": "beta",
+  "pdf-to-pptx": "beta",
+};
+
+export function getToolMaturity(toolOrSlug: Tool | string): ToolMaturity {
+  const tool = typeof toolOrSlug === "string" ? getToolBySlug(toolOrSlug) : toolOrSlug;
+
+  if (!tool) {
+    return "experimental";
+  }
+
+  if (tool.beta) {
+    return "beta";
+  }
+
+  return TOOL_MATURITY_OVERRIDES[tool.slug] ?? "stable";
+}
+
+export function getToolMaturityLabel(maturity: ToolMaturity, lang: string): string {
+  if (lang === "ru") {
+    if (maturity === "stable") return "Стабильно";
+    if (maturity === "beta") return "Beta";
+    return "Эксперимент";
+  }
+
+  if (maturity === "stable") return "Stable";
+  if (maturity === "beta") return "Beta";
+  return "Experimental";
 }
 
 // Curated list of the most-used PDF tools, ordered by typical popularity.

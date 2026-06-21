@@ -18,13 +18,13 @@ export default function PrivacyPage() {
   const sections = isRu
     ? [
         ["1. Обработка файлов", "Базовые PDF-инструменты PDFX работают локально в браузере. Мы не загружаем ваши документы на сервер для merge, split, compress, convert, watermark, page numbers и edit PDF."],
-        ["2. Что хранится", "Мы можем хранить только технические настройки интерфейса, например выбранный язык, тему и историю последних инструментов, в localStorage браузера. Эти данные не содержат содержимое ваших PDF и не включают загруженные файлы."],
+        ["2. Что хранится", "Мы можем хранить только технические настройки интерфейса, например выбранный язык, историю последних инструментов и приватную историю недавних файлов в localStorage браузера. Недавние файлы сохраняются как общий тип файла, размер, инструмент и время открытия — без полного имени файла, содержимого PDF или самого файла."],
         ["3. Чего мы не делаем", "Мы не продаём файлы пользователей, не индексируем содержимое документов и не используем ваши PDF для обучения моделей."],
         ["4. Контакт", "По вопросам приватности пишите на hello@pdfx.tools."],
       ]
     : [
         ["1. File processing", "PDFX core tools run locally in the browser. We do not upload your documents to our server for merge, split, compress, convert, watermark, page numbers, or edit flows."],
-        ["2. What is stored", "We may store interface preferences such as language, theme, and recent tool history in browser localStorage. Those values never include the contents of your PDF files or the files themselves."],
+        ["2. What is stored", "We may store interface preferences such as language, recent tool history, and a private recent-file history in browser localStorage. Recent files are stored as a generic file type, size, tool, and open time, without the full file name, PDF contents, or the file itself."],
         ["3. What we do not do", "We do not sell user files, index document contents, or use your PDFs for model training."],
         ["4. Contact", "For privacy questions, email hello@pdfx.tools."],
       ];

@@ -1,31 +1,9 @@
 import type { Express } from "express";
 import { type Server } from "http";
 
+import { LANG_CODES, STATIC_PAGES, TOOL_SLUGS } from "../shared/tool-registry";
+
 const BASE_URL = "https://pdfx.tools";
-
-const LANG_CODES = ["en", "ru", "es", "fr", "de", "pt", "zh", "ja", "ko", "ar", "hi", "tr"];
-
-const TOOL_SLUGS = [
-  "pdf-to-word","pdf-to-jpg","pdf-to-png","pdf-to-text","pdf-to-html",
-  "pdf-to-excel","pdf-to-markdown","pdf-to-audio","pdf-to-pptx","pdf-to-pdfa",
-  "word-to-pdf","images-to-pdf","excel-to-pdf","text-to-pdf","photo-to-pdf",
-  "merge-pdf","split-pdf","rotate-pdf","delete-pages","reorder-pages","extract-pages",
-  "add-blank-pages","split-by-size","split-by-chapters","booklet-imposition","n-up-pdf","to-single-page",
-  "protect-pdf","unlock-pdf","sign-pdf","watermark-pdf","redact-pdf","auto-redact",
-  "compress-pdf","repair-pdf","flatten-pdf","sanitize-pdf",
-  "ocr-pdf","edit-pdf","crop-pdf","resize-pages","grayscale-pdf","invert-colors",
-  "pdf-page-numbers","pdf-header-footer","pdf-bookmarks","pdf-metadata","pdf-diff","compare-pdf",
-  "overlay-pdf","extract-images","remove-images","remove-blank-pages",
-  "extract-forms","form-fill","add-background","scanner-effect","bates-numbering",
-];
-
-const STATIC_PAGES = [
-  { path: "/", priority: "1.0", changefreq: "weekly" },
-  { path: "/pricing", priority: "0.8", changefreq: "monthly" },
-  { path: "/privacy", priority: "0.4", changefreq: "yearly" },
-  { path: "/terms", priority: "0.4", changefreq: "yearly" },
-  { path: "/contact", priority: "0.5", changefreq: "monthly" },
-];
 
 function buildHreflangLinks(path: string): string {
   const links = LANG_CODES.map(

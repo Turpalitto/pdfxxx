@@ -1,7 +1,7 @@
 ﻿# PDFX — Tasks & Technical Debt
 
 > Обновляется AI-агентами после каждой значимой задачи.  
-> Last updated: 2026-06-12
+> Last updated: 2026-06-20
 
 ---
 
@@ -20,9 +20,24 @@
 
 ## 🔄 Текущие задачи (In Progress)
 
+- [ ] Round 4 Phase B: постепенно вынести process/download runner из `tool-page.tsx` на typed registry metadata без изменения UX и slug.
 - [ ] TD-02 Phase 5: Дальнейшая декомпозиция edit-pdf-page.tsx (~2291 строк) — выигрыш мал (каждый хук 10+ параметров)
 
 ## ✅ Решено
+
+- [x] **Round 4 Phase A output validation + result report (2026-06-20)** — добавлен `client/src/tools/shared/output.ts`, `tool-page.tsx` валидирует результат по registry output metadata перед `done`, показывает compact report (input/output/format/saved), добавлен `output.test.ts`. Проверки: check OK, vitest 87/87, build OK, e2e 47 passed / 3 skipped.
+
+- [x] **Round 3 Phase A execution-layer cleanup (2026-06-20)** — `worker-client.ts` снимает abort listener после settle/postMessage failure, abort одного задания реджектит все pending-задачи перед worker termination, добавлен тестируемый `canUsePdfWorker()` и `worker-client.test.ts`. Проверки: check OK, vitest 83/83.
+
+- [x] **Round 2 Phase B typed client registry facade (2026-06-20)** — добавлены `client/src/tools/types.ts`, `registry.ts`, `search-index.ts`: typed metadata facade поверх текущего `tools.ts` с maturity, limits, output, execution mode/worker op и EN/RU search keywords. `registry.test.ts` сверяет UI-каталог, shared sitemap registry и typed registry. Проверки: check OK, vitest 81/81. См. ADR-014.
+
+- [x] **Round 2 Phase A shared sitemap registry (2026-06-20)** — добавлен `shared/tool-registry.ts` для sitemap-facing slug/static pages/lang codes, `server/routes.ts` строит sitemap из shared registry, добавлен `tool-registry.test.ts`, ADR-013 фиксирует правило. Проверки: check OK, vitest 77/77.
+
+- [x] **Round 1 Phase B maturity + upload risk (2026-06-20)** — добавлены вычисляемые статусы зрелости Stable/Beta/Experimental для всех инструментов, UI-бейджи на карточках и tool page, risk estimate для крупных файлов в upload-зоне, unit-тесты `tools.test.ts` и `upload-limits.test.ts`. Проверки: check OK, vitest 75/75.
+
+- [x] **Round 1 Phase A privacy/logs/sitemap (2026-06-20)** — убраны client debug logs preview, worker fallback warning ограничен dev-режимом, recent files больше не сохраняют полные имена файлов, privacy policy синхронизирована с кодом, `/workflow` добавлен в sitemap. CSP проверен, изменений не потребовалось. Проверки: check OK, vitest 70/70, build OK, e2e 47 passed / 3 skipped.
+
+- [x] **Round 0 первичный аудит перед рефакторингом (2026-06-20)** — создан `docs/audit-before-refactor.md`: baseline git/node/npm, check/test/build/e2e, инструменты/категории, worker/main-thread карта, размеры ключевых файлов/chunks, localStorage/runtime surfaces, лимиты и известные проблемы. Проверки: install OK, check OK, vitest 70/70, build OK, e2e 47 passed / 3 skipped.
 
 - [x] **#2 Fidelity pdf-to-word/excel — Phase B (2026-06-12)** — `detectTableRegions` (чистый, тестируемый: ≥2 смежных строк × ≥2 ячейки × ≥2 колонки, нетабличная строка разрывает регион) + `tableRegionToXml` эмитит `<w:tbl>` с границами/сеткой/ячейками в `pdfToWord`; нетабличные строки — прежним путём Phase A. Защита от ложных таблиц (проза/одиночные строки не срабатывают). tsc 0 · vitest 56/56 · build OK. Phase C (картинки) — далее. См. ADR-012.
 

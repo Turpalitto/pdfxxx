@@ -2,7 +2,14 @@ import { memo } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
-import { type Tool, categoryColors, getCategoryLabel, isToolLaunchReady } from "@/lib/tools";
+import {
+  type Tool,
+  categoryColors,
+  getCategoryLabel,
+  getToolMaturity,
+  getToolMaturityLabel,
+  isToolLaunchReady,
+} from "@/lib/tools";
 import { getToolTranslation } from "@/lib/tool-translations";
 import { useLang } from "@/lib/lang-context";
 import { preloadToolRoute } from "@/lib/route-preload";
@@ -17,6 +24,7 @@ function ToolCardComponent({ tool }: ToolCardProps) {
   const { name, description } = getToolTranslation(tool.slug, lang);
   const Icon = tool.icon;
   const isReady = isToolLaunchReady(tool);
+  const maturity = getToolMaturity(tool);
 
   return (
     <Link
@@ -75,7 +83,7 @@ function ToolCardComponent({ tool }: ToolCardProps) {
         <div className="relative z-[1] mt-auto flex items-center justify-between gap-3 text-xs text-muted-foreground min-w-0">
           <span className="line-clamp-1 truncate">{getCategoryLabel(tool.category, lang)}</span>
           <span className="rounded-full border border-border bg-white/45 px-2.5 py-1 flex-shrink-0">
-            {tool.pro ? "Pro" : isReady ? "Ready" : "Soon"}
+            {tool.pro ? "Pro" : isReady ? getToolMaturityLabel(maturity, lang) : "Soon"}
           </span>
         </div>
       </motion.div>

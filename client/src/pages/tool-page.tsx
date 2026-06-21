@@ -28,7 +28,14 @@ import { KeyboardHelpDialog } from "@/components/keyboard-help";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { useRecentFiles } from "@/hooks/use-recent-files";
 import { ToolCard } from "@/components/tool-card";
-import { getToolBySlug, tools, categoryColors, isToolLaunchReady } from "@/lib/tools";
+import {
+  getToolBySlug,
+  tools,
+  categoryColors,
+  getToolMaturity,
+  getToolMaturityLabel,
+  isToolLaunchReady,
+} from "@/lib/tools";
 import { getToolTranslation } from "@/lib/tool-translations";
 import { DEFAULT_MAX_FILE_SIZE_MB } from "@/lib/upload-limits";
 import {
@@ -104,6 +111,12 @@ import { runPdfTask, WorkerAbortError } from "@/workers/worker-client";
 import { cn } from "@/lib/utils";
 import { getWorkflowSuggestionsForTool, rememberRecentTool } from "@/lib/tool-experience";
 import { preloadToolRoute } from "@/lib/route-preload";
+import { getToolRegistryEntry } from "@/tools/registry";
+import {
+  createToolResultReport,
+  validateToolOutput,
+  type ToolResultReport,
+} from "@/tools/shared/output";
 
 type ProcessingState = "idle" | "processing" | "done" | "error";
 
@@ -117,6 +130,8 @@ export default function ToolPage() {
   const _toolName = toolTr?.name ?? tool?.name ?? "";
   const _toolDesc = toolTr?.description ?? tool?.description ?? "";
   const maxSizeMb = tool?.maxFilesMb ?? DEFAULT_MAX_FILE_SIZE_MB;
+  const maturity = tool ? getToolMaturity(tool) : "experimental";
+  const registryEntry = tool ? getToolRegistryEntry(tool.slug) : undefined;
 
   useSeo({
     title: tool
@@ -151,6 +166,7 @@ export default function ToolPage() {
   const [error, setError] = useState<string | null>(null);
   const [resultBytes, setResultBytes] = useState<Uint8Array | null>(null);
   const [resultSize, setResultSize] = useState<number | null>(null);
+  const [resultReport, setResultReport] = useState<ToolResultReport | null>(null);
 
   const [splitStart, setSplitStart] = useState("1");
   const [splitEnd, setSplitEnd] = useState("");
@@ -305,8 +321,6 @@ export default function ToolPage() {
 
   const generatePreview = useCallback(async (pdfBytes: Uint8Array) => {
     try {
-      console.log('[DEBUG] generatePreview called with', pdfBytes.length, 'bytes');
-      
       const pdfjs = await import("pdfjs-dist");
       
       // Use the same approach as Stirling-PDF for worker path
@@ -319,8 +333,7 @@ export default function ToolPage() {
       
       const loadingTask = pdfjs.getDocument({ data: pdfBytes });
       const pdf = await loadingTask.promise;
-      console.log('[DEBUG] PDF loaded, pages:', pdf.numPages);
-      
+
       const page = await pdf.getPage(1);
       const viewport = page.getViewport({ scale: 1.5 });
       const canvas = document.createElement("canvas");
@@ -331,10 +344,8 @@ export default function ToolPage() {
       
       await page.render({ canvasContext: ctx, viewport, canvas }).promise;
       const dataUrl = canvas.toDataURL("image/png");
-      console.log('[DEBUG] Preview generated, dataUrl length:', dataUrl.length);
       setPreviewDataUrl(dataUrl);
-    } catch (err) {
-      console.error("Preview generation failed:", err);
+    } catch {
       setPreviewDataUrl(null);
     }
   }, []);
@@ -385,6 +396,7 @@ export default function ToolPage() {
     setError(null);
     setResultBytes(null);
     setResultSize(null);
+    setResultReport(null);
     setResultText(null);
     setResultHtml(null);
     setSplitPartsCount(null);
@@ -803,9 +815,19 @@ export default function ToolPage() {
       // Операцию отменили, пока она доделывалась — отбрасываем результат.
       if (controller.signal.aborted) return;
 
+      if (!registryEntry) {
+        throw new Error("Missing tool registry metadata for output validation.");
+      }
+
+      const validation = validateToolOutput(result, registryEntry.output);
+      if (!validation.ok) {
+        throw new Error(validation.reason ?? "The tool produced an invalid output file.");
+      }
+
       setProgress(100);
       setResultBytes(result);
       setResultSize(result?.length ?? null);
+      setResultReport(createToolResultReport(files[0]?.size ?? 0, result.length, registryEntry.output));
       setState("done");
       
       if (result && tool?.outputExt === "pdf") {
@@ -831,7 +853,7 @@ export default function ToolPage() {
     redactEmails, redactPhones, redactSsn, redactIban, redactCustomRegex,
     nUpValue, splitMaxMb, overlayFile2, overlayOpacity, scannerIntensity, formValues,
     bgColor, bgOpacity, diffFile2, audioLang, audioRate,
-    t, lang, setProgress, normalizeToolError,
+    t, lang, setProgress, normalizeToolError, registryEntry,
     generatePreview,
   ]);
 
@@ -987,6 +1009,7 @@ export default function ToolPage() {
                       Pro
                     </Badge>
                   )}
+                  <Badge variant="outline">{getToolMaturityLabel(maturity, lang)}</Badge>
                 </div>
                 <p className="text-muted-foreground">{_toolDesc}</p>
               </div>
@@ -2132,6 +2155,26 @@ export default function ToolPage() {
                               )}
                             </span>
                           )}</span>
+                        </div>
+                      )}
+                      {resultReport && (
+                        <div className="w-full rounded-lg border border-border bg-card/60 p-3 text-xs text-muted-foreground">
+                          <div className="flex flex-wrap gap-x-4 gap-y-1">
+                            <span>
+                              {lang === "ru" ? "Вход" : "Input"}: {formatBytes(resultReport.inputBytes)}
+                            </span>
+                            <span>
+                              {lang === "ru" ? "Выход" : "Output"}: {formatBytes(resultReport.outputBytes)}
+                            </span>
+                            <span>
+                              {lang === "ru" ? "Формат" : "Format"}: {resultReport.outputExtension.toUpperCase()}
+                            </span>
+                            {resultReport.reductionPercent !== null && (
+                              <span className="text-emerald-400">
+                                {lang === "ru" ? "Сэкономлено" : "Saved"}: {resultReport.reductionPercent}%
+                              </span>
+                            )}
+                          </div>
                         </div>
                       )}
                       
