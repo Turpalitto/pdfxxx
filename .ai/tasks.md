@@ -20,10 +20,12 @@
 
 ## 🔄 Текущие задачи (In Progress)
 
-- [ ] Round 4 Phase D: постепенно вынести worker invocation wrappers из `tool-page.tsx` на typed registry metadata без изменения UX и slug.
+- [ ] Round 4 Phase E: постепенно вынести простые main-thread process adapters из `tool-page.tsx` в typed runner helpers без изменения UX и slug.
 - [ ] TD-02 Phase 5: Дальнейшая декомпозиция edit-pdf-page.tsx (~2291 строк) — выигрыш мал (каждый хук 10+ параметров)
 
 ## ✅ Решено
+
+- [x] **Round 4 Phase D registry-backed worker invocation wrapper (2026-06-21)** — worker-backed cases в `tool-page.tsx` больше не передают строковые `WorkerOp` напрямую; `runToolWorkerTask()` читает `entry.execution.workerOp` из typed registry и делегирует в существующий `runPdfTask()` с прежним fallback/cancel/progress поведением. UX и slug сохранены, switch пока остаётся владельцем runtime options. Проверки: check OK, vitest 105/105, build OK, smoke e2e 12/12.
 
 - [x] **Round 4 Phase C registry-backed process progress (2026-06-21)** — `tool-page.tsx` больше не хранит локальный список `realProgressSlugs`; progress-поведение (`simulated`/`callback`) добавлено в `ToolExecutionDefinition` и читается через `shouldSimulateToolProgress()`. UX и slug сохранены, сам switch пока не переписан. Проверки: check OK, vitest 103/103, build OK, smoke e2e 12/12.
 

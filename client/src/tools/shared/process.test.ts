@@ -1,6 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { runPdfTask } from "@/workers/worker-client";
 import { getToolRegistryEntry } from "../registry";
-import { shouldSimulateToolProgress } from "./process";
+import { runToolWorkerTask, shouldSimulateToolProgress } from "./process";
+
+vi.mock("@/workers/worker-client", () => ({
+  runPdfTask: vi.fn(async (_op, fallback) => fallback()),
+}));
+
+const mockedRunPdfTask = vi.mocked(runPdfTask);
 
 function expectEntry(slug: string) {
   const entry = getToolRegistryEntry(slug);
@@ -11,6 +18,10 @@ function expectEntry(slug: string) {
 }
 
 describe("tool process metadata", () => {
+  beforeEach(() => {
+    mockedRunPdfTask.mockClear();
+  });
+
   it("keeps callback-progress tools out of simulated progress", () => {
     for (const slug of ["redact-pdf", "grayscale-pdf", "compare-pdf", "auto-redact", "pdf-diff"]) {
       const entry = expectEntry(slug);
@@ -47,5 +58,33 @@ describe("tool process metadata", () => {
 
     expect(entry.execution.mode).toBe("main-thread");
     expect(shouldSimulateToolProgress(entry)).toBe(true);
+  });
+
+  it("runs worker tools through the registry worker op", async () => {
+    const entry = expectEntry("grayscale-pdf");
+    const file = new File(["%PDF-1.7"], "input.pdf", { type: "application/pdf" });
+    const fallback = vi.fn(async () => new Uint8Array([1, 2, 3]));
+
+    if (!entry) {
+      return;
+    }
+
+    const result = await runToolWorkerTask(entry, fallback, { file });
+
+    expect(result).toEqual(new Uint8Array([1, 2, 3]));
+    expect(mockedRunPdfTask).toHaveBeenCalledWith("grayscalePdf", fallback, { file });
+  });
+
+  it("rejects worker execution when registry metadata has no worker op", async () => {
+    const entry = expectEntry("merge-pdf");
+    const file = new File(["%PDF-1.7"], "input.pdf", { type: "application/pdf" });
+
+    if (!entry) {
+      return;
+    }
+
+    await expect(runToolWorkerTask(entry, async () => new Uint8Array(), { file }))
+      .rejects
+      .toThrow('Tool "merge-pdf" is missing worker metadata.');
   });
 });

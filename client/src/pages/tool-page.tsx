@@ -107,7 +107,7 @@ import {
   pdfToAudio as pdfToAudioFn,
   pdfToPptx,
 } from "@/lib/pdf-utils";
-import { runPdfTask, WorkerAbortError } from "@/workers/worker-client";
+import { WorkerAbortError } from "@/workers/worker-client";
 import { cn } from "@/lib/utils";
 import { getWorkflowSuggestionsForTool, rememberRecentTool } from "@/lib/tool-experience";
 import { preloadToolRoute } from "@/lib/route-preload";
@@ -118,7 +118,7 @@ import {
   type ToolResultReport,
 } from "@/tools/shared/output";
 import { createToolDownloadPlan } from "@/tools/shared/download";
-import { shouldSimulateToolProgress } from "@/tools/shared/process";
+import { runToolWorkerTask, shouldSimulateToolProgress } from "@/tools/shared/process";
 
 type ProcessingState = "idle" | "processing" | "done" | "error";
 
@@ -547,8 +547,8 @@ export default function ToolPage() {
           result = await signPdf(files[0], signatureText);
           break;
         case "redact-pdf":
-          result = await runPdfTask(
-            "redactPdf",
+          result = await runToolWorkerTask(
+            registryEntry,
             () => redactPdf(files[0], redactSearchText, setProgress),
             { file: files[0], args: [redactSearchText], onProgress: setProgress, signal: controller.signal }
           );
@@ -581,8 +581,8 @@ export default function ToolPage() {
         case "pdf-to-png": {
           const fmt = slug === "pdf-to-jpg" ? "jpg" : "png";
           const scale = parseInt(imageScale) || 2;
-          const images = await runPdfTask<{ dataUrl: string; page: number }[]>(
-            "pdfToImages",
+          const images = await runToolWorkerTask<{ dataUrl: string; page: number }[]>(
+            registryEntry,
             () => pdfToImages(files[0], fmt, scale),
             { file: files[0], args: [fmt, scale], signal: controller.signal }
           );
@@ -598,15 +598,15 @@ export default function ToolPage() {
           result = await ocrPdf(files[0], ocrLanguages.join("+") || "eng", setProgress);
           break;
         case "invert-colors":
-          result = await runPdfTask(
-            "invertColors",
+          result = await runToolWorkerTask(
+            registryEntry,
             () => invertColors(files[0], setProgress),
             { file: files[0], onProgress: setProgress, signal: controller.signal }
           );
           break;
         case "to-single-page":
-          result = await runPdfTask(
-            "toSinglePage",
+          result = await runToolWorkerTask(
+            registryEntry,
             () => toSinglePage(files[0], setProgress),
             { file: files[0], onProgress: setProgress, signal: controller.signal }
           );
@@ -630,15 +630,15 @@ export default function ToolPage() {
           break;
         }
         case "booklet-imposition":
-          result = await runPdfTask(
-            "bookletImposition",
+          result = await runToolWorkerTask(
+            registryEntry,
             () => bookletImposition(files[0], setProgress),
             { file: files[0], onProgress: setProgress, signal: controller.signal }
           );
           break;
         case "scanner-effect":
-          result = await runPdfTask(
-            "scannerEffect",
+          result = await runToolWorkerTask(
+            registryEntry,
             () => scannerEffect(files[0], scannerIntensity, setProgress),
             { file: files[0], args: [scannerIntensity], onProgress: setProgress, signal: controller.signal }
           );
@@ -671,16 +671,16 @@ export default function ToolPage() {
             return;
           }
           const file2 = compareFile2;
-          result = await runPdfTask(
-            "comparePdf",
+          result = await runToolWorkerTask(
+            registryEntry,
             () => comparePdf(files[0], file2, setProgress),
             { file: files[0], args: [file2], onProgress: setProgress, signal: controller.signal }
           );
           break;
         }
         case "remove-blank-pages":
-          result = await runPdfTask(
-            "removeBlankPages",
+          result = await runToolWorkerTask(
+            registryEntry,
             () => removeBlankPages(files[0], blankThreshold, setProgress),
             { file: files[0], args: [blankThreshold], onProgress: setProgress, signal: controller.signal }
           );
@@ -689,8 +689,8 @@ export default function ToolPage() {
           result = await resizePages(files[0], resizeTarget, setProgress);
           break;
         case "grayscale-pdf":
-          result = await runPdfTask(
-            "grayscalePdf",
+          result = await runToolWorkerTask(
+            registryEntry,
             () => grayscalePdf(files[0], setProgress),
             { file: files[0], onProgress: setProgress, signal: controller.signal }
           );
@@ -726,16 +726,16 @@ export default function ToolPage() {
             iban: redactIban,
             customRegex: redactCustomRegex || undefined,
           };
-          result = await runPdfTask(
-            "autoRedactPdf",
+          result = await runToolWorkerTask(
+            registryEntry,
             () => autoRedactPdf(files[0], redactOptions, setProgress),
             { file: files[0], args: [redactOptions], onProgress: setProgress, signal: controller.signal }
           );
           break;
         }
         case "n-up-pdf":
-          result = await runPdfTask(
-            "nUpPdf",
+          result = await runToolWorkerTask(
+            registryEntry,
             () => nUpPdf(files[0], nUpValue, setProgress),
             { file: files[0], args: [nUpValue], onProgress: setProgress, signal: controller.signal }
           );
@@ -755,8 +755,8 @@ export default function ToolPage() {
           break;
         }
         case "extract-images": {
-          const images = await runPdfTask<{ dataUrl: string; page: number }[]>(
-            "pdfToImages",
+          const images = await runToolWorkerTask<{ dataUrl: string; page: number }[]>(
+            registryEntry,
             () => pdfToImages(files[0], "png", 2),
             { file: files[0], args: ["png", 2], signal: controller.signal }
           );
@@ -785,8 +785,8 @@ export default function ToolPage() {
             return;
           }
           const file2 = diffFile2;
-          result = await runPdfTask(
-            "pdfDiff",
+          result = await runToolWorkerTask(
+            registryEntry,
             () => pdfDiff(files[0], file2, setProgress),
             { file: files[0], args: [file2], onProgress: setProgress, signal: controller.signal }
           );
@@ -800,8 +800,8 @@ export default function ToolPage() {
           return;
         }
         case "pdf-to-pptx": {
-          result = await runPdfTask(
-            "pdfToPptx",
+          result = await runToolWorkerTask(
+            registryEntry,
             () => pdfToPptx(files[0], setProgress),
             { file: files[0], onProgress: setProgress, signal: controller.signal }
           );

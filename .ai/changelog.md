@@ -4,6 +4,26 @@
 
 ---
 
+## 2026-06-21 — Round 4 Phase D: registry-backed worker invocation wrapper
+
+### Добавлено
+- `runToolWorkerTask()` в `client/src/tools/shared/process.ts`: общий typed wrapper над `runPdfTask()`, который берёт `workerOp` из `ToolRegistryEntry.execution`.
+- Unit-тесты фиксируют, что worker-вызов использует registry metadata и падает для main-thread инструмента без `workerOp`.
+
+### Изменено
+- `tool-page.tsx` больше не передаёт строковые worker op (`"grayscalePdf"`, `"pdfToImages"` и т.п.) в каждом case; switch сохраняет UX/options/fallback, а worker op берётся из typed registry.
+- Существующие fallback, progress, cancel и slug поведения сохранены.
+
+### Проверка
+- `npm run check` — OK.
+- `npm test -- --run` — OK, 105/105.
+- `npm run build` — OK, с существующим PostCSS warning.
+- `npx playwright test tests/e2e/smoke.spec.ts` — OK, 12/12.
+- `git diff --check` — OK.
+- Guard: `client/src/index.css` и `client/src/lib/tools.ts` без изменений.
+
+---
+
 ## 2026-06-21 — Round 4 Phase C: registry-backed process progress
 
 ### Добавлено
