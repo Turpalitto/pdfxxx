@@ -118,6 +118,7 @@ import {
   type ToolResultReport,
 } from "@/tools/shared/output";
 import { createToolDownloadPlan } from "@/tools/shared/download";
+import { shouldSimulateToolProgress } from "@/tools/shared/process";
 
 type ProcessingState = "idle" | "processing" | "done" | "error";
 
@@ -444,14 +445,11 @@ export default function ToolPage() {
           }, i * 200);
         }
       };
-      // Эти операции сообщают реальный прогресс (из воркера/onProgress) —
-      // симуляция прогресса им не нужна, иначе индикатор «дёргается».
-      const realProgressSlugs = new Set([
-        "redact-pdf", "grayscale-pdf", "invert-colors", "scanner-effect",
-        "remove-blank-pages", "n-up-pdf", "to-single-page", "booklet-imposition",
-        "compare-pdf", "auto-redact", "pdf-diff",
-      ]);
-      if (!realProgressSlugs.has(slug)) {
+      if (!registryEntry) {
+        throw new Error("Missing tool registry metadata for process runner.");
+      }
+
+      if (shouldSimulateToolProgress(registryEntry)) {
         simulateProgress(10, 85);
       }
 
@@ -815,10 +813,6 @@ export default function ToolPage() {
 
       // Операцию отменили, пока она доделывалась — отбрасываем результат.
       if (controller.signal.aborted) return;
-
-      if (!registryEntry) {
-        throw new Error("Missing tool registry metadata for output validation.");
-      }
 
       const validation = validateToolOutput(result, registryEntry.output);
       if (!validation.ok) {

@@ -4,6 +4,27 @@
 
 ---
 
+## 2026-06-21 — Round 4 Phase C: registry-backed process progress
+
+### Добавлено
+- `ToolExecutionDefinition.progress` в typed registry: `simulated` или `callback`.
+- `client/src/tools/shared/process.ts` — helper `shouldSimulateToolProgress()` для process runner.
+- Unit-тест `process.test.ts` фиксирует текущие callback-progress инструменты и worker-инструменты, которые пока сохраняют simulated progress.
+
+### Изменено
+- `tool-page.tsx` больше не держит локальный список `realProgressSlugs`; решение о симуляции прогресса берётся из `registryEntry.execution.progress`.
+- Missing registry metadata теперь останавливает process runner до выполнения switch, а не только на output validation.
+
+### Проверка
+- `npm run check` — OK.
+- `npm test -- --run` — OK, 103/103.
+- `npm run build` — OK, с существующим PostCSS warning.
+- `npx playwright test tests/e2e/smoke.spec.ts` — OK, 12/12.
+- `git diff --check` — OK.
+- Guard: `client/src/index.css` и `client/src/lib/tools.ts` без изменений.
+
+---
+
 ## 2026-06-21 — Round 4 Phase B: registry-backed download runner
 
 ### Добавлено

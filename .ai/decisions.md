@@ -264,7 +264,7 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 **Дата:** 2026-06-20
 **Статус:** ✅ Принято
 
-**Решение:** Производные metadata инструментов (maturity, limits, output, execution mode/worker op, search keywords) добавляются в `client/src/tools/registry.ts` как typed facade поверх существующего `client/src/lib/tools.ts`, а не через одномоментный перенос всего каталога.
+**Решение:** Производные metadata инструментов (maturity, limits, output, execution mode/worker op, progress mode, search keywords) добавляются в `client/src/tools/registry.ts` как typed facade поверх существующего `client/src/lib/tools.ts`, а не через одномоментный перенос всего каталога.
 
 **Причины:**
 - `tools.ts` содержит React/lucide icon metadata и активно используется UI; резкий перенос создаёт высокий regression-risk.
@@ -273,11 +273,12 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 
 **Последствия:**
 - `tools.ts` временно остаётся UI source of truth для отображения карточек и иконок.
-- Новые подсистемы должны брать execution/output/search metadata из typed registry.
+- Новые подсистемы должны брать execution/output/search/progress metadata из typed registry.
 - Download runner использует output metadata через `client/src/tools/shared/download.ts`; динамические PDF/ZIP split-исключения остаются маленьким runtime-контекстом, а не ручной MIME-матрицей в `tool-page.tsx`.
+- Process runner использует progress metadata через `client/src/tools/shared/process.ts`; callback-progress slug не должны дублироваться в `tool-page.tsx`.
 - Полная миграция каталога возможна позже маленькими PR/раундами.
 
-**Правило:** Не плодить новые ручные списки output/worker/search/download metadata в компонентах; добавлять стабильные metadata в `client/src/tools/types.ts` и `client/src/tools/registry.ts`, а runtime-only исключения держать в маленьких тестируемых shared helpers.
+**Правило:** Не плодить новые ручные списки output/worker/search/download/progress metadata в компонентах; добавлять стабильные metadata в `client/src/tools/types.ts` и `client/src/tools/registry.ts`, а runtime-only исключения держать в маленьких тестируемых shared helpers.
 
 ---
 

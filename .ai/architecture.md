@@ -126,7 +126,7 @@ handleDownload() → downloadBlob() / downloadText()
 
 ### `client/src/tools/*` — Typed registry facade
 
-`client/src/tools/registry.ts` строит типизированные производные metadata поверх текущего `lib/tools.ts`: maturity, limits, output kind/mime, execution mode/worker op и search keywords. Это переходный слой: UI продолжает читать существующий каталог, а новые подсистемы (поиск, workflow, SEO-аудит, runner) должны брать производные metadata из typed registry, чтобы не плодить ручные списки.
+`client/src/tools/registry.ts` строит типизированные производные metadata поверх текущего `lib/tools.ts`: maturity, limits, output kind/mime, execution mode/worker op, progress mode и search keywords. Это переходный слой: UI продолжает читать существующий каталог, а новые подсистемы (поиск, workflow, SEO-аудит, runner) должны брать производные metadata из typed registry, чтобы не плодить ручные списки.
 
 **Правило:** новые registry-facing metadata добавлять в `client/src/tools/types.ts`/`registry.ts`; не дублировать worker/output/search списки в компонентах.
 
@@ -148,11 +148,13 @@ handleDownload() → downloadBlob() / downloadText()
 
 **Правило:** новые поисковые поверхности должны переиспользовать `searchToolRegistry()`, а не строить отдельные локальные индексы. Recent/preset команды не должны хранить или показывать приватные имена файлов; для workflow preset metadata использовать lightweight `workflow-presets.ts`.
 
-### `client/src/tools/shared/output.ts` + `download.ts` — Output validation/report/download
+### `client/src/tools/shared/output.ts` + `download.ts` + `process.ts` — Runner helpers
 
 Перед показом успешного состояния `tool-page.tsx` проверяет результат через `validateToolOutput()` на базе output metadata из registry. Минимальный контракт: результат не пустой, PDF начинается с `%PDF`, ZIP/Office-контейнер начинается с `PK`; динамические split-операции могут вернуть ZIP или PDF. `createToolResultReport()` формирует компактную метрику input/output/format/saved для UI.
 
 `download.ts` строит typed download plan (`blob`/`text`/`html`) из `ToolRegistryEntry.output` и минимального runtime-контекста: slug, исходное имя файла, результат и split mode. `tool-page.tsx` не должен вручную выбирать MIME/extension; он только исполняет готовый план через `downloadBlob`, `downloadText` или `downloadHtml`.
+
+`process.ts` читает `ToolRegistryEntry.execution.progress` и решает, нужен ли simulated progress. `tool-page.tsx` не должен держать локальные списки real-progress slug; callback/simulated поведение фиксируется в typed registry и покрывается unit-тестами.
 
 ### `pdf-utils.ts` — PDF движок
 

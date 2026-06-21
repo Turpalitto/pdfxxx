@@ -26,6 +26,20 @@ const WORKER_OP_BY_SLUG: Partial<Record<string, WorkerOp>> = {
   "pdf-to-pptx": "pdfToPptx",
 };
 
+const CALLBACK_PROGRESS_SLUGS = new Set([
+  "redact-pdf",
+  "grayscale-pdf",
+  "invert-colors",
+  "scanner-effect",
+  "remove-blank-pages",
+  "n-up-pdf",
+  "to-single-page",
+  "booklet-imposition",
+  "compare-pdf",
+  "auto-redact",
+  "pdf-diff",
+]);
+
 const ZIP_OUTPUT_SLUGS = new Set([
   "split-pdf",
   "pdf-to-jpg",
@@ -131,6 +145,7 @@ function toRegistryEntry(tool: Tool): ToolRegistryEntry {
     execution: {
       mode: workerOp ? "hybrid" : "main-thread",
       workerOp,
+      progress: CALLBACK_PROGRESS_SLUGS.has(tool.slug) ? "callback" : "simulated",
     },
     search: buildSearchKeywords(tool),
   };

@@ -11,6 +11,7 @@ export type ToolCategoryId =
   | "utility";
 
 export type ToolExecutionMode = "worker" | "main-thread" | "hybrid";
+export type ToolProgressMode = "simulated" | "callback";
 
 export type ToolOutputKind =
   | "pdf"
@@ -45,6 +46,7 @@ export interface ToolLimitDefinition {
 export interface ToolExecutionDefinition {
   mode: ToolExecutionMode;
   workerOp?: WorkerOp;
+  progress: ToolProgressMode;
 }
 
 export interface ToolRegistryEntry {
