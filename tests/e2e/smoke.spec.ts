@@ -95,4 +95,13 @@ test.describe("public pages", () => {
     await expect(page.getByRole("banner")).toBeVisible();
     await expectNoHorizontalOverflow(page);
   });
+  test("pdf to audio explains browser speech and OCR fallback", async ({ page }) => {
+    await page.goto("/tools/pdf-to-audio");
+
+    await expect(page.getByText(/does not create an audio file/i)).toBeVisible();
+    await expect(page.getByRole("link", { name: "OCR PDF" })).toBeVisible();
+    await expect(page.getByText(/If this is a scan, run OCR PDF first/i)).toBeVisible();
+    await expect(page.getByText(/Download your result instantly/i)).toHaveCount(0);
+    await expectNoHorizontalOverflow(page);
+  });
 });

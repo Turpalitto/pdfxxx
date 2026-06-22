@@ -320,6 +320,12 @@ export default function ToolPage() {
         : "No text was found in this PDF. Try OCR PDF for scanned documents.";
     }
 
+    if (raw.includes("No selectable text was found")) {
+      return lang === "ru"
+        ? "В этом PDF не найден выделяемый текст. Если это скан или изображение, сначала обработайте файл через OCR PDF, затем попробуйте снова."
+        : "No selectable text was found. If this PDF is a scan or image, run OCR PDF first and then try again.";
+    }
+
     if (raw.includes("encrypted") || (raw.includes("password") && slug !== "protect-pdf" && slug !== "unlock-pdf")) {
       return lang === "ru"
         ? "PDF защищен паролем. Сначала снимите защиту или введите корректный пароль."
@@ -999,6 +1005,19 @@ export default function ToolPage() {
     .filter((t) => t.category === tool.category && t.slug !== slug && isToolLaunchReady(t))
     .slice(0, 4);
   const workflowSuggestions = getWorkflowSuggestionsForTool(tool.slug, lang);
+  const howToUseSteps =
+    slug === "pdf-to-audio"
+      ? [
+          t.tool.step1,
+          lang === "ru" ? "Выберите язык и скорость озвучивания" : "Choose voice language and playback speed",
+          lang === "ru"
+            ? "Нажмите «Обработать», чтобы озвучить текст в браузере"
+            : "Click process to read the PDF text aloud in the browser",
+          lang === "ru"
+            ? "Если это скан, сначала распознайте текст через OCR PDF"
+            : "If this is a scan, run OCR PDF first to make text selectable",
+        ]
+      : [t.tool.step1, t.tool.step2, t.tool.step3, t.tool.step4];
 
   return (
     <div className="min-h-screen">
@@ -1628,6 +1647,27 @@ export default function ToolPage() {
                       value={audioRate}
                       onValueChange={(v) => setAudioRate(v)}
                     />
+                  </div>
+                  <div className="rounded-lg border border-primary/15 bg-primary/5 p-3 text-sm text-muted-foreground">
+                    {lang === "ru" ? (
+                      <>
+                        PDF в аудио озвучивает выделяемый текст через синтез речи в браузере. Аудиофайл не
+                        создаётся. Если PDF - скан или изображение, сначала откройте{" "}
+                        <Link href="/tools/ocr-pdf" className="font-medium text-primary underline-offset-4 hover:underline">
+                          OCR PDF
+                        </Link>
+                        , затем попробуйте снова.
+                      </>
+                    ) : (
+                      <>
+                        PDF to Audio reads selectable text aloud with your browser speech engine. It does not
+                        create an audio file. If the PDF is a scan or image, run{" "}
+                        <Link href="/tools/ocr-pdf" className="font-medium text-primary underline-offset-4 hover:underline">
+                          OCR PDF
+                        </Link>{" "}
+                        first, then try again.
+                      </>
+                    )}
                   </div>
                 </div>
               )}
@@ -2271,15 +2311,10 @@ export default function ToolPage() {
                 {t.tool.howToUse}
               </h3>
               <div className="pdfx-panel space-y-4 rounded-xl p-4">
-                {[
-                  { step: 1, text: t.tool.step1 },
-                  { step: 2, text: t.tool.step2 },
-                  { step: 3, text: t.tool.step3 },
-                  { step: 4, text: t.tool.step4 },
-                ].map(({ step, text }) => (
-                  <div key={step} className="flex items-start gap-3">
+                {howToUseSteps.map((text, index) => (
+                  <div key={`${index}-${text}`} className="flex items-start gap-3">
                     <div className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                      {step}
+                      {index + 1}
                     </div>
                     <p className="text-sm text-muted-foreground">{text}</p>
                   </div>

@@ -24,6 +24,8 @@
 
 ## ✅ Решено
 
+- [x] **UX: PDF to Audio OCR guidance (2026-06-22)** — `pdf-to-audio` теперь явно объясняет, что озвучивает выделяемый текст через speech synthesis в браузере и не создаёт аудиофайл; sidebar заменяет generic download step на audio-specific шаги, а ошибка отсутствия выделяемого текста локализована и ведёт к OCR PDF. Проверки: check OK, vitest 122/122, targeted smoke e2e 2/2, full smoke e2e 14/14, build OK.
+
 - [x] **BUG: reliable browser downloads (2026-06-22)** — `downloadBlob()`, `downloadText()` и `downloadHtml()` теперь временно добавляют ссылку в DOM и откладывают `URL.revokeObjectURL()`, чтобы скачивание не срывалось в embedded/in-app browser окружении. `pdf-to-pptx` e2e теперь ловит реальный download event и проверяет `.pptx`. Проверки: check OK, vitest 122/122, pdf-to-pptx worker e2e 2/2, build OK.
 
 - [x] **TD-02 Phase 5 edit-pdf copy extraction (2026-06-22)** — SEO и основной EN/RU UI-copy автономного редактора вынесены из `edit-pdf-page.tsx` в `client/src/lib/edit-pdf-copy.ts`; UX, slug, Fabric/canvas pipeline, сохранение и стили не изменялись. Крупный hook-extraction дальше отложен как малополезный без нового продуктового требования, потому что оставшаяся логика связана 10+ параметрами на hook. Проверки: check OK, vitest 122/122, build OK, editor-mobile e2e 1 passed / 1 skipped.

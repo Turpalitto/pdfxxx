@@ -4,6 +4,22 @@
 
 ---
 
+## 2026-06-22 — UX: PDF to Audio OCR guidance
+
+### Изменено
+- `pdf-to-audio` получил явное пояснение, что инструмент озвучивает выделяемый текст через speech synthesis в браузере и не создаёт аудиофайл для скачивания.
+- Sidebar "Как использовать" для `pdf-to-audio` больше не обещает скачивание результата; шаги теперь описывают выбор языка/скорости, запуск озвучивания и OCR fallback для сканов.
+- Ошибка отсутствия выделяемого текста теперь локализуется в `tool-page.tsx` и прямо направляет пользователя сначала обработать скан через OCR PDF.
+
+### Проверка
+- `npm run check` — OK.
+- `npm test -- --run` — OK, 122/122.
+- `npx playwright test tests/e2e/smoke.spec.ts -g "pdf to audio explains"` — OK, 2/2.
+- `npx playwright test tests/e2e/smoke.spec.ts` — OK, 14/14.
+- `npm run build` — OK, с существующим PostCSS warning.
+
+---
+
 ## 2026-06-22 — BUG: reliable browser downloads
 
 ### Исправлено
