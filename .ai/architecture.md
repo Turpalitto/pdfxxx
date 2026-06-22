@@ -1,6 +1,6 @@
 # PDFX — Architecture
 
-> Source of truth. Last updated: 2026-06-21. Update after structural changes.
+> Source of truth. Last updated: 2026-06-22. Update after structural changes.
 
 ---
 
@@ -17,6 +17,7 @@ client/src/
 │   ├── pdf-utils.ts           # ← ВСЕ PDF-функции (~2324 строки)
 │   ├── tool-translations.ts   # Переводы инструментов (18 языков, ~664 строки)
 │   ├── tool-experience.ts     # Sidebar: workflow suggestions per tool
+│   ├── edit-pdf-copy.ts       # EN/RU SEO + primary UI copy for autonomous Edit PDF editor
 │   ├── upload-limits.ts       # Лимиты размера файла per tool
 │   ├── i18n.ts                # UI-строки (не названия инструментов)
 │   ├── lang-context.tsx       # React Context для языка

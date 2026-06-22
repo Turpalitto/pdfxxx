@@ -4,6 +4,24 @@
 
 ---
 
+## 2026-06-22 — TD-02 Phase 5: Edit PDF copy extraction
+
+### Добавлено
+- `client/src/lib/edit-pdf-copy.ts`: typed copy factory для SEO и основного EN/RU UI-copy автономного Edit PDF редактора.
+
+### Изменено
+- `edit-pdf-page.tsx` больше не держит локальный объект `t` и SEO copy inline; компонент читает copy через `getEditPdfCopy()` / `getEditPdfSeoCopy()`.
+- UX, маршруты, slug, Fabric/canvas pipeline, сохранение и стили редактора не изменялись.
+- Дальнейший крупный hook-extraction намеренно не сделан в этом срезе: оставшаяся логика плотно связана через refs/state и дала бы 10+ параметров на hook.
+
+### Проверка
+- `npm run check` — OK.
+- `npm test -- --run` — OK, 122/122.
+- `npm run build` — OK, с существующим PostCSS warning.
+- `npx playwright test tests/e2e/editor-mobile.spec.ts` — OK, 1 passed / 1 skipped.
+
+---
+
 ## 2026-06-21 — Round 4 Phase J: image archive result adapters
 
 ### Добавлено

@@ -1,7 +1,7 @@
 ﻿# PDFX — Tasks & Technical Debt
 
 > Обновляется AI-агентами после каждой значимой задачи.  
-> Last updated: 2026-06-21
+> Last updated: 2026-06-22
 
 ---
 
@@ -20,9 +20,11 @@
 
 ## 🔄 Текущие задачи (In Progress)
 
-- [ ] TD-02 Phase 5: Дальнейшая декомпозиция edit-pdf-page.tsx (~2291 строк) — выигрыш мал (каждый хук 10+ параметров)
+- [ ] Нет активных задач.
 
 ## ✅ Решено
+
+- [x] **TD-02 Phase 5 edit-pdf copy extraction (2026-06-22)** — SEO и основной EN/RU UI-copy автономного редактора вынесены из `edit-pdf-page.tsx` в `client/src/lib/edit-pdf-copy.ts`; UX, slug, Fabric/canvas pipeline, сохранение и стили не изменялись. Крупный hook-extraction дальше отложен как малополезный без нового продуктового требования, потому что оставшаяся логика связана 10+ параметрами на hook. Проверки: check OK, vitest 122/122, build OK, editor-mobile e2e 1 passed / 1 skipped.
 
 - [x] **Round 4 Phase J image archive result adapters (2026-06-21)** — `pdf-to-jpg`, `pdf-to-png` и `extract-images` используют `createToolImageArchiveResult()` вместо прямого `pdfImagesAsZip()` в `tool-page.tsx`; имена `<base>-page-<page>.<format>` сохранены. После Phase J в `tool-page.tsx` не осталось ручных `TextEncoder`, `JSZip`, `splitResultsToZip` или `pdfImagesAsZip` result adapters. Проверки: check OK, vitest 120/120, build OK, smoke e2e 12/12.
 
@@ -223,7 +225,7 @@
 
 | # | Проблема | Файл | Описание |
 |---|---|---|---|
-| TD-02 | edit-pdf-page.tsx монолит | `edit-pdf-page.tsx` | 2278 строк — Phases 1-4 выполнены. Дальнейшая декомпозиция даст меньший выигрыш. |
+| TD-02 | edit-pdf-page.tsx монолит | `edit-pdf-page.tsx` | Phase 5 вынесла copy в отдельный модуль. Следующий рефакторинг делать только под конкретное изменение редактора: крупные hook-и сейчас требуют 10+ параметров и несут риск регрессий. |
 
 ### Низкий приоритет
 
