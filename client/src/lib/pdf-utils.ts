@@ -422,7 +422,51 @@ export function assignToColumn(x: number, columns: number[]): number {
   return best;
 }
 
-type LineCell = { text: string; x: number; color?: string };
+export type LineCell = { text: string; x: number; color?: string };
+
+function cellsToColumnRow(cells: ReadonlyArray<LineCell>, columns: number[]): string[] {
+  if (columns.length <= 1) {
+    return [cells.map((cell) => cell.text).join(" ").trim()];
+  }
+  const row = Array.from({ length: columns.length }, () => "");
+  for (const cell of cells) {
+    const index = assignToColumn(cell.x, columns);
+    row[index] = row[index] ? `${row[index]} ${cell.text}`.trim() : cell.text;
+  }
+  return row;
+}
+
+/**
+ * Build Excel rows with table regions isolated from prose. Inspired by OCR-box
+ * workbenches such as PP-OCR Studio: detect aligned multi-row regions first,
+ * then cluster columns only inside those regions so nearby prose does not add
+ * bogus spreadsheet columns.
+ */
+export function buildExcelRowsFromLineCells(
+  lineCells: ReadonlyArray<ReadonlyArray<LineCell>>,
+  tolerance: number,
+): string[][] {
+  const regions = detectTableRegions(lineCells, tolerance);
+  const regionsByStart = new Map<number, TableRegion>();
+  for (const region of regions) regionsByStart.set(region.start, region);
+
+  const rows: string[][] = [];
+  let index = 0;
+  while (index < lineCells.length) {
+    const region = regionsByStart.get(index);
+    if (region) {
+      for (let rowIndex = region.start; rowIndex <= region.end; rowIndex++) {
+        rows.push(cellsToColumnRow(lineCells[rowIndex], region.columns));
+      }
+      index = region.end + 1;
+      continue;
+    }
+
+    rows.push(cellsToColumnRow(lineCells[index], []));
+    index++;
+  }
+  return rows;
+}
 
 /** Like cellsFromLine but keeps each cell's starting x (for column clustering). */
 function cellsWithX(line: PdfLayoutLine): LineCell[] {
@@ -1887,30 +1931,14 @@ export async function pdfToExcel(file: File): Promise<Uint8Array> {
   const workbook = XLSX.utils.book_new();
 
   for (const page of pages) {
-    // Split every line into cells while keeping each cell's start-x, then
-    // cluster those x positions into page-wide columns so cells align into the
-    // same column across rows (true table fidelity instead of per-line guesses).
+    // Split every line into cells while keeping start-x. Table-like regions get
+    // their own columns; prose stays single-cell so it cannot pollute tables.
     const lineCells = page.lines.map((line) => cellsWithX(line));
     const colTolerance = Math.max(
       14,
       median(page.lines.map((line) => line.fontSize).filter((s) => s > 0)) * 1.2,
     );
-    const columns = clusterColumns(
-      lineCells.flat().map((cell) => cell.x),
-      colTolerance,
-    );
-
-    const rows = lineCells.map((cells) => {
-      if (columns.length <= 1) {
-        return [cells.map((cell) => cell.text).join(" ").trim()];
-      }
-      const row: string[] = Array.from({ length: columns.length }, () => "");
-      for (const cell of cells) {
-        const index = assignToColumn(cell.x, columns);
-        row[index] = row[index] ? `${row[index]} ${cell.text}`.trim() : cell.text;
-      }
-      return row;
-    });
+    const rows = buildExcelRowsFromLineCells(lineCells, colTolerance);
 
     const sheet = XLSX.utils.aoa_to_sheet(rows.length > 0 ? rows : [[""]]);
     const columnCount = Math.max(...rows.map((row) => row.length), 1);

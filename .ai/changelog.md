@@ -4,6 +4,21 @@
 
 ---
 
+## 2026-06-22 — OCR-box table rows for PDF to Excel
+
+### Изменено
+- `pdf-to-excel` теперь строит spreadsheet rows через `buildExcelRowsFromLineCells()`: сначала выделяются table-like regions, затем колонки кластеризуются внутри каждого региона.
+- Обычный prose/text между таблицами больше не расширяет всю страницу лишними колонками, что улучшает Excel fidelity для смешанных документов и будущих OCR-box результатов.
+- PP-OCRv6 Studio использован как архитектурный ориентир для геометрии OCR/text boxes; FastAPI/Python backend и `onnxruntime-web` не добавлялись.
+
+### Проверка
+- `npm run check` — OK.
+- `npm test -- --run client/src/lib/pdf-utils.test.ts` — OK, 72/72.
+- `npm test -- --run` — OK, 124/124.
+- `npm run build` — OK, с существующим PostCSS warning.
+
+---
+
 ## 2026-06-22 — UX: PDF to Audio OCR guidance
 
 ### Изменено

@@ -433,6 +433,48 @@ describe("detectTableRegions", () => {
     expect(regions[1]).toMatchObject({ start: 3, end: 4 });
   });
 
+  it("builds Excel rows without letting prose create bogus table columns", async () => {
+    const { buildExcelRowsFromLineCells } = await import("@/lib/pdf-utils");
+    const rows = buildExcelRowsFromLineCells(
+      [
+        [{ text: "Invoice summary", x: 40 }],
+        [{ text: "Item", x: 50 }, { text: "Qty", x: 220 }, { text: "Total", x: 360 }],
+        [{ text: "Paper", x: 52 }, { text: "2", x: 221 }, { text: "$8", x: 358 }],
+        [{ text: "Thank you for your business", x: 40 }],
+      ],
+      14,
+    );
+
+    expect(rows).toEqual([
+      ["Invoice summary"],
+      ["Item", "Qty", "Total"],
+      ["Paper", "2", "$8"],
+      ["Thank you for your business"],
+    ]);
+  });
+
+  it("keeps separate table regions independent", async () => {
+    const { buildExcelRowsFromLineCells } = await import("@/lib/pdf-utils");
+    const rows = buildExcelRowsFromLineCells(
+      [
+        [{ text: "A", x: 50 }, { text: "B", x: 160 }],
+        [{ text: "1", x: 51 }, { text: "2", x: 161 }],
+        [{ text: "Notes between tables", x: 40 }],
+        [{ text: "Left", x: 90 }, { text: "Right", x: 320 }],
+        [{ text: "Yes", x: 91 }, { text: "No", x: 321 }],
+      ],
+      14,
+    );
+
+    expect(rows).toEqual([
+      ["A", "B"],
+      ["1", "2"],
+      ["Notes between tables"],
+      ["Left", "Right"],
+      ["Yes", "No"],
+    ]);
+  });
+
   describe("fillColorToHex", () => {
     it("converts RGB to hex", async () => {
       const { fillColorToHex } = await import("@/lib/pdf-utils");

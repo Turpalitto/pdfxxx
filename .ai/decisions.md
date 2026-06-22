@@ -306,6 +306,27 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 
 ---
 
+## ADR-016 — OCR-box geometry before PP-OCR runtime integration
+
+**Дата:** 2026-06-22
+**Статус:** ✅ Принято
+
+**Решение:** Идеи из PP-OCRv6 Studio внедряются в PDFX только через browser-only, reusable OCR/text-box helpers. В текущем срезе `pdf-to-excel` использует `buildExcelRowsFromLineCells()`: table-like regions определяются по геометрии строк и колонок, а prose rows остаются single-cell и не загрязняют spreadsheet columns.
+
+**Причины:**
+- PDFX по ADR-001 остаётся browser-only; FastAPI/Python backend, SQLite history, uploads и CoreML runtime из внешнего OCR workbench не подходят.
+- `onnxruntime-web` и PP-OCR модели требуют отдельного решения о новом npm-пакете, model hosting, lazy loading, worker strategy и UX fallback.
+- Геометрия OCR/text boxes уже полезна с текущим `pdfjs`/Tesseract pipeline и подготовит общий контракт для будущего PP-OCR Tiny engine.
+
+**Последствия:**
+- Улучшения scanned/table fidelity должны начинаться с чистых, тестируемых helpers над `{ text, x }`/bbox данными, а не с копирования внешнего приложения.
+- Будущий PP-OCR engine может отдавать такие же line/cell boxes и переиспользовать table-region сборку для `pdf-to-excel`, `pdf-to-word`, `pdf-to-text` и `pdf-to-audio` fallback.
+- Новый OCR runtime нельзя добавлять скрыто: нужен отдельный explicit approval на dependency/model assets и performance budget.
+
+**Правило:** Не переносить серверную часть PP-OCRv6 Studio в PDFX. Для OCR-движков использовать только browser-only lazy modules, а reusable box/table logic держать в `pdf-utils.ts` или выделенных client helpers с unit-тестами.
+
+---
+
 ## Шаблон нового ADR
 
 ```markdown

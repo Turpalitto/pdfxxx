@@ -24,6 +24,8 @@
 
 ## ✅ Решено
 
+- [x] **OCR-box table rows for PDF to Excel (2026-06-22)** — по мотивам browser-only части PP-OCRv6 Studio добавлен чистый helper `buildExcelRowsFromLineCells()`: `pdf-to-excel` теперь изолирует table-like regions и не даёт обычному тексту создавать лишние spreadsheet columns. FastAPI/Python backend и `onnxruntime-web` не добавлялись. Проверки: check OK, pdf-utils vitest 72/72, full vitest 124/124, build OK. См. ADR-016.
+
 - [x] **UX: PDF to Audio OCR guidance (2026-06-22)** — `pdf-to-audio` теперь явно объясняет, что озвучивает выделяемый текст через speech synthesis в браузере и не создаёт аудиофайл; sidebar заменяет generic download step на audio-specific шаги, а ошибка отсутствия выделяемого текста локализована и ведёт к OCR PDF. Проверки: check OK, vitest 122/122, targeted smoke e2e 2/2, full smoke e2e 14/14, build OK.
 
 - [x] **BUG: reliable browser downloads (2026-06-22)** — `downloadBlob()`, `downloadText()` и `downloadHtml()` теперь временно добавляют ссылку в DOM и откладывают `URL.revokeObjectURL()`, чтобы скачивание не срывалось в embedded/in-app browser окружении. `pdf-to-pptx` e2e теперь ловит реальный download event и проверяет `.pptx`. Проверки: check OK, vitest 122/122, pdf-to-pptx worker e2e 2/2, build OK.
