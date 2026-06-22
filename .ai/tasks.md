@@ -24,6 +24,8 @@
 
 ## ✅ Решено
 
+- [x] **BUG: reliable browser downloads (2026-06-22)** — `downloadBlob()`, `downloadText()` и `downloadHtml()` теперь временно добавляют ссылку в DOM и откладывают `URL.revokeObjectURL()`, чтобы скачивание не срывалось в embedded/in-app browser окружении. `pdf-to-pptx` e2e теперь ловит реальный download event и проверяет `.pptx`. Проверки: check OK, vitest 122/122, pdf-to-pptx worker e2e 2/2, build OK.
+
 - [x] **TD-02 Phase 5 edit-pdf copy extraction (2026-06-22)** — SEO и основной EN/RU UI-copy автономного редактора вынесены из `edit-pdf-page.tsx` в `client/src/lib/edit-pdf-copy.ts`; UX, slug, Fabric/canvas pipeline, сохранение и стили не изменялись. Крупный hook-extraction дальше отложен как малополезный без нового продуктового требования, потому что оставшаяся логика связана 10+ параметрами на hook. Проверки: check OK, vitest 122/122, build OK, editor-mobile e2e 1 passed / 1 skipped.
 
 - [x] **Round 4 Phase J image archive result adapters (2026-06-21)** — `pdf-to-jpg`, `pdf-to-png` и `extract-images` используют `createToolImageArchiveResult()` вместо прямого `pdfImagesAsZip()` в `tool-page.tsx`; имена `<base>-page-<page>.<format>` сохранены. После Phase J в `tool-page.tsx` не осталось ручных `TextEncoder`, `JSZip`, `splitResultsToZip` или `pdfImagesAsZip` result adapters. Проверки: check OK, vitest 120/120, build OK, smoke e2e 12/12.

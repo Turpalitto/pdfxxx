@@ -304,7 +304,14 @@ test.describe("pdf-to-pptx runs in the worker (pptxgenjs has no DOM dependency)"
     await upload(page, multiPagePdfPath);
     await page.getByTestId("button-process").click();
 
-    await expect(page.getByTestId("button-download")).toBeVisible({ timeout: 45_000 });
+    const downloadButton = page.getByTestId("button-download");
+    await expect(downloadButton).toBeVisible({ timeout: 45_000 });
+
+    const downloadPromise = page.waitForEvent("download");
+    await downloadButton.click();
+    const download = await downloadPromise;
+
+    expect(download.suggestedFilename()).toMatch(/\.pptx$/);
     expect(fallbackWarnings, fallbackWarnings.join("\n")).toHaveLength(0);
   });
 });

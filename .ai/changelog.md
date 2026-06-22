@@ -4,6 +4,20 @@
 
 ---
 
+## 2026-06-22 — BUG: reliable browser downloads
+
+### Исправлено
+- `downloadBlob()`, `downloadText()` и `downloadHtml()` теперь используют общий безопасный browser-download helper: временная ссылка добавляется в DOM, клик выполняется по DOM-элементу, а `URL.revokeObjectURL()` откладывается на следующий tick.
+- Это исправляет сценарий, где кнопка скачивания результата (например `pdf-to-pptx`) могла не сработать в embedded/in-app browser окружении, хотя результат уже был готов.
+
+### Проверка
+- `npm run check` — OK.
+- `npm test -- --run` — OK, 122/122.
+- `npx playwright test tests/e2e/worker-tools.spec.ts -g "pdf-to-pptx"` — OK, 2/2; тест теперь ловит реальный browser download event и проверяет `.pptx`.
+- `npm run build` — OK, с существующим PostCSS warning.
+
+---
+
 ## 2026-06-22 — TD-02 Phase 5: Edit PDF copy extraction
 
 ### Добавлено

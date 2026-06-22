@@ -2149,34 +2149,29 @@ export async function pdfImagesAsZip(
   return zipBytes;
 }
 
-export function downloadBlob(bytes: Uint8Array, filename: string, mimeType = "application/pdf") {
-  const blob = new Blob([bytes], { type: mimeType });
+function triggerBrowserDownload(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
+  a.rel = "noopener";
+  a.style.display = "none";
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+export function downloadBlob(bytes: Uint8Array, filename: string, mimeType = "application/pdf") {
+  triggerBrowserDownload(new Blob([bytes], { type: mimeType }), filename);
 }
 
 export function downloadText(text: string, filename: string) {
-  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+  triggerBrowserDownload(new Blob([text], { type: "text/plain;charset=utf-8" }), filename);
 }
 
 export function downloadHtml(html: string, filename: string) {
-  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+  triggerBrowserDownload(new Blob([html], { type: "text/html;charset=utf-8" }), filename);
 }
 
 export function formatBytes(bytes: number): string {
