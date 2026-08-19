@@ -1,577 +1,450 @@
-import { startTransition, useDeferredValue, useEffect, useState } from "react";
-import { Link, useSearch } from "wouter";
+import { useSearch } from "wouter";
+import { Link } from "wouter";
 import { motion } from "framer-motion";
-import {
-  Sparkles,
-  Shield,
-  Zap,
-  Cloud,
-  Lock,
-  Upload,
-  ArrowRight,
-  ArrowUpRight,
-  CheckCircle2,
-  Layers3,
-  Search,
-} from "lucide-react";
+import { ArrowRight, Sparkles, FileX, Zap, Monitor, ShieldCheck } from "lucide-react";
 import { ToolCard } from "@/components/tool-card";
-import { categories, categoryColors, getCategoryLabel, getLaunchReadyTools, getPopularTools, getToolBySlug } from "@/lib/tools";
+import { tools, categories, getCategoryLabel } from "@/lib/tools";
 import { useLang } from "@/lib/lang-context";
 import { useSeo } from "@/hooks/use-seo";
-import { getToolTranslation } from "@/lib/tool-translations";
 import { cn } from "@/lib/utils";
-import { preloadToolRoute } from "@/lib/route-preload";
-import { getRecentTools, getWorkflowPlaybooks } from "@/lib/tool-experience";
-import { useLazyRender } from "@/hooks/use-lazy-render";
-import { Input } from "@/components/ui/input";
-import { searchToolRegistry } from "@/tools/search-index";
 
 export default function Home() {
   const search = useSearch();
-  const initialCategory = new URLSearchParams(search).get("category") || "all";
-  const [activeCategory, setActiveCategory] = useState(initialCategory);
-  const [toolSearch, setToolSearch] = useState("");
-  const deferredToolSearch = useDeferredValue(toolSearch);
-  const [recentTools, setRecentTools] = useState(() => getRecentTools());
-  const { lang, t } = useLang();
-
-  useEffect(() => {
-    const nextCategory = new URLSearchParams(search).get("category") || "all";
-    setActiveCategory((current) => (current === nextCategory ? current : nextCategory));
-  }, [search]);
-
-  const allTools = getLaunchReadyTools();
-  const searchMatchedTools = deferredToolSearch.trim()
-    ? searchToolRegistry(deferredToolSearch, lang, 58)
-      .map((result) => getToolBySlug(result.entry.slug))
-      .filter((tool): tool is NonNullable<typeof tool> => Boolean(tool))
-    : allTools;
-  const filteredTools =
-    activeCategory === "all"
-      ? searchMatchedTools
-      : searchMatchedTools.filter((tool) => tool.category === activeCategory);
-  const { visibleCount, sentinelRef } = useLazyRender(filteredTools.length);
-  const previewTools = allTools.slice(0, 4);
-  const popularTools = getPopularTools();
-  const workflowPlaybooks = getWorkflowPlaybooks(lang);
-  const trustSignals = [
-    {
-      icon: Shield,
-      title: lang === "ru" ? "Локальная обработка" : "Local processing",
-      description:
-        lang === "ru"
-          ? "Основные PDF-действия выполняются прямо в браузере, без отправки файла на сервер."
-          : "Core PDF actions run in the browser without sending the file to a server.",
-    },
-    {
-      icon: Lock,
-      title: lang === "ru" ? "История без файлов" : "History without files",
-      description:
-        lang === "ru"
-          ? "Сохраняются только язык, тема и недавние инструменты. Содержимое документов не записывается."
-          : "Only language, theme, and recent tools are stored. Document contents are never recorded.",
-    },
-    {
-      icon: Zap,
-      title: lang === "ru" ? "Быстрый UX без очереди" : "Fast UX without queues",
-      description:
-        lang === "ru"
-          ? "Основные разделы прогреваются заранее, а категории переключаются мгновенно."
-          : "Primary routes are warmed in advance and categories switch instantly.",
-    },
-  ];
-
-  const handleCategoryChange = (categoryId: string) => {
-    if (categoryId === activeCategory) {
-      return;
-    }
-
-    startTransition(() => {
-      setActiveCategory(categoryId);
-    });
-
-    if (typeof window !== "undefined") {
-      const nextUrl = categoryId === "all" ? "/" : `/?category=${categoryId}`;
-      window.history.replaceState(window.history.state, "", nextUrl);
-    }
-  };
+  const searchParams = new URLSearchParams(search);
+  const activeCategory = searchParams.get("category") || "all";
+  const { t, lang } = useLang();
 
   useSeo({
-    title: `${t.hero.headline1} ${t.hero.headline2} ${t.hero.headline3} — PDFX`,
+    title: lang === "ru"
+      ? "PDFX — Все PDF инструменты бесплатно | Без водяных знаков"
+      : lang === "de"
+      ? "PDFX — Kostenlose PDF-Werkzeuge | Ohne Wasserzeichen"
+      : lang === "fr"
+      ? "PDFX — Outils PDF gratuits | Sans filigrane"
+      : lang === "es"
+      ? "PDFX — Herramientas PDF gratis | Sin marcas de agua"
+      : lang === "zh"
+      ? "PDFX — 免费PDF工具 | 无水印"
+      : lang === "ja"
+      ? "PDFX — 無料PDFツール | 透かしなし"
+      : lang === "ar"
+      ? "PDFX — أدوات PDF مجانية | بدون علامة مائية"
+      : "PDFX — All PDF Tools Free | No Watermarks",
     description: t.hero.sub,
     path: "/",
   });
 
-  useEffect(() => {
-    setRecentTools(getRecentTools());
-  }, [lang]);
+  const filteredTools =
+    activeCategory === "all"
+      ? tools
+      : tools.filter((tool) => tool.category === activeCategory);
+
+  const stats = [
+    { value: "2M+", label: lang === "ru" ? "Файлов обработано" : "Files processed", gradient: "from-purple-400 to-pink-400" },
+    { value: "180+", label: lang === "ru" ? "Стран" : "Countries", gradient: "from-blue-400 to-cyan-400" },
+    { value: String(tools.length), label: lang === "ru" ? "PDF инструментов" : "PDF tools", gradient: "from-emerald-400 to-green-400" },
+    { value: "100%", label: lang === "ru" ? "Бесплатно начать" : "Free to start", gradient: "from-yellow-400 to-orange-400" },
+  ];
 
   const features = [
-    {
-      icon: Shield,
-      title: lang === "ru" ? "Безопасность превыше всего" : "Security first",
-      description:
-        lang === "ru"
-          ? "Файлы обрабатываются локально в браузере без загрузки на сервер"
-          : "Files are processed locally in the browser without uploading to a server",
-    },
-    {
-      icon: Zap,
-      title: lang === "ru" ? "Быстрая обработка" : "Fast processing",
-      description:
-        lang === "ru"
-          ? "Без ожидания очередей и без установки приложений"
-          : "No queueing and no desktop app required",
-    },
-    {
-      icon: Cloud,
-      title: lang === "ru" ? "Работает везде" : "Works everywhere",
-      description:
-        lang === "ru"
-          ? "Доступ с любого устройства — компьютера, планшета или смартфона"
-          : "Access from any device — desktop, tablet, or smartphone",
-    },
-    {
-      icon: Lock,
-      title: lang === "ru" ? "Полная конфиденциальность" : "Full privacy",
-      description:
-        lang === "ru"
-          ? "Мы не храним и не передаём ваши файлы третьим лицам"
-          : "We do not store or share your files with third parties",
-    },
+    { icon: FileX, gradient: "from-yellow-500 to-orange-500", title: lang === "ru" ? "Файлы не загружаются" : "Files stay local", desc: lang === "ru" ? "Обработка локально в браузере" : "Processed in your browser" },
+    { icon: Zap, gradient: "from-orange-500 to-red-500", title: lang === "ru" ? "Мгновенная обработка" : "Instant processing", desc: lang === "ru" ? "Быстрее, чем на серверах" : "Faster than server-side" },
+    { icon: Monitor, gradient: "from-cyan-500 to-blue-500", title: lang === "ru" ? "Работает офлайн" : "Works offline", desc: lang === "ru" ? "Нет зависимости от сервера" : "No server required" },
+    { icon: ShieldCheck, gradient: "from-pink-500 to-purple-500", title: lang === "ru" ? "Без регистрации" : "No account needed", desc: lang === "ru" ? "Анонимно и безопасно" : "Anonymous & secure" },
   ];
 
   const categoryList = [
-    { id: "all", label: lang === "ru" ? "Все инструменты" : "All tools" },
-    ...categories.map((cat) => ({ id: cat.id, label: getCategoryLabel(cat.id, lang) })),
+    { id: "all", label: t.tools.allTools },
+    ...categories.map((c) => ({ id: c.id, label: getCategoryLabel(c.id, lang) })),
   ];
 
   return (
-    <>
-      <section className="relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-[linear-gradient(180deg,rgba(241,237,227,0)_0%,rgba(241,237,227,0.88)_40%,rgba(241,237,227,1)_100%)]" />
-        <div className="relative mx-auto max-w-7xl px-4 pb-8 pt-10 sm:px-6 sm:pb-10 sm:pt-12 lg:px-8">
-          <div className="grid items-stretch gap-12 lg:gap-20 lg:grid-cols-[58%_42%]">
-            <motion.div
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.55 }}
-              className="flex min-h-[520px] flex-col justify-between py-6 text-center sm:py-8 lg:py-10 lg:text-left"
-            >
-              <div>
-                <div className="premium-kicker mb-6 inline-flex items-center gap-2 text-xs font-semibold text-primary/80">
-                  <Sparkles className="h-4 w-4" />
-                  <span>{lang === "ru" ? "PDF-инструменты прямо в браузере" : "PDF tools directly in your browser"}</span>
-                </div>
+    <div className="min-h-screen">
+      {/* ─── HERO ─── */}
+      <section className="container mx-auto px-4 pt-20 pb-12 text-center">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 mb-8"
+        >
+          <Sparkles className="size-4 text-emerald-400" />
+          <span className="text-sm text-emerald-400">
+            {lang === "ru" ? "Вся обработка происходит в вашем браузере" : "All processing happens in your browser"}
+          </span>
+        </motion.div>
 
-                <h1
-                  className="paper-title font-bold text-foreground"
-                  style={{ fontSize: "clamp(54px, 6vw, 92px)", lineHeight: 0.94, maxWidth: 780 }}
-                >
-                  {lang === "ru" ? "Все нужные действия с PDF" : "All the PDF work you need"}{" "}
-                  <span className="text-primary">{lang === "ru" ? "в одном месте." : "in one place."}</span>
-                </h1>
-
-                <p className="mx-auto mt-6 max-w-[52rem] text-base leading-8 text-muted-foreground sm:text-lg lg:mx-0">
-                  {lang === "ru"
-                    ? "Объединяйте, редактируйте, конвертируйте и защищайте документы. Основная обработка выполняется локально на вашем устройстве."
-                    : "Merge, edit, convert, and protect documents. Core processing runs locally on your device."}
-                </p>
-
-                <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row lg:items-center lg:justify-start">
-                  <Link
-                    href="/#tools"
-                    className="inline-flex h-12 items-center gap-2 rounded-xl bg-[#234138] px-7 text-[15px] font-semibold text-[#f7f3ea] shadow-[0_12px_30px_rgba(35,65,56,0.22)] transition-transform hover:-translate-y-0.5 hover:bg-[#31584f]"
-                  >
-                    <Upload className="h-5 w-5" />
-                    {lang === "ru" ? "Все инструменты" : "All tools"}
-                  </Link>
-                  <Link
-                    href="/tools/merge-pdf"
-                    onMouseEnter={() => preloadToolRoute("merge-pdf")}
-                    onFocus={() => preloadToolRoute("merge-pdf")}
-                    className="inline-flex h-12 items-center gap-2 rounded-xl border border-border bg-white/55 px-7 text-[15px] font-semibold text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-white/75"
-                  >
-                    {lang === "ru" ? "Смотреть сценарий" : "View workflow"}
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </div>
-              </div>
-
-              <div className="mt-9 text-sm font-medium text-muted-foreground">
-                {lang === "ru"
-                  ? "100% бесплатно • Без регистрации • Безопасная обработка"
-                  : "100% free • No registration • Secure processing"}
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ duration: 0.6, delay: 0.08 }}
-              className="relative mx-auto flex min-h-[520px] w-full items-start justify-center pt-8 sm:pt-10 lg:justify-end lg:pt-12"
-            >
-              <div className="relative z-[1] w-full max-w-[410px] rotate-[-2deg] rounded-[30px] border border-border bg-[#efe8db] p-3 shadow-[0_18px_50px_rgba(54,47,35,0.08)] opacity-90 lg:scale-[0.92]">
-                <div className="rotate-[2deg] rounded-[28px] border border-border bg-[linear-gradient(180deg,rgba(249,246,239,0.96),rgba(237,231,220,0.94))] p-5 shadow-[0_18px_50px_rgba(54,47,35,0.08)]">
-                  <div className="flex items-center justify-between rounded-[20px] border border-border bg-white/45 px-4 py-3 text-foreground">
-                    <div>
-                      <p className="premium-kicker text-xs text-muted-foreground">
-                        {lang === "ru" ? "Рабочая панель" : "Workspace"}
-                      </p>
-                      <p className="paper-title mt-1 text-lg font-semibold">PDFX Toolkit</p>
-                    </div>
-                    <div className="rounded-[14px] bg-[#cfdacb] p-3">
-                      <Layers3 className="h-5 w-5 text-primary" />
-                    </div>
-                  </div>
-
-                  <div className="mt-4 rounded-[22px] border border-border bg-white/55 p-4 shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="premium-kicker text-xs font-semibold text-muted-foreground">
-                          {lang === "ru" ? "Популярные действия" : "Quick actions"}
-                        </p>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {lang === "ru" ? "Запустите нужный инструмент в один клик" : "Launch the right tool in one click"}
-                        </p>
-                      </div>
-                      <span className="text-xs font-semibold text-primary/70">
-                        {lang === "ru" ? "Онлайн" : "Online"}
-                      </span>
-                    </div>
-
-                    <div className="mt-4 grid grid-cols-2 gap-3">
-                      {previewTools.map((tool) => {
-                        const Icon = tool.icon;
-                        const colors = categoryColors[tool.color] || categoryColors.blue;
-                        const { name } = getToolTranslation(tool.slug, lang);
-
-                        return (
-                          <div
-                            key={tool.slug}
-                            className="rounded-[18px] border border-border bg-[#f7f3ea] p-3 transition-transform hover:-translate-y-0.5"
-                          >
-                            <div
-                              className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl"
-                              style={{
-                                background: `linear-gradient(135deg, ${colors.from} 0%, ${colors.to} 100%)`,
-                                boxShadow: `0 8px 20px ${colors.glow}`,
-                              }}
-                            >
-                              <Icon className="h-5 w-5 text-white" />
-                            </div>
-                            <div className="text-sm font-semibold leading-5 text-foreground">{name}</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid gap-3 sm:grid-cols-[1.15fr_0.85fr]">
-                    <div className="rounded-[20px] border border-border bg-white/45 p-4 text-foreground">
-                      <div className="premium-kicker text-xs text-muted-foreground">
-                        {lang === "ru" ? "Почему удобно" : "Why it works"}
-                      </div>
-                      <div className="mt-3 space-y-2 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-teal-500" />
-                          <span>{lang === "ru" ? "Понятный каталог инструментов" : "Clear tools catalog"}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-teal-500" />
-                          <span>{lang === "ru" ? "Быстрые действия без лишних экранов" : "Quick start without extra screens"}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="rounded-[20px] border border-border bg-white/45 p-4 text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
-                      <div className="premium-kicker text-xs text-muted-foreground">
-                        {lang === "ru" ? "За 1 минуту" : "In 1 minute"}
-                      </div>
-                      <div className="paper-title mt-3 text-4xl font-bold leading-none text-foreground">4+</div>
-                      <div className="mt-2 text-sm font-medium leading-6 text-muted-foreground">
-                        {lang === "ru" ? "готовых сценария на стартовом экране" : "ready actions above the fold"}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      <section id="tools" className="relative z-10 -mt-12 pb-14 pt-0 sm:-mt-16 sm:pb-16">
-        <div className="mx-auto max-w-7xl px-4 pb-10 pt-6 sm:px-6 sm:pb-12 lg:px-8">
-          {recentTools.length > 0 && (
-            <div className="pdfx-panel-muted mb-10 rounded-xl p-5 sm:p-6">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <p className="premium-kicker text-xs font-semibold text-primary">
-                    {lang === "ru" ? "Продолжить работу" : "Continue working"}
-                  </p>
-                  <h2 className="paper-title mt-2 text-3xl font-bold text-foreground">
-                    {lang === "ru" ? "Недавние инструменты" : "Recent tools"}
-                  </h2>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-                    {lang === "ru"
-                      ? "PDFX запоминает только последние инструменты в вашем браузере, чтобы вы возвращались к нужному сценарию без лишних шагов."
-                      : "PDFX remembers only your recent tools in the browser so you can return to the right flow without extra steps."}
-                  </p>
-                </div>
-                <Link href="/privacy" className="inline-flex items-center gap-1 text-sm font-medium text-primary transition-colors hover:text-foreground">
-                  {lang === "ru" ? "Как это хранится" : "How this is stored"}
-                  <ArrowUpRight className="h-4 w-4" />
-                </Link>
-              </div>
-
-              <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {recentTools.map((tool) => (
-                  <ToolCard key={`recent-${tool.slug}`} tool={tool} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {activeCategory === "all" && popularTools.length > 0 && (
-            <div className="pdfx-panel-muted mb-10 rounded-xl p-5 sm:p-6">
-              <div className="flex flex-col gap-2">
-                <p className="premium-kicker text-xs font-semibold text-primary">
-                  {lang === "ru" ? "Выбор большинства" : "What most people use"}
-                </p>
-                <h2 className="paper-title text-3xl font-bold text-foreground">
-                  {lang === "ru" ? "Популярные инструменты" : "Popular tools"}
-                </h2>
-                <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-                  {lang === "ru"
-                    ? "10 самых востребованных инструментов — с них начинает большинство пользователей."
-                    : "The 10 most-used tools — where most people start."}
-                </p>
-              </div>
-
-              <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                {popularTools.map((tool, index) => (
-                  <div key={`popular-${tool.slug}`} className="relative">
-                    <span
-                      className="absolute -left-1.5 -top-1.5 z-[2] grid size-6 place-items-center rounded-full bg-[#234138] text-[11px] font-bold text-[#f7f3ea] shadow-sm dark:bg-slate-100 dark:text-slate-950"
-                      aria-hidden="true"
-                    >
-                      {index + 1}
-                    </span>
-                    <ToolCard tool={tool} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.45 }}
-            className="mb-10 text-center sm:mb-12"
+        <motion.h1
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="text-5xl md:text-7xl font-bold mb-6 leading-tight"
+          data-testid="text-hero-title"
+        >
+          <span
+            className="block"
+            style={{
+              background: "linear-gradient(90deg, #ffffff 0%, #bfdbfe 50%, #ffffff 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}
           >
-            <p className="premium-kicker mb-3 text-xs font-semibold text-primary">
-              {lang === "ru" ? "Каталог PDF-инструментов" : "PDF toolkit"}
-            </p>
-            <h2 className="paper-title mx-auto max-w-4xl text-4xl font-bold leading-[1.02] text-foreground sm:text-5xl lg:text-6xl">
-              {lang === "ru" ? "Выберите инструмент" : "Choose your tool"}
-            </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-              {lang === "ru"
-                ? "Полный набор инструментов для работы с PDF документами. Выберите нужный инструмент и начните работу."
-                : "A complete set of tools for working with PDF documents. Choose the tool you need and get started."}
-            </p>
-          </motion.div>
+            {lang === "ru" ? "Все PDF инструменты." : lang === "de" ? "Alle PDF-Werkzeuge." : lang === "fr" ? "Tous les outils PDF." : lang === "es" ? "Todas las herramientas PDF." : lang === "zh" ? "所有PDF工具。" : lang === "ja" ? "すべてのPDFツール。" : "All PDF tools."}
+          </span>
+          <span
+            className="block"
+            style={{
+              background: "linear-gradient(90deg, #a78bfa 0%, #60a5fa 50%, #a78bfa 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}
+          >
+            {lang === "ru" ? "Бесплатно." : lang === "de" ? "Kostenlos." : lang === "fr" ? "Gratuit." : lang === "es" ? "Gratis." : lang === "zh" ? "免费。" : lang === "ja" ? "無料で。" : "Free."}
+          </span>
+          <span
+            className="block"
+            style={{
+              background: "linear-gradient(90deg, #94a3b8 0%, #cbd5e1 50%, #94a3b8 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}
+          >
+            {lang === "ru" ? "Без водяных знаков." : lang === "de" ? "Ohne Wasserzeichen." : lang === "fr" ? "Sans filigrane." : lang === "es" ? "Sin marcas de agua." : lang === "zh" ? "无水印。" : lang === "ja" ? "透かしなし。" : "No watermarks."}
+          </span>
+        </motion.h1>
 
-          <div className="mb-8 flex flex-wrap justify-center gap-2.5 sm:mb-10">
-            <div className="relative mb-4 w-full max-w-xl">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={toolSearch}
-                onChange={(event) => setToolSearch(event.target.value)}
-                placeholder={lang === "ru" ? "Найти инструмент по задаче: сжать, объединить, OCR..." : "Find a tool by task: compress, merge, OCR..."}
-                className="h-12 rounded-full border-border bg-white/55 pl-11 pr-4 shadow-sm backdrop-blur-sm"
-                data-testid="input-tool-search"
-              />
-            </div>
-          </div>
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="text-lg text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed"
+          data-testid="text-hero-sub"
+        >
+          {lang === "ru"
+            ? `${tools.length} мощных PDF инструментов. Объединяйте, разделяйте, сжимайте, конвертируйте и защищайте PDF — всё обрабатывается локально в вашем браузере. Ваши файлы никогда не попадают на наши серверы.`
+            : lang === "de"
+            ? `${tools.length} leistungsstarke PDF-Werkzeuge. Zusammenführen, teilen, komprimieren, konvertieren und schützen — alles lokal im Browser.`
+            : `${tools.length} powerful PDF tools. Merge, split, compress, convert and protect PDFs — all processed locally in your browser. Your files never reach our servers.`}
+        </motion.p>
 
-          <div className="mb-8 flex flex-wrap justify-center gap-2.5 sm:mb-10">
-            {categoryList.map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                aria-pressed={activeCategory === cat.id}
-                onClick={() => handleCategoryChange(cat.id)}
-                className={cn(
-                  "rounded-full border px-4 py-2 text-sm font-medium transition-all duration-200",
-                  activeCategory === cat.id
-                    ? "border-[#234138] bg-[#234138] text-[#f7f3ea] shadow-[0_12px_30px_rgba(35,65,56,0.18)] dark:border-slate-100 dark:bg-slate-100 dark:text-slate-950"
-                    : "border-border bg-white/45 text-muted-foreground hover:border-primary/40 hover:bg-white/65 hover:text-primary"
-                )}
-              >
-                {cat.label}
-              </button>
-            ))}
-          </div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="flex flex-col sm:flex-row items-center justify-center gap-4"
+        >
+          <Link
+            href="/pricing"
+            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl font-semibold text-white text-base transition-all duration-200 hover:opacity-90 hover:-translate-y-px"
+            style={{
+              background: "linear-gradient(135deg, #7c3aed 0%, #2563eb 100%)",
+              boxShadow: "0 8px 32px rgba(124,58,237,0.5)",
+            }}
+            data-testid="button-start-free"
+          >
+            {t.hero.startFree}
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+          <Link
+            href="/pricing"
+            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl font-semibold text-slate-300 hover:text-white text-base border border-slate-700 hover:border-slate-500 transition-all duration-200"
+            style={{ background: "rgba(15,23,42,0.5)" }}
+            data-testid="button-view-pro"
+          >
+            {t.hero.viewPro}
+          </Link>
+        </motion.div>
+      </section>
 
-          {filteredTools.length === 0 ? (
-            <div className="mx-auto max-w-xl rounded-2xl border border-border bg-white/45 p-6 text-center text-sm text-muted-foreground">
-              {lang === "ru"
-                ? "Ничего не найдено. Попробуйте другой запрос или переключите категорию."
-                : "No tools found. Try another search or switch category."}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredTools.slice(0, visibleCount).map((tool, index) => (
-              <motion.div
-                key={tool.slug}
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2, delay: Math.min(index, 8) * 0.015, ease: "easeOut" }}
-              >
-                <ToolCard tool={tool} />
-              </motion.div>
-            ))}
-            {visibleCount < filteredTools.length && (
-              <div ref={sentinelRef} className="col-span-full h-4" />
-            )}
-            </div>
-          )}
+      {/* ─── STATS ─── */}
+      <section className="container mx-auto px-4 py-12">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+          {stats.map((stat, i) => (
+            <motion.div
+              key={stat.label}
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.4, delay: i * 0.08 }}
+              className="group relative overflow-hidden rounded-2xl p-6 backdrop-blur-sm transition-all duration-300 hover:border-white/20"
+              style={{
+                background: "linear-gradient(135deg, rgba(15,23,42,0.6) 0%, rgba(30,41,59,0.4) 100%)",
+                border: "1px solid rgba(255,255,255,0.08)",
+              }}
+              data-testid={`stat-${stat.label}`}
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/8 to-purple-500/8 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="relative">
+                <div
+                  className="text-4xl font-bold mb-1"
+                  style={{
+                    background: `linear-gradient(90deg, var(--from), var(--to))`,
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    backgroundClip: "text",
+                  }}
+                >
+                  <span
+                    style={{
+                      background: `linear-gradient(90deg, ${stat.gradient.includes("purple") ? "#c084fc" : stat.gradient.includes("blue") ? "#60a5fa" : stat.gradient.includes("emerald") ? "#34d399" : "#fbbf24"}, ${stat.gradient.includes("pink") ? "#f472b6" : stat.gradient.includes("cyan") ? "#22d3ee" : stat.gradient.includes("green") ? "#4ade80" : "#fb923c"})`,
+                      WebkitBackgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
+                      backgroundClip: "text",
+                    }}
+                  >
+                    {stat.value}
+                  </span>
+                </div>
+                <div className="text-xs text-slate-400 tracking-wide uppercase font-medium">
+                  {stat.label}
+                </div>
+              </div>
+            </motion.div>
+          ))}
         </div>
       </section>
 
-      <section className="pb-16 sm:pb-20">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="premium-dark-surface rounded-[34px] px-6 py-10 text-foreground dark:text-white sm:px-8 sm:py-12">
+      {/* ─── FEATURES ─── */}
+      <section id="features" className="container mx-auto px-4 py-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {features.map((feat, i) => {
+            const Icon = feat.icon;
+            return (
+              <motion.div
+                key={feat.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: i * 0.08 }}
+                className="group relative overflow-hidden rounded-2xl p-5 backdrop-blur-sm transition-all duration-300 hover:border-white/20"
+                style={{
+                  background: "rgba(15,23,42,0.4)",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                }}
+              >
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: "linear-gradient(135deg, rgba(59,130,246,0.05), rgba(124,58,237,0.05))" }} />
+                <div className="relative">
+                  <div
+                    className="inline-flex items-center justify-center size-11 rounded-xl mb-3 shadow-lg"
+                    style={{ background: `linear-gradient(135deg, ${feat.gradient.includes("yellow") ? "#eab308, #f97316" : feat.gradient.includes("orange") ? "#f97316, #ef4444" : feat.gradient.includes("cyan") ? "#06b6d4, #3b82f6" : "#ec4899, #a855f7"})` }}
+                  >
+                    <Icon className="size-5 text-white" />
+                  </div>
+                  <h3 className="text-white font-semibold text-sm mb-1">{feat.title}</h3>
+                  <p className="text-slate-400 text-xs leading-relaxed">{feat.desc}</p>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ─── TOOLS ─── */}
+      <section id="tools" className="container mx-auto px-4 py-12">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="text-center mb-10"
+        >
+          <h2
+            className="text-4xl font-bold mb-3"
+            style={{
+              background: "linear-gradient(90deg, #ffffff 0%, #94a3b8 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}
+          >
+            {lang === "ru" ? "Все PDF инструменты в одном месте" : lang === "de" ? "Alle PDF-Werkzeuge an einem Ort" : lang === "fr" ? "Tous les outils PDF en un seul endroit" : lang === "es" ? "Todas las herramientas PDF en un solo lugar" : "All PDF tools in one place"}
+          </h2>
+          <p className="text-slate-400 text-base">
+            {lang === "ru" ? `${tools.length} инструментов в ${categories.length} категориях. Бесплатно, без регистрации.` : `${tools.length} tools in ${categories.length} categories. Free, no registration.`}
+          </p>
+        </motion.div>
+
+        {/* Category pills */}
+        <div className="flex flex-wrap justify-center gap-3 mb-10">
+          {categoryList.map((cat) => (
+            <Link
+              key={cat.id}
+              href={cat.id === "all" ? "/" : `/?category=${cat.id}`}
+              className={cn(
+                "px-5 py-2 rounded-full text-sm font-medium transition-all duration-300",
+                activeCategory === cat.id
+                  ? "text-white shadow-lg"
+                  : "text-slate-300 border border-slate-700 hover:border-slate-500 hover:bg-slate-800/50 hover:text-white"
+              )}
+              style={
+                activeCategory === cat.id
+                  ? { background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)", boxShadow: "0 4px 16px rgba(99,102,241,0.4)" }
+                  : { background: "rgba(30,41,59,0.5)" }
+              }
+              data-testid={`filter-${cat.id}`}
+            >
+              {cat.label}
+            </Link>
+          ))}
+        </div>
+
+        {/* Tool grid */}
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
+          layout
+        >
+          {filteredTools.map((tool, i) => (
+            <motion.div
+              key={tool.slug}
+              initial={{ opacity: 0, scale: 0.92 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.3, delay: i * 0.03 }}
+              layout
+            >
+              <ToolCard tool={tool} />
+            </motion.div>
+          ))}
+        </motion.div>
+      </section>
+
+      {/* ─── AI SECTION ─── */}
+      <section id="ai-section" className="container mx-auto px-4 py-16">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="relative overflow-hidden rounded-3xl"
+          style={{
+            background: "linear-gradient(135deg, rgba(88,28,135,0.4) 0%, rgba(30,58,138,0.4) 50%, rgba(2,6,23,0.6) 100%)",
+            border: "1px solid rgba(168,85,247,0.3)",
+          }}
+        >
+          <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.1), rgba(59,130,246,0.1))" }} />
+          <div className="absolute inset-0" style={{ background: "radial-gradient(circle at 50% 120%, rgba(120,119,198,0.25), transparent 60%)" }} />
+
+          <div className="relative px-8 py-16 md:px-16 text-center">
+            <motion.div
+              initial={{ scale: 0 }}
+              whileInView={{ scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="inline-flex items-center justify-center size-16 rounded-2xl mb-6 shadow-2xl"
+              style={{ background: "linear-gradient(135deg, #7c3aed, #2563eb)", boxShadow: "0 8px 32px rgba(124,58,237,0.6)" }}
+            >
+              <Sparkles className="size-8 text-white" />
+            </motion.div>
+
+            <motion.h2
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="text-4xl md:text-5xl font-bold mb-4"
+            >
+              <span style={{ background: "linear-gradient(90deg, #ffffff, #e9d5ff)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
+                {lang === "ru" ? "Встроенный " : "Built-in "}
+              </span>
+              <span style={{ background: "linear-gradient(90deg, #c084fc, #60a5fa)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
+                {lang === "ru" ? "AI-ассистент" : "AI assistant"}
+              </span>
+              <br />
+              <span style={{ background: "linear-gradient(90deg, #ffffff, #bfdbfe)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
+                {lang === "ru" ? "для ваших документов" : "for your documents"}
+              </span>
+            </motion.h2>
+
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+              className="text-lg text-slate-300 max-w-2xl mx-auto mb-8 leading-relaxed"
+            >
+              {lang === "ru"
+                ? "Используйте искусственный интеллект для автоматической обработки, извлечения данных и анализа ваших PDF документов."
+                : "Use AI for automatic processing, data extraction and analysis of your PDF documents."}
+            </motion.p>
+
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.45 }}
-              className="mb-10 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
+              transition={{ duration: 0.5, delay: 0.5 }}
+              className="flex flex-wrap justify-center gap-3 text-sm text-slate-400"
             >
-              <div>
-                <p className="premium-kicker text-xs font-semibold text-primary dark:text-cyan-300">
-                  {lang === "ru" ? "Workflow-режим" : "Workflow mode"}
-                </p>
-                <h2 className="paper-title mt-3 text-4xl font-bold leading-[1.04] sm:text-5xl">
-                  {lang === "ru" ? "Не просто инструменты, а готовые сценарии" : "Not just tools, but ready-made workflows"}
-                </h2>
-              </div>
-              <p className="max-w-2xl text-sm leading-7 text-muted-foreground dark:text-slate-300 sm:text-base">
-                {lang === "ru"
-                  ? "PDFX начинает играть не в каталог ссылок, а в реальные пользовательские задачи: подготовить договор, обработать скан, извлечь контент и вернуть финальный PDF."
-                  : "PDFX stops behaving like a tool directory and starts solving real jobs: prepare a contract, clean up a scan, extract content, and ship the final PDF."}
-              </p>
+              {[
+                lang === "ru" ? "Суммаризация документов" : "Document summarization",
+                lang === "ru" ? "Чат с PDF" : "Chat with PDF",
+                lang === "ru" ? "Перевод на 20 языков" : "Translation to 20 languages",
+                lang === "ru" ? "OCR-распознавание" : "OCR recognition",
+              ].map((feat) => (
+                <div
+                  key={feat}
+                  className="flex items-center gap-2 rounded-full px-4 py-2 border"
+                  style={{ background: "rgba(15,23,42,0.5)", borderColor: "rgba(255,255,255,0.1)" }}
+                >
+                  <span
+                    className="w-1.5 h-1.5 rounded-full shrink-0"
+                    style={{ background: "linear-gradient(135deg, #c084fc, #60a5fa)" }}
+                  />
+                  {feat}
+                </div>
+              ))}
             </motion.div>
 
-            <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
-              {workflowPlaybooks.map((workflow, index) => (
-                <motion.div
-                  key={workflow.id}
-                  initial={{ opacity: 0, y: 18 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.35, delay: index * 0.06 }}
-                  className={`rounded-[22px] border border-border bg-white/40 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] dark:border-white/10 dark:bg-gradient-to-br ${workflow.accentClass}`}
-                >
-                  <p className="premium-kicker text-xs font-semibold text-primary dark:text-cyan-200/90">
-                    {lang === "ru" ? "Готовый сценарий" : "Ready workflow"}
-                  </p>
-                  <h3 className="paper-title mt-3 text-2xl font-semibold text-foreground dark:text-white">{workflow.title}</h3>
-                  <p className="mt-3 text-sm leading-6 text-muted-foreground dark:text-slate-200">{workflow.description}</p>
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {workflow.tools.map((tool, toolIndex) => (
-                      <span
-                        key={tool.slug}
-                        className="rounded-full border border-border bg-white/45 px-3 py-1 text-xs font-medium text-muted-foreground dark:border-white/10 dark:bg-white/8 dark:text-slate-100"
-                      >
-                        {toolIndex + 1}. {getToolTranslation(tool.slug, lang).name}
-                      </span>
-                    ))}
-                  </div>
-
-                  <Link
-                    href={`/tools/${workflow.tools[0].slug}`}
-                    onMouseEnter={() => preloadToolRoute(workflow.tools[0].slug)}
-                    onFocus={() => preloadToolRoute(workflow.tools[0].slug)}
-                    className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-primary transition-colors hover:text-foreground dark:text-cyan-200 dark:hover:text-white"
-                  >
-                    {lang === "ru" ? "Открыть первый шаг" : "Open first step"}
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </motion.div>
-              ))}
-            </div>
-
-            <div className="mt-10 grid gap-4 md:grid-cols-3">
-              {trustSignals.map((signal, index) => (
-                <motion.div
-                  key={signal.title}
-                  initial={{ opacity: 0, y: 18 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.35, delay: 0.18 + index * 0.05 }}
-                  className="rounded-[22px] border border-border bg-white/40 p-5 dark:border-white/10 dark:bg-white/5"
-                >
-                  <div className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-[#cfdacb] dark:bg-white/10">
-                    <signal.icon className="h-5 w-5 text-primary dark:text-cyan-200" />
-                  </div>
-                  <h3 className="paper-title mt-4 text-xl font-semibold text-foreground dark:text-white">{signal.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground dark:text-slate-300">{signal.description}</p>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="py-16 sm:py-20">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.45 }}
-            className="mb-12 text-center"
-          >
-            <p className="premium-kicker mb-3 text-xs font-semibold text-primary">
-              {lang === "ru" ? "Преимущества" : "Why PDFX"}
-            </p>
-            <h2 className="paper-title text-4xl font-bold text-foreground sm:text-5xl">
-              {lang === "ru" ? "Почему выбирают нас" : "Why choose us"}
-            </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-              {lang === "ru"
-                ? "PDFX сфокусирован на скорости, приватности и понятных сценариях без лишних экранов."
-                : "PDFX is built around speed, privacy, and clear flows without extra screens."}
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {features.map((feature, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: index * 0.08 }}
-                className="pdfx-panel rounded-[26px] px-6 py-8 text-center"
+            <div className="mt-4 text-xs text-slate-500">
+              <span
+                className="px-2 py-0.5 rounded font-semibold text-purple-400 tracking-wider"
+                style={{ background: "rgba(124,58,237,0.2)" }}
               >
-                <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-[16px] bg-[#cfdacb]">
-                  <feature.icon className="h-7 w-7 text-teal-700" />
-                </div>
-                <h3 className="paper-title text-xl font-semibold text-foreground">{feature.title}</h3>
-                <p className="mt-3 text-sm leading-6 text-muted-foreground">{feature.description}</p>
-              </motion.div>
-            ))}
+                PRO
+              </span>
+              {" "}
+              {lang === "ru" ? "Доступно в Pro плане" : "Available in Pro plan"}
+            </div>
           </div>
+        </motion.div>
+      </section>
+
+      {/* ─── CTA ─── */}
+      <section className="text-center px-4 py-20 relative">
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0"
+          style={{ height: 400, background: "radial-gradient(ellipse at 50% 100%, rgba(99,102,241,0.1) 0%, transparent 70%)" }}
+        />
+        <div className="relative">
+          <h2
+            className="font-extrabold mb-4"
+            style={{
+              fontSize: "clamp(28px, 4vw, 44px)",
+              letterSpacing: "-0.03em",
+              background: "linear-gradient(90deg, #ffffff, #94a3b8)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}
+          >
+            {t.cta.title}
+          </h2>
+          <p className="text-slate-400 mb-8 text-base">{t.cta.sub}</p>
+          <Link
+            href="/#tools"
+            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl font-semibold text-white transition-all duration-200 hover:opacity-90 hover:-translate-y-px"
+            style={{
+              background: "linear-gradient(135deg, #7c3aed 0%, #2563eb 100%)",
+              boxShadow: "0 8px 32px rgba(124,58,237,0.45)",
+            }}
+            data-testid="button-cta-tools"
+          >
+            {t.cta.btn} →
+          </Link>
         </div>
       </section>
-    </>
+    </div>
   );
 }

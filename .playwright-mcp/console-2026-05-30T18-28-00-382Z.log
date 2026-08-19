@@ -1,0 +1,34 @@
+[     336ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5000/@fs/C:/pdfxxx/node_modules/.vite/deps/chunk-UB74AMW5.js?v=7e6406ad:21608
+[159534655ms] [ERROR] [vite] ReferenceError: PaintBucket is not defined
+    at http://localhost:5000/src/lib/tools.ts?t=1780325214915:762:11 @ http://localhost:5000/@vite/client:808
+[159534655ms] [ERROR] [vite] Failed to reload /src/components/footer.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5000/@vite/client:808
+[159534655ms] [ERROR] [vite] ReferenceError: PaintBucket is not defined
+    at http://localhost:5000/src/lib/tools.ts?t=1780325214915:762:11 @ http://localhost:5000/@vite/client:808
+[159534655ms] [ERROR] [vite] Failed to reload /src/components/navbar.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5000/@vite/client:808
+[159534656ms] [INFO] [hmr] /src/pages/tool-page.tsx failed to apply HMR as it's within a circular import. Reloading page to reset the execution order. To debug and break the circular import, you can run `vite --debug hmr` to log the circular dependency path if a file change triggered it. @ http://localhost:5000/@vite/client:817
+[159534656ms] [ERROR] [vite] ReferenceError: PaintBucket is not defined
+    at http://localhost:5000/src/lib/tools.ts?t=1780325214915:762:11 @ http://localhost:5000/@vite/client:808
+[159534656ms] [ERROR] [vite] Failed to reload /src/pages/tool-page.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5000/@vite/client:808
+[159534656ms] [ERROR] [vite] ReferenceError: PaintBucket is not defined
+    at http://localhost:5000/src/lib/tools.ts?t=1780325214915:762:11 @ http://localhost:5000/@vite/client:808
+[159534656ms] [ERROR] [vite] Failed to reload /src/pages/pricing.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5000/@vite/client:808
+[159534656ms] [INFO] [hmr] /src/components/tool-card.tsx failed to apply HMR as it's within a circular import. Reloading page to reset the execution order. To debug and break the circular import, you can run `vite --debug hmr` to log the circular dependency path if a file change triggered it. @ http://localhost:5000/@vite/client:817
+[159534656ms] [ERROR] [vite] ReferenceError: PaintBucket is not defined
+    at http://localhost:5000/src/lib/tools.ts?t=1780325214915:762:11 @ http://localhost:5000/@vite/client:808
+[159534656ms] [ERROR] [vite] Failed to reload /src/components/tool-card.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5000/@vite/client:808
+[159534656ms] [INFO] [hmr] /src/pages/home.tsx failed to apply HMR as it's within a circular import. Reloading page to reset the execution order. To debug and break the circular import, you can run `vite --debug hmr` to log the circular dependency path if a file change triggered it. @ http://localhost:5000/@vite/client:817
+[159534656ms] [ERROR] [vite] ReferenceError: PaintBucket is not defined
+    at http://localhost:5000/src/lib/tools.ts?t=1780325214915:762:11 @ http://localhost:5000/@vite/client:808
+[159534656ms] [ERROR] [vite] Failed to reload /src/pages/home.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5000/@vite/client:808
+[159534771ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5000/@fs/C:/pdfxxx/node_modules/.vite/deps/chunk-UB74AMW5.js?v=7e6406ad:21608
+[159534784ms] ReferenceError: PaintBucket is not defined
+    at http://localhost:5000/src/lib/tools.ts?t=1780325214915:762:11
+[159558397ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5000/@fs/C:/pdfxxx/node_modules/.vite/deps/chunk-UB74AMW5.js?v=7e6406ad:21608
+[159580651ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5000/src/index.css?t=1780325258660:0
+[159580652ms] [ERROR] [vite] Failed to reload /src/index.css. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5000/@vite/client:808
+[159580652ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5000/src/pages/tool-page.tsx?t=1780325258660:0
+[159580652ms] [INFO] [hmr] /src/pages/tool-page.tsx failed to apply HMR as it's within a circular import. Reloading page to reset the execution order. To debug and break the circular import, you can run `vite --debug hmr` to log the circular dependency path if a file change triggered it. @ http://localhost:5000/@vite/client:817
+[159580652ms] [ERROR] [vite] Failed to reload /src/pages/tool-page.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5000/@vite/client:808
+[159580653ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:5000/@vite/client:864
+[162573231ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5000/@fs/C:/pdfxxx/node_modules/.vite/deps/chunk-UB74AMW5.js?v=6f05c069:21608
+[162574435ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5000/@fs/C:/pdfxxx/node_modules/.vite/deps/chunk-UB74AMW5.js?v=eebfe1cf:21608

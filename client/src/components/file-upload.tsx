@@ -1,31 +1,20 @@
 import { useCallback, useState, useRef } from "react";
-import { Upload, File, X, CheckCircle, ArrowUp, ArrowDown, Clock } from "lucide-react";
+import { Upload, File, X, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { formatBytes, looksLikePdfFile } from "@/lib/pdf-utils";
-import {
-  DEFAULT_MAX_FILE_SIZE_MB,
-  estimateUploadRisk,
-  highestUploadRisk,
-  mbToBytes,
-  type UploadRiskEstimate,
-} from "@/lib/upload-limits";
-import { useLang } from "@/lib/lang-context";
-import { useRecentFiles } from "@/hooks/use-recent-files";
+import { formatBytes } from "@/lib/pdf-utils";
+import { DEFAULT_MAX_FILE_SIZE_MB, mbToBytes } from "@/lib/upload-limits";
 
 interface FileUploadProps {
   accept?: string;
   multiple?: boolean;
   maxSizeMb?: number;
   onFiles: (files: File[]) => void;
+  onError?: (rejectedCount: number) => void;
   files?: File[];
   onRemoveFile?: (index: number) => void;
-  onMoveFile?: (index: number, direction: -1 | 1) => void;
-  onReorderFiles?: (files: File[]) => void;
-  onValidationError?: (message: string | null) => void;
   label?: string;
   description?: string;
-  slug?: string;
 }
 
 export function FileUpload({
@@ -33,22 +22,14 @@ export function FileUpload({
   multiple = false,
   maxSizeMb = DEFAULT_MAX_FILE_SIZE_MB,
   onFiles,
+  onError,
   files = [],
   onRemoveFile,
-  onMoveFile,
-  onReorderFiles,
-  onValidationError,
   label = "Drop your PDF here",
   description,
-  slug,
 }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
-  const [dropIdx, setDropIdx] = useState<number | null>(null);
-  const [uploadRisk, setUploadRisk] = useState<UploadRiskEstimate | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { lang } = useLang();
-  const { recentFiles } = useRecentFiles();
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -61,61 +42,23 @@ export function FileUpload({
   }, []);
 
   const processFiles = useCallback(
-    async (newFiles: FileList | null) => {
+    (newFiles: FileList | null) => {
       if (!newFiles) return;
-      const acceptedExtensions = accept.split(",").map((a) => a.trim().toLowerCase());
-      const expectsPdf = acceptedExtensions.some((value) => value.includes("pdf"));
-      const acceptedFiles: File[] = [];
-      const rejectedMessages: string[] = [];
-
-      for (const f of Array.from(newFiles)) {
-        const matches = acceptedExtensions.some((a) => {
+      let rejected = 0;
+      const arr = Array.from(newFiles).filter((f) => {
+        const acceptTypes = accept.split(",").map((a) => a.trim());
+        const matches = acceptTypes.some((a) => {
           if (a.startsWith(".")) return f.name.toLowerCase().endsWith(a);
           return f.type.startsWith(a.replace("*", ""));
         });
-
-        if (!matches) {
-          rejectedMessages.push(
-            lang === "ru"
-              ? `${f.name}: неподдерживаемый формат файла.`
-              : `${f.name}: unsupported file format.`
-          );
-          continue;
-        }
-
-        if (f.size > mbToBytes(maxSizeMb)) {
-          rejectedMessages.push(
-            lang === "ru"
-              ? `${f.name}: файл больше ${maxSizeMb}MB.`
-              : `${f.name}: file is larger than ${maxSizeMb}MB.`
-          );
-          continue;
-        }
-
-        if (expectsPdf && f.name.toLowerCase().endsWith(".pdf")) {
-          const isPdf = await looksLikePdfFile(f);
-          if (!isPdf) {
-            rejectedMessages.push(
-              lang === "ru"
-                ? `${f.name}: файл не выглядит как корректный PDF.`
-                : `${f.name}: file does not look like a valid PDF.`
-            );
-            continue;
-          }
-        }
-
-        acceptedFiles.push(f);
-      }
-
-      if (acceptedFiles.length > 0) {
-        setUploadRisk(
-          highestUploadRisk(acceptedFiles.map((file) => estimateUploadRisk(file.size, maxSizeMb))),
-        );
-        onFiles(acceptedFiles);
-      }
-      onValidationError?.(rejectedMessages.length > 0 ? rejectedMessages.join(" ") : null);
+        const sizeOk = f.size <= mbToBytes(maxSizeMb);
+        if (!matches || !sizeOk) rejected++;
+        return matches && sizeOk;
+      });
+      if (rejected > 0 && onError) onError(rejected);
+      onFiles(arr);
     },
-    [accept, lang, maxSizeMb, onFiles, onValidationError]
+    [accept, maxSizeMb, onFiles, onError]
   );
 
   const handleDrop = useCallback(
@@ -137,15 +80,6 @@ export function FileUpload({
   );
 
   const hasFiles = files.length > 0;
-  const riskCopy = uploadRisk?.level === "high"
-    ? lang === "ru"
-      ? "Крупный файл: обработка может занять больше времени и памяти."
-      : "Large file: processing may need more time and memory."
-    : uploadRisk?.level === "medium"
-      ? lang === "ru"
-        ? "Средний размер: обработка должна пройти нормально, но может быть не мгновенной."
-        : "Medium size: processing should work, but may not be instant."
-      : null;
 
   return (
     <div className="flex flex-col gap-3">
@@ -204,12 +138,12 @@ export function FileUpload({
           }}
           data-testid="button-select-files"
         >
-          {multiple ? (lang === "ru" ? "Выбрать файлы" : "Choose Files") : (lang === "ru" ? "Выбрать файл" : "Choose File")}
+          Choose File{multiple ? "s" : ""}
         </Button>
 
         {isDragging && (
           <div className="absolute inset-0 rounded-md bg-primary/5 flex items-center justify-center">
-            <div className="text-primary font-semibold text-sm">{lang === "ru" ? "Отпустите файлы здесь" : "Drop files here"}</div>
+            <div className="text-primary font-semibold text-sm">Drop files here</div>
           </div>
         )}
       </div>
@@ -219,31 +153,8 @@ export function FileUpload({
           {files.map((file, index) => (
             <div
               key={`${file.name}-${index}`}
-              className={cn(
-                "flex items-center gap-3 p-3 rounded-md border bg-card transition-colors",
-                dragIdx === index ? "border-primary/50 bg-primary/5 opacity-50" : "border-border",
-                dropIdx === index && dragIdx !== null && dropIdx !== dragIdx ? "border-primary bg-primary/10" : ""
-              )}
+              className="flex items-center gap-3 p-3 rounded-md border border-border bg-card"
               data-testid={`file-item-${index}`}
-              draggable={onReorderFiles ? true : false}
-              onDragStart={() => setDragIdx(index)}
-              onDragOver={(e) => {
-                if (dragIdx === null) return;
-                e.preventDefault();
-                setDropIdx(index);
-              }}
-              onDragLeave={() => setDropIdx(null)}
-              onDrop={() => {
-                if (dragIdx !== null && dropIdx !== null && dragIdx !== dropIdx && onReorderFiles) {
-                  const next = [...files];
-                  const [moved] = next.splice(dragIdx, 1);
-                  next.splice(dropIdx, 0, moved);
-                  onReorderFiles(next);
-                }
-                setDragIdx(null);
-                setDropIdx(null);
-              }}
-              onDragEnd={() => { setDragIdx(null); setDropIdx(null); }}
             >
               <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
                 <File className="w-4 h-4 text-primary" />
@@ -252,36 +163,6 @@ export function FileUpload({
                 <p className="text-sm font-medium truncate">{file.name}</p>
                 <p className="text-xs text-muted-foreground">{formatBytes(file.size)}</p>
               </div>
-              {onMoveFile && files.length > 1 && (
-                <div className="flex shrink-0 items-center gap-1">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onMoveFile(index, -1);
-                    }}
-                    disabled={index === 0}
-                    aria-label={lang === "ru" ? `Поднять ${file.name}` : `Move ${file.name} up`}
-                    data-testid={`button-move-file-up-${index}`}
-                  >
-                    <ArrowUp className="w-3.5 h-3.5" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onMoveFile(index, 1);
-                    }}
-                    disabled={index === files.length - 1}
-                    aria-label={lang === "ru" ? `Опустить ${file.name}` : `Move ${file.name} down`}
-                    data-testid={`button-move-file-down-${index}`}
-                  >
-                    <ArrowDown className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-              )}
               <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
               {onRemoveFile && (
                 <Button
@@ -297,28 +178,6 @@ export function FileUpload({
                   <X className="w-3.5 h-3.5" />
                 </Button>
               )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {hasFiles && riskCopy && (
-        <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-          {riskCopy}
-        </div>
-      )}
-
-      {!hasFiles && recentFiles.length > 0 && (
-        <div className="space-y-1.5">
-          <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-            <Clock className="w-3 h-3" />
-            {lang === "ru" ? "Недавние файлы" : "Recent files"}
-          </p>
-          {recentFiles.slice(0, 5).map((rf, i) => (
-            <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground py-1 px-2 rounded hover:bg-muted/50">
-              <File className="w-3 h-3" />
-              <span className="truncate flex-1">{rf.name}</span>
-              <span className="shrink-0">{formatBytes(rf.size)}</span>
             </div>
           ))}
         </div>

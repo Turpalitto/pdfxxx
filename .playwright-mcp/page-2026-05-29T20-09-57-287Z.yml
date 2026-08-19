@@ -1,0 +1,96 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - link "PDFX спокойные инструменты для документов" [ref=e7] [cursor=pointer]:
+          - /url: /
+          - img [ref=e9]
+          - generic [ref=e12]:
+            - generic [ref=e13]: PDFX
+            - generic [ref=e14]: спокойные инструменты для документов
+        - navigation [ref=e15]:
+          - button "Инструменты" [ref=e17] [cursor=pointer]:
+            - text: Инструменты
+            - img [ref=e18]
+          - link "Цены" [ref=e20] [cursor=pointer]:
+            - /url: /pricing
+        - generic [ref=e21]:
+          - button "Switch to night mode" [ref=e22] [cursor=pointer]:
+            - img [ref=e24]
+            - generic [ref=e26]: Night
+          - button "Change language" [ref=e28] [cursor=pointer]:
+            - img [ref=e29]
+            - generic [ref=e32]: Русский
+            - img [ref=e33]
+          - link "Связаться" [ref=e35] [cursor=pointer]:
+            - /url: /contact
+    - main [ref=e36]:
+      - generic [ref=e38]:
+        - img [ref=e40]
+        - heading "Страница не найдена" [level=1] [ref=e43]
+        - paragraph [ref=e44]: Запрашиваемая страница не существует или была перемещена. Попробуйте вернуться на главную.
+        - generic [ref=e45]:
+          - link "На главную" [ref=e46] [cursor=pointer]:
+            - /url: /
+            - img
+            - text: На главную
+          - link "Связаться" [ref=e47] [cursor=pointer]:
+            - /url: /contact
+    - contentinfo [ref=e48]:
+      - generic [ref=e49]:
+        - generic [ref=e50]:
+          - generic [ref=e51]:
+            - link "PDFX" [ref=e52] [cursor=pointer]:
+              - /url: /
+              - img [ref=e54]
+              - generic [ref=e57]: PDFX
+            - paragraph [ref=e58]: Надежный сервис для работы с PDF документами онлайн.
+            - link "hello@pdfx.tools" [ref=e59] [cursor=pointer]:
+              - /url: mailto:hello@pdfx.tools
+              - img [ref=e60]
+              - text: hello@pdfx.tools
+          - generic [ref=e63]:
+            - heading "PDF Инструменты" [level=3] [ref=e64]
+            - list [ref=e65]:
+              - listitem [ref=e66]:
+                - link "Конвертация из PDF" [ref=e67] [cursor=pointer]:
+                  - /url: /?category=convert-from
+              - listitem [ref=e68]:
+                - link "Конвертация в PDF" [ref=e69] [cursor=pointer]:
+                  - /url: /?category=convert-to
+              - listitem [ref=e70]:
+                - link "Организация" [ref=e71] [cursor=pointer]:
+                  - /url: /?category=organize
+              - listitem [ref=e72]:
+                - link "Безопасность" [ref=e73] [cursor=pointer]:
+                  - /url: /?category=security
+          - generic [ref=e74]:
+            - heading "Ещё инструменты" [level=3] [ref=e75]
+            - list [ref=e76]:
+              - listitem [ref=e77]:
+                - link "Оптимизация" [ref=e78] [cursor=pointer]:
+                  - /url: /?category=optimize
+              - listitem [ref=e79]:
+                - link "OCR и сканирование" [ref=e80] [cursor=pointer]:
+                  - /url: /?category=ocr
+              - listitem [ref=e81]:
+                - link "Утилиты" [ref=e82] [cursor=pointer]:
+                  - /url: /?category=utility
+          - generic [ref=e83]:
+            - heading "Компания" [level=3] [ref=e84]
+            - list [ref=e85]:
+              - listitem [ref=e86]:
+                - link "Цены" [ref=e87] [cursor=pointer]:
+                  - /url: /pricing
+              - listitem [ref=e88]:
+                - link "Политика конфиденциальности" [ref=e89] [cursor=pointer]:
+                  - /url: /privacy
+              - listitem [ref=e90]:
+                - link "Условия использования" [ref=e91] [cursor=pointer]:
+                  - /url: /terms
+              - listitem [ref=e92]:
+                - link "Контакт" [ref=e93] [cursor=pointer]:
+                  - /url: /contact
+        - paragraph [ref=e95]: © 2026 PDFX. Все права защищены.
+  - region "Notifications (F8)":
+    - list

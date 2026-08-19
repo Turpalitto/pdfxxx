@@ -1,0 +1,702 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - link "PDFX" [ref=e7] [cursor=pointer]:
+          - /url: /
+          - img [ref=e9]
+          - generic [ref=e13]: PDFX
+        - generic [ref=e14]:
+          - button "Switch to night mode" [ref=e15] [cursor=pointer]:
+            - img [ref=e17]
+          - button "Toggle menu" [active] [ref=e19] [cursor=pointer]:
+            - img
+      - navigation [ref=e884]:
+        - link "Конвертация из PDF" [ref=e885] [cursor=pointer]:
+          - /url: /?category=convert-from
+        - link "Конвертация в PDF" [ref=e886] [cursor=pointer]:
+          - /url: /?category=convert-to
+        - link "Организация" [ref=e887] [cursor=pointer]:
+          - /url: /?category=organize
+        - link "Безопасность" [ref=e888] [cursor=pointer]:
+          - /url: /?category=security
+        - link "Оптимизация" [ref=e889] [cursor=pointer]:
+          - /url: /?category=optimize
+        - link "OCR и сканирование" [ref=e890] [cursor=pointer]:
+          - /url: /?category=ocr
+        - link "Утилиты" [ref=e891] [cursor=pointer]:
+          - /url: /?category=utility
+        - link "Цены" [ref=e892] [cursor=pointer]:
+          - /url: /pricing
+        - link "Контакт" [ref=e893] [cursor=pointer]:
+          - /url: /contact
+        - generic [ref=e894]:
+          - paragraph [ref=e895]: Язык
+          - generic [ref=e896]:
+            - button "🇺🇸 English" [ref=e897] [cursor=pointer]:
+              - generic [ref=e898]: 🇺🇸
+              - generic [ref=e899]: English
+            - button "🇷🇺 Русский" [ref=e900] [cursor=pointer]:
+              - generic [ref=e901]: 🇷🇺
+              - generic [ref=e902]: Русский
+            - button "🇪🇸 Español" [ref=e903] [cursor=pointer]:
+              - generic [ref=e904]: 🇪🇸
+              - generic [ref=e905]: Español
+            - button "🇫🇷 Français" [ref=e906] [cursor=pointer]:
+              - generic [ref=e907]: 🇫🇷
+              - generic [ref=e908]: Français
+            - button "🇩🇪 Deutsch" [ref=e909] [cursor=pointer]:
+              - generic [ref=e910]: 🇩🇪
+              - generic [ref=e911]: Deutsch
+            - button "🇮🇹 Italiano" [ref=e912] [cursor=pointer]:
+              - generic [ref=e913]: 🇮🇹
+              - generic [ref=e914]: Italiano
+            - button "🇧🇷 Português" [ref=e915] [cursor=pointer]:
+              - generic [ref=e916]: 🇧🇷
+              - generic [ref=e917]: Português
+            - button "🇨🇳 中文" [ref=e918] [cursor=pointer]:
+              - generic [ref=e919]: 🇨🇳
+              - generic [ref=e920]: 中文
+            - button "🇯🇵 日本語" [ref=e921] [cursor=pointer]:
+              - generic [ref=e922]: 🇯🇵
+              - generic [ref=e923]: 日本語
+            - button "🇰🇷 한국어" [ref=e924] [cursor=pointer]:
+              - generic [ref=e925]: 🇰🇷
+              - generic [ref=e926]: 한국어
+            - button "🇸🇦 العربية" [ref=e927] [cursor=pointer]:
+              - generic [ref=e928]: 🇸🇦
+              - generic [ref=e929]: العربية
+            - button "🇹🇷 Türkçe" [ref=e930] [cursor=pointer]:
+              - generic [ref=e931]: 🇹🇷
+              - generic [ref=e932]: Türkçe
+            - button "🇮🇳 हिन्दी" [ref=e933] [cursor=pointer]:
+              - generic [ref=e934]: 🇮🇳
+              - generic [ref=e935]: हिन्दी
+            - button "🇵🇱 Polski" [ref=e936] [cursor=pointer]:
+              - generic [ref=e937]: 🇵🇱
+              - generic [ref=e938]: Polski
+            - button "🇳🇱 Nederlands" [ref=e939] [cursor=pointer]:
+              - generic [ref=e940]: 🇳🇱
+              - generic [ref=e941]: Nederlands
+            - button "🇺🇦 Українська" [ref=e942] [cursor=pointer]:
+              - generic [ref=e943]: 🇺🇦
+              - generic [ref=e944]: Українська
+            - button "🇻🇳 Tiếng Việt" [ref=e945] [cursor=pointer]:
+              - generic [ref=e946]: 🇻🇳
+              - generic [ref=e947]: Tiếng Việt
+            - button "🇮🇩 Bahasa Indonesia" [ref=e948] [cursor=pointer]:
+              - generic [ref=e949]: 🇮🇩
+              - generic [ref=e950]: Bahasa Indonesia
+            - button "🇹🇭 ภาษาไทย" [ref=e951] [cursor=pointer]:
+              - generic [ref=e952]: 🇹🇭
+              - generic [ref=e953]: ภาษาไทย
+            - button "🇨🇿 Čeština" [ref=e954] [cursor=pointer]:
+              - generic [ref=e955]: 🇨🇿
+              - generic [ref=e956]: Čeština
+    - main [ref=e20]:
+      - generic [ref=e90]:
+        - generic [ref=e91]:
+          - generic [ref=e92]:
+            - generic [ref=e93]:
+              - img [ref=e94]
+              - generic [ref=e96]: Редакторский стиль · тихая премиальность
+            - heading "PDF-сервис с ощущением дорогой бумажной среды." [level=1] [ref=e97]
+            - paragraph [ref=e98]: Спокойная палитра, мягкий off-white, деликатные зелёные акценты и карточки как листы плотной дизайнерской бумаги. PDFX не кричит, а внушает доверие.
+            - generic [ref=e99]:
+              - link "Все инструменты" [ref=e100] [cursor=pointer]:
+                - /url: /#tools
+                - img [ref=e101]
+                - text: Все инструменты
+              - link "Смотреть сценарий" [ref=e104] [cursor=pointer]:
+                - /url: /tools/merge-pdf
+                - text: Смотреть сценарий
+                - img [ref=e105]
+          - generic [ref=e107]: 100% бесплатно • Без регистрации • Безопасная обработка
+        - generic [ref=e110]:
+          - generic [ref=e111]:
+            - generic [ref=e112]:
+              - paragraph [ref=e113]: Рабочая панель
+              - paragraph [ref=e114]: PDFX Toolkit
+            - img [ref=e116]
+          - generic [ref=e120]:
+            - generic [ref=e121]:
+              - generic [ref=e122]:
+                - paragraph [ref=e123]: Популярные действия
+                - paragraph [ref=e124]: Запустите нужный инструмент в один клик
+              - generic [ref=e125]: Онлайн
+            - generic [ref=e126]:
+              - generic [ref=e127]:
+                - img [ref=e129]
+                - generic [ref=e132]: PDF в Word
+              - generic [ref=e133]:
+                - img [ref=e135]
+                - generic [ref=e140]: PDF в JPG
+              - generic [ref=e141]:
+                - img [ref=e143]
+                - generic [ref=e148]: PDF в PNG
+              - generic [ref=e149]:
+                - img [ref=e151]
+                - generic [ref=e153]: PDF в Текст
+          - generic [ref=e154]:
+            - generic [ref=e155]:
+              - generic [ref=e156]: Почему удобно
+              - generic [ref=e157]:
+                - generic [ref=e158]:
+                  - img [ref=e159]
+                  - generic [ref=e162]: Понятный каталог инструментов
+                - generic [ref=e163]:
+                  - img [ref=e164]
+                  - generic [ref=e167]: Быстрые действия без лишних экранов
+            - generic [ref=e168]:
+              - generic [ref=e169]: За 1 минуту
+              - generic [ref=e170]: 4+
+              - generic [ref=e171]: готовых сценария на стартовом экране
+      - generic [ref=e173]:
+        - generic [ref=e174]:
+          - generic [ref=e175]:
+            - generic [ref=e176]:
+              - paragraph [ref=e177]: Продолжить работу
+              - heading "Недавние инструменты" [level=2] [ref=e178]
+              - paragraph [ref=e179]: PDFX запоминает только последние инструменты в вашем браузере, чтобы вы возвращались к нужному сценарию без лишних шагов.
+            - link "Как это хранится" [ref=e180] [cursor=pointer]:
+              - /url: /privacy
+              - text: Как это хранится
+              - img [ref=e181]
+          - link "Объединить PDF Объединяйте несколько PDF файлов в один. Перетащите для изменения порядка страниц перед объединением. Организация Ready" [ref=e185] [cursor=pointer]:
+            - /url: /tools/merge-pdf
+            - generic [ref=e186]:
+              - generic [ref=e187]:
+                - img [ref=e190]
+                - img [ref=e195]
+              - generic [ref=e198]:
+                - heading "Объединить PDF" [level=3] [ref=e199]
+                - paragraph [ref=e200]: Объединяйте несколько PDF файлов в один. Перетащите для изменения порядка страниц перед объединением.
+              - generic [ref=e201]:
+                - generic [ref=e202]: Организация
+                - generic [ref=e203]: Ready
+        - generic [ref=e204]:
+          - paragraph [ref=e205]: Каталог PDF-инструментов
+          - heading "Выберите инструмент" [level=2] [ref=e206]
+          - paragraph [ref=e207]: Полный набор инструментов для работы с PDF документами. Выберите нужный инструмент и начните работу.
+        - generic [ref=e208]:
+          - button "Все инструменты" [pressed] [ref=e209] [cursor=pointer]
+          - button "Конвертация из PDF" [ref=e210] [cursor=pointer]
+          - button "Конвертация в PDF" [ref=e211] [cursor=pointer]
+          - button "Организация" [ref=e212] [cursor=pointer]
+          - button "Безопасность" [ref=e213] [cursor=pointer]
+          - button "Оптимизация" [ref=e214] [cursor=pointer]
+          - button "OCR и сканирование" [ref=e215] [cursor=pointer]
+          - button "Утилиты" [ref=e216] [cursor=pointer]
+        - generic [ref=e217]:
+          - link "PDF в Word Конвертируйте PDF файлы в редактируемые документы Word с сохранением форматирования. Конвертация из PDF Ready" [ref=e219] [cursor=pointer]:
+            - /url: /tools/pdf-to-word
+            - generic [ref=e220]:
+              - generic [ref=e221]:
+                - img [ref=e224]
+                - img [ref=e228]
+              - generic [ref=e231]:
+                - heading "PDF в Word" [level=3] [ref=e232]
+                - paragraph [ref=e233]: Конвертируйте PDF файлы в редактируемые документы Word с сохранением форматирования.
+              - generic [ref=e234]:
+                - generic [ref=e235]: Конвертация из PDF
+                - generic [ref=e236]: Ready
+          - link "PDF в JPG Конвертируйте страницы PDF в изображения JPG высокого качества. Выберите 72, 150 или 300 DPI. Конвертация из PDF Ready" [ref=e238] [cursor=pointer]:
+            - /url: /tools/pdf-to-jpg
+            - generic [ref=e239]:
+              - generic [ref=e240]:
+                - img [ref=e243]
+                - img [ref=e249]
+              - generic [ref=e252]:
+                - heading "PDF в JPG" [level=3] [ref=e253]
+                - paragraph [ref=e254]: Конвертируйте страницы PDF в изображения JPG высокого качества. Выберите 72, 150 или 300 DPI.
+              - generic [ref=e255]:
+                - generic [ref=e256]: Конвертация из PDF
+                - generic [ref=e257]: Ready
+          - link "PDF в PNG Конвертируйте страницы PDF в изображения PNG с поддержкой прозрачности. Конвертация из PDF Ready" [ref=e259] [cursor=pointer]:
+            - /url: /tools/pdf-to-png
+            - generic [ref=e260]:
+              - generic [ref=e261]:
+                - img [ref=e264]
+                - img [ref=e270]
+              - generic [ref=e273]:
+                - heading "PDF в PNG" [level=3] [ref=e274]
+                - paragraph [ref=e275]: Конвертируйте страницы PDF в изображения PNG с поддержкой прозрачности.
+              - generic [ref=e276]:
+                - generic [ref=e277]: Конвертация из PDF
+                - generic [ref=e278]: Ready
+          - link "PDF в Текст Быстро и чисто извлекайте весь текстовый контент из PDF файла. Конвертация из PDF Ready" [ref=e280] [cursor=pointer]:
+            - /url: /tools/pdf-to-text
+            - generic [ref=e281]:
+              - generic [ref=e282]:
+                - img [ref=e285]
+                - img [ref=e288]
+              - generic [ref=e291]:
+                - heading "PDF в Текст" [level=3] [ref=e292]
+                - paragraph [ref=e293]: Быстро и чисто извлекайте весь текстовый контент из PDF файла.
+              - generic [ref=e294]:
+                - generic [ref=e295]: Конвертация из PDF
+                - generic [ref=e296]: Ready
+          - link "PDF в HTML Конвертируйте PDF документы в формат HTML для веб-публикации. Конвертация из PDF Ready" [ref=e298] [cursor=pointer]:
+            - /url: /tools/pdf-to-html
+            - generic [ref=e299]:
+              - generic [ref=e300]:
+                - img [ref=e303]
+                - img [ref=e309]
+              - generic [ref=e312]:
+                - heading "PDF в HTML" [level=3] [ref=e313]
+                - paragraph [ref=e314]: Конвертируйте PDF документы в формат HTML для веб-публикации.
+              - generic [ref=e315]:
+                - generic [ref=e316]: Конвертация из PDF
+                - generic [ref=e317]: Ready
+          - link "PDF в Excel Извлекайте таблицы из PDF файлов в редактируемые таблицы Excel. Конвертация из PDF Ready" [ref=e319] [cursor=pointer]:
+            - /url: /tools/pdf-to-excel
+            - generic [ref=e320]:
+              - generic [ref=e321]:
+                - img [ref=e324]
+                - img [ref=e328]
+              - generic [ref=e331]:
+                - heading "PDF в Excel" [level=3] [ref=e332]
+                - paragraph [ref=e333]: Извлекайте таблицы из PDF файлов в редактируемые таблицы Excel.
+              - generic [ref=e334]:
+                - generic [ref=e335]: Конвертация из PDF
+                - generic [ref=e336]: Ready
+          - link "Word в PDF Мгновенно конвертируйте документы Word (.docx) в формат PDF. Конвертация в PDF Ready" [ref=e338] [cursor=pointer]:
+            - /url: /tools/word-to-pdf
+            - generic [ref=e339]:
+              - generic [ref=e340]:
+                - img [ref=e343]
+                - img [ref=e347]
+              - generic [ref=e350]:
+                - heading "Word в PDF" [level=3] [ref=e351]
+                - paragraph [ref=e352]: Мгновенно конвертируйте документы Word (.docx) в формат PDF.
+              - generic [ref=e353]:
+                - generic [ref=e354]: Конвертация в PDF
+                - generic [ref=e355]: Ready
+          - link "Фото в PDF Объедините несколько изображений JPG или PNG в один PDF файл. Конвертация в PDF Ready" [ref=e357] [cursor=pointer]:
+            - /url: /tools/images-to-pdf
+            - generic [ref=e358]:
+              - generic [ref=e359]:
+                - img [ref=e362]
+                - img [ref=e368]
+              - generic [ref=e371]:
+                - heading "Фото в PDF" [level=3] [ref=e372]
+                - paragraph [ref=e373]: Объедините несколько изображений JPG или PNG в один PDF файл.
+              - generic [ref=e374]:
+                - generic [ref=e375]: Конвертация в PDF
+                - generic [ref=e376]: Ready
+          - link "Excel в PDF Конвертируйте таблицы Excel в PDF документы. Конвертация в PDF Ready" [ref=e378] [cursor=pointer]:
+            - /url: /tools/excel-to-pdf
+            - generic [ref=e379]:
+              - generic [ref=e380]:
+                - img [ref=e383]
+                - img [ref=e387]
+              - generic [ref=e390]:
+                - heading "Excel в PDF" [level=3] [ref=e391]
+                - paragraph [ref=e392]: Конвертируйте таблицы Excel в PDF документы.
+              - generic [ref=e393]:
+                - generic [ref=e394]: Конвертация в PDF
+                - generic [ref=e395]: Ready
+          - link "Текст в PDF Конвертируйте текстовые файлы или вставленный контент в стилизованные PDF документы. Конвертация в PDF Ready" [ref=e397] [cursor=pointer]:
+            - /url: /tools/text-to-pdf
+            - generic [ref=e398]:
+              - generic [ref=e399]:
+                - img [ref=e402]
+                - img [ref=e405]
+              - generic [ref=e408]:
+                - heading "Текст в PDF" [level=3] [ref=e409]
+                - paragraph [ref=e410]: Конвертируйте текстовые файлы или вставленный контент в стилизованные PDF документы.
+              - generic [ref=e411]:
+                - generic [ref=e412]: Конвертация в PDF
+                - generic [ref=e413]: Ready
+          - link "Объединить PDF Объединяйте несколько PDF файлов в один. Перетащите для изменения порядка страниц перед объединением. Организация Ready" [ref=e415] [cursor=pointer]:
+            - /url: /tools/merge-pdf
+            - generic [ref=e416]:
+              - generic [ref=e417]:
+                - img [ref=e420]
+                - img [ref=e425]
+              - generic [ref=e428]:
+                - heading "Объединить PDF" [level=3] [ref=e429]
+                - paragraph [ref=e430]: Объединяйте несколько PDF файлов в один. Перетащите для изменения порядка страниц перед объединением.
+              - generic [ref=e431]:
+                - generic [ref=e432]: Организация
+                - generic [ref=e433]: Ready
+          - link "Разделить PDF Разделяйте PDF по диапазонам страниц, каждые N страниц или извлекайте конкретные страницы. Организация Ready" [ref=e435] [cursor=pointer]:
+            - /url: /tools/split-pdf
+            - generic [ref=e436]:
+              - generic [ref=e437]:
+                - img [ref=e440]
+                - img [ref=e447]
+              - generic [ref=e450]:
+                - heading "Разделить PDF" [level=3] [ref=e451]
+                - paragraph [ref=e452]: Разделяйте PDF по диапазонам страниц, каждые N страниц или извлекайте конкретные страницы.
+              - generic [ref=e453]:
+                - generic [ref=e454]: Организация
+                - generic [ref=e455]: Ready
+          - link "Повернуть PDF Поворачивайте страницы PDF на 90°, 180° или 270° по отдельности или все сразу. Организация Ready" [ref=e457] [cursor=pointer]:
+            - /url: /tools/rotate-pdf
+            - generic [ref=e458]:
+              - generic [ref=e459]:
+                - img [ref=e462]
+                - img [ref=e466]
+              - generic [ref=e469]:
+                - heading "Повернуть PDF" [level=3] [ref=e470]
+                - paragraph [ref=e471]: Поворачивайте страницы PDF на 90°, 180° или 270° по отдельности или все сразу.
+              - generic [ref=e472]:
+                - generic [ref=e473]: Организация
+                - generic [ref=e474]: Ready
+          - link "Удалить страницы Удаляйте конкретные страницы из PDF с помощью визуального выбора страниц. Организация Ready" [ref=e476] [cursor=pointer]:
+            - /url: /tools/delete-pages
+            - generic [ref=e477]:
+              - generic [ref=e478]:
+                - img [ref=e481]
+                - img [ref=e485]
+              - generic [ref=e488]:
+                - heading "Удалить страницы" [level=3] [ref=e489]
+                - paragraph [ref=e490]: Удаляйте конкретные страницы из PDF с помощью визуального выбора страниц.
+              - generic [ref=e491]:
+                - generic [ref=e492]: Организация
+                - generic [ref=e493]: Ready
+          - link "Переупорядочить Перетащите страницы PDF в нужный порядок. Организация Ready" [ref=e495] [cursor=pointer]:
+            - /url: /tools/reorder-pages
+            - generic [ref=e496]:
+              - generic [ref=e497]:
+                - img [ref=e500]
+                - img [ref=e504]
+              - generic [ref=e507]:
+                - heading "Переупорядочить" [level=3] [ref=e508]
+                - paragraph [ref=e509]: Перетащите страницы PDF в нужный порядок.
+              - generic [ref=e510]:
+                - generic [ref=e511]: Организация
+                - generic [ref=e512]: Ready
+          - link "Извлечь страницы Извлекайте конкретные страницы из PDF в новый документ. Организация Ready" [ref=e514] [cursor=pointer]:
+            - /url: /tools/extract-pages
+            - generic [ref=e515]:
+              - generic [ref=e516]:
+                - img [ref=e519]
+                - img [ref=e523]
+              - generic [ref=e526]:
+                - heading "Извлечь страницы" [level=3] [ref=e527]
+                - paragraph [ref=e528]: Извлекайте конкретные страницы из PDF в новый документ.
+              - generic [ref=e529]:
+                - generic [ref=e530]: Организация
+                - generic [ref=e531]: Ready
+          - link "Защитить PDF Добавьте шифрование AES-256 с паролем для защиты ваших PDF файлов. Безопасность Ready" [ref=e533] [cursor=pointer]:
+            - /url: /tools/protect-pdf
+            - generic [ref=e534]:
+              - generic [ref=e535]:
+                - img [ref=e538]
+                - img [ref=e542]
+              - generic [ref=e545]:
+                - heading "Защитить PDF" [level=3] [ref=e546]
+                - paragraph [ref=e547]: Добавьте шифрование AES-256 с паролем для защиты ваших PDF файлов.
+              - generic [ref=e548]:
+                - generic [ref=e549]: Безопасность
+                - generic [ref=e550]: Ready
+          - link "Снять защиту Удаляйте парольную защиту с PDF файлов, которыми вы владеете. Безопасность Ready" [ref=e552] [cursor=pointer]:
+            - /url: /tools/unlock-pdf
+            - generic [ref=e553]:
+              - generic [ref=e554]:
+                - img [ref=e557]
+                - img [ref=e561]
+              - generic [ref=e564]:
+                - heading "Снять защиту" [level=3] [ref=e565]
+                - paragraph [ref=e566]: Удаляйте парольную защиту с PDF файлов, которыми вы владеете.
+              - generic [ref=e567]:
+                - generic [ref=e568]: Безопасность
+                - generic [ref=e569]: Ready
+          - link "Подписать PDF Нарисуйте подпись или загрузите изображение и разместите его на вашем PDF. Безопасность Ready" [ref=e571] [cursor=pointer]:
+            - /url: /tools/sign-pdf
+            - generic [ref=e572]:
+              - generic [ref=e573]:
+                - img [ref=e576]
+                - img [ref=e579]
+              - generic [ref=e582]:
+                - heading "Подписать PDF" [level=3] [ref=e583]
+                - paragraph [ref=e584]: Нарисуйте подпись или загрузите изображение и разместите его на вашем PDF.
+              - generic [ref=e585]:
+                - generic [ref=e586]: Безопасность
+                - generic [ref=e587]: Ready
+          - link "Водяной знак Добавляйте пользовательские текстовые или графические водяные знаки с настройкой прозрачности и поворота. Безопасность Ready" [ref=e589] [cursor=pointer]:
+            - /url: /tools/watermark-pdf
+            - generic [ref=e590]:
+              - generic [ref=e591]:
+                - img [ref=e594]
+                - img [ref=e598]
+              - generic [ref=e601]:
+                - heading "Водяной знак" [level=3] [ref=e602]
+                - paragraph [ref=e603]: Добавляйте пользовательские текстовые или графические водяные знаки с настройкой прозрачности и поворота.
+              - generic [ref=e604]:
+                - generic [ref=e605]: Безопасность
+                - generic [ref=e606]: Ready
+          - link "PRO Зачернить PDF Навсегда скрывайте конфиденциальный контент в ваших PDF документах. Безопасность Pro" [ref=e608] [cursor=pointer]:
+            - /url: /tools/redact-pdf
+            - generic [ref=e609]:
+              - generic [ref=e610]:
+                - generic [ref=e611]:
+                  - img [ref=e613]
+                  - generic [ref=e615]: PRO
+                - img [ref=e617]
+              - generic [ref=e620]:
+                - heading "Зачернить PDF" [level=3] [ref=e621]
+                - paragraph [ref=e622]: Навсегда скрывайте конфиденциальный контент в ваших PDF документах.
+              - generic [ref=e623]:
+                - generic [ref=e624]: Безопасность
+                - generic [ref=e625]: Pro
+          - link "Сжать PDF Уменьшите размер PDF файла с 3 уровнями сжатия. Моментально видите уменьшение размера. Оптимизация Ready" [ref=e627] [cursor=pointer]:
+            - /url: /tools/compress-pdf
+            - generic [ref=e628]:
+              - generic [ref=e629]:
+                - img [ref=e632]
+                - img [ref=e635]
+              - generic [ref=e638]:
+                - heading "Сжать PDF" [level=3] [ref=e639]
+                - paragraph [ref=e640]: Уменьшите размер PDF файла с 3 уровнями сжатия. Моментально видите уменьшение размера.
+              - generic [ref=e641]:
+                - generic [ref=e642]: Оптимизация
+                - generic [ref=e643]: Ready
+          - link "Восстановить PDF Автоматически пытайтесь исправить повреждённые PDF файлы. Оптимизация Ready" [ref=e645] [cursor=pointer]:
+            - /url: /tools/repair-pdf
+            - generic [ref=e646]:
+              - generic [ref=e647]:
+                - img [ref=e650]
+                - img [ref=e653]
+              - generic [ref=e656]:
+                - heading "Восстановить PDF" [level=3] [ref=e657]
+                - paragraph [ref=e658]: Автоматически пытайтесь исправить повреждённые PDF файлы.
+              - generic [ref=e659]:
+                - generic [ref=e660]: Оптимизация
+                - generic [ref=e661]: Ready
+          - link "Сгладить PDF Сглаживайте поля форм и аннотации в содержимое PDF. Оптимизация Ready" [ref=e663] [cursor=pointer]:
+            - /url: /tools/flatten-pdf
+            - generic [ref=e664]:
+              - generic [ref=e665]:
+                - img [ref=e668]
+                - img [ref=e673]
+              - generic [ref=e676]:
+                - heading "Сгладить PDF" [level=3] [ref=e677]
+                - paragraph [ref=e678]: Сглаживайте поля форм и аннотации в содержимое PDF.
+              - generic [ref=e679]:
+                - generic [ref=e680]: Оптимизация
+                - generic [ref=e681]: Ready
+          - link "OCR PDF Сделайте сканированные PDF доступными для поиска с помощью OCR. Поддерживает 8 языков. OCR и сканирование Ready" [ref=e683] [cursor=pointer]:
+            - /url: /tools/ocr-pdf
+            - generic [ref=e684]:
+              - generic [ref=e685]:
+                - img [ref=e688]
+                - img [ref=e694]
+              - generic [ref=e697]:
+                - heading "OCR PDF" [level=3] [ref=e698]
+                - paragraph [ref=e699]: Сделайте сканированные PDF доступными для поиска с помощью OCR. Поддерживает 8 языков.
+              - generic [ref=e700]:
+                - generic [ref=e701]: OCR и сканирование
+                - generic [ref=e702]: Ready
+          - link "Фото в PDF Снимайте с камеры или загружайте фото, автоматически обрезайте и конвертируйте в чистый PDF. OCR и сканирование Ready" [ref=e704] [cursor=pointer]:
+            - /url: /tools/photo-to-pdf
+            - generic [ref=e705]:
+              - generic [ref=e706]:
+                - img [ref=e709]
+                - img [ref=e713]
+              - generic [ref=e716]:
+                - heading "Фото в PDF" [level=3] [ref=e717]
+                - paragraph [ref=e718]: Снимайте с камеры или загружайте фото, автоматически обрезайте и конвертируйте в чистый PDF.
+              - generic [ref=e719]:
+                - generic [ref=e720]: OCR и сканирование
+                - generic [ref=e721]: Ready
+          - link "Нумерация страниц Добавляйте номера страниц к PDF с настройкой положения и формата. Утилиты Ready" [ref=e723] [cursor=pointer]:
+            - /url: /tools/pdf-page-numbers
+            - generic [ref=e724]:
+              - generic [ref=e725]:
+                - img [ref=e728]
+                - img [ref=e732]
+              - generic [ref=e735]:
+                - heading "Нумерация страниц" [level=3] [ref=e736]
+                - paragraph [ref=e737]: Добавляйте номера страниц к PDF с настройкой положения и формата.
+              - generic [ref=e738]:
+                - generic [ref=e739]: Утилиты
+                - generic [ref=e740]: Ready
+          - link "Колонтитулы Добавляйте пользовательские верхние и нижние колонтитулы к каждой странице PDF. Утилиты Ready" [ref=e742] [cursor=pointer]:
+            - /url: /tools/pdf-header-footer
+            - generic [ref=e743]:
+              - generic [ref=e744]:
+                - img [ref=e747]
+                - img [ref=e749]
+              - generic [ref=e752]:
+                - heading "Колонтитулы" [level=3] [ref=e753]
+                - paragraph [ref=e754]: Добавляйте пользовательские верхние и нижние колонтитулы к каждой странице PDF.
+              - generic [ref=e755]:
+                - generic [ref=e756]: Утилиты
+                - generic [ref=e757]: Ready
+          - link "Редактировать PDF Добавляйте текст, изображения, рисунки и подписи прямо в браузере. Файл не покидает устройство. Утилиты Ready" [ref=e759] [cursor=pointer]:
+            - /url: /tools/edit-pdf
+            - generic [ref=e760]:
+              - generic [ref=e761]:
+                - img [ref=e764]
+                - img [ref=e769]
+              - generic [ref=e772]:
+                - heading "Редактировать PDF" [level=3] [ref=e773]
+                - paragraph [ref=e774]: Добавляйте текст, изображения, рисунки и подписи прямо в браузере. Файл не покидает устройство.
+              - generic [ref=e775]:
+                - generic [ref=e776]: Утилиты
+                - generic [ref=e777]: Ready
+      - generic [ref=e780]:
+        - generic [ref=e781]:
+          - generic [ref=e782]:
+            - paragraph [ref=e783]: Workflow-режим
+            - heading "Не просто инструменты, а готовые сценарии" [level=2] [ref=e784]
+          - paragraph [ref=e785]: "PDFX начинает играть не в каталог ссылок, а в реальные пользовательские задачи: подготовить договор, обработать скан, извлечь контент и вернуть финальный PDF."
+        - generic [ref=e786]:
+          - generic [ref=e787]:
+            - paragraph [ref=e788]: Готовый сценарий
+            - heading "Подготовить договор к отправке" [level=3] [ref=e789]
+            - paragraph [ref=e790]: Объедините страницы, добавьте нумерацию и защитите итоговый PDF перед отправкой.
+            - generic [ref=e791]:
+              - generic [ref=e792]: 1. Объединить PDF
+              - generic [ref=e793]: 2. Нумерация страниц
+              - generic [ref=e794]: 3. Защитить PDF
+            - link "Открыть первый шаг" [ref=e795] [cursor=pointer]:
+              - /url: /tools/merge-pdf
+              - text: Открыть первый шаг
+              - img [ref=e796]
+          - generic [ref=e798]:
+            - paragraph [ref=e799]: Готовый сценарий
+            - heading "Сделать скан читаемым и лёгким" [level=3] [ref=e800]
+            - paragraph [ref=e801]: Распознайте текст, уменьшите размер файла и подпишите результат в одном сценарии.
+            - generic [ref=e802]:
+              - generic [ref=e803]: 1. OCR PDF
+              - generic [ref=e804]: 2. Сжать PDF
+              - generic [ref=e805]: 3. Подписать PDF
+            - link "Открыть первый шаг" [ref=e806] [cursor=pointer]:
+              - /url: /tools/ocr-pdf
+              - text: Открыть первый шаг
+              - img [ref=e807]
+          - generic [ref=e809]:
+            - paragraph [ref=e810]: Готовый сценарий
+            - heading "Извлечь контент и вернуть в PDF" [level=3] [ref=e811]
+            - paragraph [ref=e812]: Откройте контент в Word, внесите правки и соберите финальную версию обратно в PDF.
+            - generic [ref=e813]:
+              - generic [ref=e814]: 1. PDF в Word
+              - generic [ref=e815]: 2. Word в PDF
+              - generic [ref=e816]: 3. Защитить PDF
+            - link "Открыть первый шаг" [ref=e817] [cursor=pointer]:
+              - /url: /tools/pdf-to-word
+              - text: Открыть первый шаг
+              - img [ref=e818]
+          - generic [ref=e820]:
+            - paragraph [ref=e821]: Готовый сценарий
+            - heading "Очистить и брендировать PDF" [level=3] [ref=e822]
+            - paragraph [ref=e823]: Удалите лишние страницы, переупорядочьте документ и добавьте водяной знак перед публикацией.
+            - generic [ref=e824]:
+              - generic [ref=e825]: 1. Удалить страницы
+              - generic [ref=e826]: 2. Переупорядочить
+              - generic [ref=e827]: 3. Водяной знак
+            - link "Открыть первый шаг" [ref=e828] [cursor=pointer]:
+              - /url: /tools/delete-pages
+              - text: Открыть первый шаг
+              - img [ref=e829]
+        - generic [ref=e831]:
+          - generic [ref=e832]:
+            - img [ref=e834]
+            - heading "Локальная обработка" [level=3] [ref=e836]
+            - paragraph [ref=e837]: Основные PDF-действия выполняются прямо в браузере, без отправки файла на сервер.
+          - generic [ref=e838]:
+            - img [ref=e840]
+            - heading "История без файлов" [level=3] [ref=e843]
+            - paragraph [ref=e844]: Сохраняются только язык, тема и недавние инструменты. Содержимое документов не записывается.
+          - generic [ref=e845]:
+            - img [ref=e847]
+            - heading "Быстрый UX без очереди" [level=3] [ref=e849]
+            - paragraph [ref=e850]: Основные разделы прогреваются заранее, а категории переключаются мгновенно.
+      - generic [ref=e852]:
+        - generic [ref=e853]:
+          - paragraph [ref=e854]: Преимущества
+          - heading "Почему выбирают нас" [level=2] [ref=e855]
+          - paragraph [ref=e856]: PDFX сфокусирован на скорости, приватности и понятных сценариях без лишних экранов.
+        - generic [ref=e857]:
+          - generic [ref=e858]:
+            - img [ref=e860]
+            - heading "Безопасность превыше всего" [level=3] [ref=e862]
+            - paragraph [ref=e863]: Файлы обрабатываются локально в браузере без загрузки на сервер
+          - generic [ref=e864]:
+            - img [ref=e866]
+            - heading "Быстрая обработка" [level=3] [ref=e868]
+            - paragraph [ref=e869]: Без ожидания очередей и без установки приложений
+          - generic [ref=e870]:
+            - img [ref=e872]
+            - heading "Работает везде" [level=3] [ref=e874]
+            - paragraph [ref=e875]: Доступ с любого устройства — компьютера, планшета или смартфона
+          - generic [ref=e876]:
+            - img [ref=e878]
+            - heading "Полная конфиденциальность" [level=3] [ref=e881]
+            - paragraph [ref=e882]: Мы не храним и не передаём ваши файлы третьим лицам
+    - contentinfo [ref=e24]:
+      - generic [ref=e25]:
+        - generic [ref=e26]:
+          - generic [ref=e27]:
+            - link "PDFX" [ref=e28] [cursor=pointer]:
+              - /url: /
+              - img [ref=e30]
+              - generic [ref=e33]: PDFX
+            - paragraph [ref=e34]: Надежный сервис для работы с PDF документами онлайн.
+            - link "hello@pdfx.tools" [ref=e35] [cursor=pointer]:
+              - /url: mailto:hello@pdfx.tools
+              - img [ref=e36]
+              - text: hello@pdfx.tools
+          - generic [ref=e39]:
+            - heading "PDF Инструменты" [level=3] [ref=e40]
+            - list [ref=e41]:
+              - listitem [ref=e42]:
+                - link "Конвертация из PDF" [ref=e43] [cursor=pointer]:
+                  - /url: /?category=convert-from
+              - listitem [ref=e44]:
+                - link "Конвертация в PDF" [ref=e45] [cursor=pointer]:
+                  - /url: /?category=convert-to
+              - listitem [ref=e46]:
+                - link "Организация" [ref=e47] [cursor=pointer]:
+                  - /url: /?category=organize
+              - listitem [ref=e48]:
+                - link "Безопасность" [ref=e49] [cursor=pointer]:
+                  - /url: /?category=security
+          - generic [ref=e50]:
+            - heading "Ещё инструменты" [level=3] [ref=e51]
+            - list [ref=e52]:
+              - listitem [ref=e53]:
+                - link "Оптимизация" [ref=e54] [cursor=pointer]:
+                  - /url: /?category=optimize
+              - listitem [ref=e55]:
+                - link "OCR и сканирование" [ref=e56] [cursor=pointer]:
+                  - /url: /?category=ocr
+              - listitem [ref=e57]:
+                - link "Утилиты" [ref=e58] [cursor=pointer]:
+                  - /url: /?category=utility
+          - generic [ref=e59]:
+            - heading "Компания" [level=3] [ref=e60]
+            - list [ref=e61]:
+              - listitem [ref=e62]:
+                - link "Цены" [ref=e63] [cursor=pointer]:
+                  - /url: /pricing
+              - listitem [ref=e64]:
+                - link "Политика конфиденциальности" [ref=e65] [cursor=pointer]:
+                  - /url: /privacy
+              - listitem [ref=e66]:
+                - link "Условия использования" [ref=e67] [cursor=pointer]:
+                  - /url: /terms
+              - listitem [ref=e68]:
+                - link "Контакт" [ref=e69] [cursor=pointer]:
+                  - /url: /contact
+        - generic [ref=e70]:
+          - paragraph [ref=e71]: © 2026 PDFX. Все права защищены.
+          - generic [ref=e72]:
+            - link [ref=e73] [cursor=pointer]:
+              - /url: "#"
+              - img [ref=e74]
+            - link [ref=e76] [cursor=pointer]:
+              - /url: "#"
+              - img [ref=e77]
+            - link [ref=e79] [cursor=pointer]:
+              - /url: "#"
+              - img [ref=e80]
+            - link [ref=e83] [cursor=pointer]:
+              - /url: "#"
+              - img [ref=e84]
+  - region "Notifications (F8)":
+    - list
