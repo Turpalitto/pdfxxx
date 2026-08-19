@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
 import { FileUpload } from "@/components/file-upload";
 import { ProgressRing } from "@/components/progress-ring";
 import { ToolCard } from "@/components/tool-card";
@@ -67,6 +68,7 @@ export default function ToolPage() {
   const slug = params?.slug || "";
   const tool = getToolBySlug(slug);
   const { t, lang } = useLang();
+  const { toast } = useToast();
   const toolTr = tool ? getToolTranslation(tool.slug, lang) : null;
   const _toolName = toolTr?.name ?? tool?.name ?? "";
   const _toolDesc = toolTr?.description ?? tool?.description ?? "";
@@ -165,13 +167,16 @@ export default function ToolPage() {
     setProgress(10);
     setError(null);
 
+    const pendingTimers: ReturnType<typeof setTimeout>[] = [];
     try {
       let result: Uint8Array | null = null;
       const simulateProgress = (start: number, end: number) => {
         const steps = 8;
         const step = (end - start) / steps;
         for (let i = 1; i <= steps; i++) {
-          setTimeout(() => setProgress(start + Math.round(step * i)), i * 200);
+          pendingTimers.push(
+            setTimeout(() => setProgress(start + Math.round(step * i)), i * 200)
+          );
         }
       };
       if (slug !== "redact-pdf") simulateProgress(10, 85);
@@ -181,9 +186,18 @@ export default function ToolPage() {
           result = await mergePdfs(files);
           break;
         case "split-pdf": {
-          const start = parseInt(splitStart) || 1;
-          const pageCount = parseInt(splitEnd) || 999;
-          const results = await splitPdf(files[0], [{ start, end: pageCount }]);
+          const pageCount = await getPdfPageCount(files[0]);
+          const start = Math.max(1, parseInt(splitStart) || 1);
+          const endInput = parseInt(splitEnd);
+          const end = Number.isNaN(endInput) ? pageCount : Math.min(endInput, pageCount);
+          if (start > end) {
+            throw new Error(
+              lang === "ru"
+                ? "Начальная страница должна быть меньше или равна конечной."
+                : "Start page must be less than or equal to end page."
+            );
+          }
+          const results = await splitPdf(files[0], [{ start, end }]);
           result = results[0];
           break;
         }
@@ -285,11 +299,13 @@ export default function ToolPage() {
           throw new Error(t.tool.proOnlyError);
       }
 
+      pendingTimers.forEach(clearTimeout);
       setProgress(100);
       setResultBytes(result);
       setResultSize(result?.length ?? null);
       setState("done");
     } catch (err: any) {
+      pendingTimers.forEach(clearTimeout);
       setError(err?.message || t.tool.errorOccurred);
       setState("error");
     }
@@ -382,6 +398,16 @@ export default function ToolPage() {
                 multiple={tool.multiple}
                 maxSizeMb={maxSizeMb}
                 onFiles={handleFiles}
+                onError={(count) => {
+                  toast({
+                    title: lang === "ru" ? "Файл отклонён" : "File rejected",
+                    description:
+                      lang === "ru"
+                        ? `Отклонено: ${count}. Проверьте формат (${tool.accept || "любой"}) и размер (до ${maxSizeMb} МБ).`
+                        : `Rejected: ${count}. Check format (${tool.accept || "any"}) and size (up to ${maxSizeMb} MB).`,
+                    variant: "destructive",
+                  });
+                }}
                 files={files}
                 onRemoveFile={removeFile}
                 label={tool.accept?.includes(".pdf") ? t.tool.dropPdf : t.tool.chooseFile}

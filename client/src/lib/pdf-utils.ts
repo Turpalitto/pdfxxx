@@ -153,7 +153,7 @@ export async function addWatermark(
     const { width, height } = page.getSize();
     const fontSize = Math.min(width, height) / 10;
     page.drawText(text, {
-      x: width / 2 - (text.length * fontSize) / 4,
+      x: width / 2 - font.widthOfTextAtSize(text, fontSize) / 2,
       y: height / 2,
       size: fontSize,
       font,
@@ -707,8 +707,8 @@ export function downloadHtml(html: string, filename: string) {
 export function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
   const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 

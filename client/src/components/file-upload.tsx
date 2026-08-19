@@ -10,6 +10,7 @@ interface FileUploadProps {
   multiple?: boolean;
   maxSizeMb?: number;
   onFiles: (files: File[]) => void;
+  onError?: (rejectedCount: number) => void;
   files?: File[];
   onRemoveFile?: (index: number) => void;
   label?: string;
@@ -21,6 +22,7 @@ export function FileUpload({
   multiple = false,
   maxSizeMb = DEFAULT_MAX_FILE_SIZE_MB,
   onFiles,
+  onError,
   files = [],
   onRemoveFile,
   label = "Drop your PDF here",
@@ -42,17 +44,21 @@ export function FileUpload({
   const processFiles = useCallback(
     (newFiles: FileList | null) => {
       if (!newFiles) return;
+      let rejected = 0;
       const arr = Array.from(newFiles).filter((f) => {
         const acceptTypes = accept.split(",").map((a) => a.trim());
         const matches = acceptTypes.some((a) => {
           if (a.startsWith(".")) return f.name.toLowerCase().endsWith(a);
           return f.type.startsWith(a.replace("*", ""));
         });
-        return matches && f.size <= mbToBytes(maxSizeMb);
+        const sizeOk = f.size <= mbToBytes(maxSizeMb);
+        if (!matches || !sizeOk) rejected++;
+        return matches && sizeOk;
       });
+      if (rejected > 0 && onError) onError(rejected);
       onFiles(arr);
     },
-    [accept, maxSizeMb, onFiles]
+    [accept, maxSizeMb, onFiles, onError]
   );
 
   const handleDrop = useCallback(

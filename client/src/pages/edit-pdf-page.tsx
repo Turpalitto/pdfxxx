@@ -92,6 +92,8 @@ export default function EditPdfPage() {
   const signCanvasRef = useRef<HTMLCanvasElement>(null);
   const signFabricRef = useRef<any>(null);
   const renderingRef = useRef(false);
+  const activeToolRef = useRef<ToolType>(activeTool);
+  const suppressHistoryRef = useRef(false);
 
   const t = {
     title: isRu ? "Редактировать PDF" : "Edit PDF",
@@ -134,6 +136,7 @@ export default function EditPdfPage() {
   };
 
   const pushHistory = useCallback(() => {
+    if (suppressHistoryRef.current) return;
     if (!fabricRef.current) return;
     const json = JSON.stringify(fabricRef.current.toJSON());
     const hist = historyRef.current;
@@ -166,7 +169,7 @@ export default function EditPdfPage() {
     fc.on("object:modified", pushHistory);
     fc.on("object:removed", pushHistory);
     fc.on("mouse:down", (opt: any) => {
-      if (activeTool === "eraser" && opt.target) {
+      if (activeToolRef.current === "eraser" && opt.target) {
         fc.remove(opt.target);
         fc.discardActiveObject();
         fc.renderAll();
@@ -175,8 +178,13 @@ export default function EditPdfPage() {
 
     const stored = pageStatesRef.current.get(currentPage);
     if (stored) {
-      await fc.loadFromJSON(JSON.parse(stored));
-      fc.renderAll();
+      suppressHistoryRef.current = true;
+      try {
+        await fc.loadFromJSON(JSON.parse(stored));
+        fc.renderAll();
+      } finally {
+        suppressHistoryRef.current = false;
+      }
     }
     pushHistory();
   }, [currentPage, pushHistory]);
@@ -215,6 +223,7 @@ export default function EditPdfPage() {
 
   useEffect(() => {
     if (!fabricRef.current) return;
+    activeToolRef.current = activeTool;
     const fc = fabricRef.current;
 
     if (activeTool === "draw") {
@@ -382,8 +391,7 @@ export default function EditPdfPage() {
     if (!img || !fabricRef.current) return;
     const { FabricImage } = await import("fabric");
     const url = URL.createObjectURL(img);
-    const el = new window.Image();
-    el.onload = async () => {
+    try {
       const fi = await FabricImage.fromURL(url);
       const maxW = pdfCanvasRef.current!.width * 0.4;
       if (fi.width! > maxW) fi.scaleToWidth(maxW);
@@ -391,8 +399,9 @@ export default function EditPdfPage() {
       fabricRef.current.add(fi);
       fabricRef.current.setActiveObject(fi);
       fabricRef.current.renderAll();
-    };
-    el.src = url;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
     e.target.value = "";
   }, []);
 
@@ -400,8 +409,11 @@ export default function EditPdfPage() {
     const idx = historyIndexRef.current;
     if (idx <= 0 || !fabricRef.current) return;
     historyIndexRef.current = idx - 1;
+    suppressHistoryRef.current = true;
     fabricRef.current.loadFromJSON(JSON.parse(historyRef.current[idx - 1])).then(() => {
       fabricRef.current.renderAll();
+    }).finally(() => {
+      suppressHistoryRef.current = false;
     });
   }, []);
 
@@ -410,8 +422,11 @@ export default function EditPdfPage() {
     const hist = historyRef.current;
     if (idx >= hist.length - 1 || !fabricRef.current) return;
     historyIndexRef.current = idx + 1;
+    suppressHistoryRef.current = true;
     fabricRef.current.loadFromJSON(JSON.parse(hist[idx + 1])).then(() => {
       fabricRef.current.renderAll();
+    }).finally(() => {
+      suppressHistoryRef.current = false;
     });
   }, []);
 
@@ -472,15 +487,11 @@ export default function EditPdfPage() {
     if (!signFabricRef.current || !fabricRef.current) return;
     const dataUrl = signFabricRef.current.toDataURL({ format: "png", quality: 0.9 });
     const { FabricImage } = await import("fabric");
-    const el = new window.Image();
-    el.onload = async () => {
-      const fi = await FabricImage.fromURL(dataUrl);
-      fi.scaleToWidth(200);
-      fi.set({ left: 50, top: 50 });
-      fabricRef.current.add(fi);
-      fabricRef.current.renderAll();
-    };
-    el.src = dataUrl;
+    const fi = await FabricImage.fromURL(dataUrl);
+    fi.scaleToWidth(200);
+    fi.set({ left: 50, top: 50 });
+    fabricRef.current.add(fi);
+    fabricRef.current.renderAll();
     setSignModalOpen(false);
   }, []);
 

@@ -1,0 +1,7 @@
+[      53ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5000/@fs/C:/pdfxxx/node_modules/.vite/deps/chunk-UB74AMW5.js?v=d18d386d:21608
+[ 7670644ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5000/src/lib/pdf-utils.ts?t=1780142406450:0
+[ 7670644ms] [ERROR] [vite] Failed to reload /src/components/page-thumbnails.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5000/@vite/client:808
+[ 7670644ms] [ERROR] [vite] Failed to reload /src/components/file-upload.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5000/@vite/client:808
+[ 7670644ms] [INFO] [hmr] /src/pages/tool-page.tsx failed to apply HMR as it's within a circular import. Reloading page to reset the execution order. To debug and break the circular import, you can run `vite --debug hmr` to log the circular dependency path if a file change triggered it. @ http://localhost:5000/@vite/client:817
+[ 7670644ms] [ERROR] [vite] Failed to reload /src/pages/tool-page.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5000/@vite/client:808
+[ 7670645ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:5000/@vite/client:864

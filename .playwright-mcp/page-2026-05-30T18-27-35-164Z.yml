@@ -1,0 +1,80 @@
+- generic [ref=e4]:
+  - banner [ref=e5]:
+    - generic [ref=e6]:
+      - link "PDFX спокойные инструменты для документов" [ref=e7] [cursor=pointer]:
+        - /url: /
+        - img [ref=e9]
+        - generic [ref=e12]:
+          - generic [ref=e13]: PDFX
+          - generic [ref=e14]: спокойные инструменты для документов
+      - navigation [ref=e15]:
+        - button "Инструменты" [ref=e17] [cursor=pointer]:
+          - text: Инструменты
+          - img [ref=e18]
+        - link "Цены" [ref=e20] [cursor=pointer]:
+          - /url: /pricing
+      - generic [ref=e21]:
+        - button "Сменить язык" [ref=e23] [cursor=pointer]:
+          - img [ref=e24]
+          - generic [ref=e27]: Русский
+          - img [ref=e28]
+        - link "Связаться" [ref=e30] [cursor=pointer]:
+          - /url: /contact
+  - main [ref=e31]:
+    - generic [ref=e33]: Preparing PDFX...
+  - contentinfo [ref=e35]:
+    - generic [ref=e36]:
+      - generic [ref=e37]:
+        - generic [ref=e38]:
+          - link "PDFX" [ref=e39] [cursor=pointer]:
+            - /url: /
+            - img [ref=e41]
+            - generic [ref=e44]: PDFX
+          - paragraph [ref=e45]: Надежный сервис для работы с PDF документами онлайн.
+          - link "hello@pdfx.tools" [ref=e46] [cursor=pointer]:
+            - /url: mailto:hello@pdfx.tools
+            - img [ref=e47]
+            - text: hello@pdfx.tools
+        - generic [ref=e50]:
+          - heading "PDF Инструменты" [level=3] [ref=e51]
+          - list [ref=e52]:
+            - listitem [ref=e53]:
+              - link "Конвертация из PDF" [ref=e54] [cursor=pointer]:
+                - /url: /?category=convert-from
+            - listitem [ref=e55]:
+              - link "Конвертация в PDF" [ref=e56] [cursor=pointer]:
+                - /url: /?category=convert-to
+            - listitem [ref=e57]:
+              - link "Организация" [ref=e58] [cursor=pointer]:
+                - /url: /?category=organize
+            - listitem [ref=e59]:
+              - link "Безопасность" [ref=e60] [cursor=pointer]:
+                - /url: /?category=security
+        - generic [ref=e61]:
+          - heading "Ещё инструменты" [level=3] [ref=e62]
+          - list [ref=e63]:
+            - listitem [ref=e64]:
+              - link "Оптимизация" [ref=e65] [cursor=pointer]:
+                - /url: /?category=optimize
+            - listitem [ref=e66]:
+              - link "OCR и сканирование" [ref=e67] [cursor=pointer]:
+                - /url: /?category=ocr
+            - listitem [ref=e68]:
+              - link "Утилиты" [ref=e69] [cursor=pointer]:
+                - /url: /?category=utility
+        - generic [ref=e70]:
+          - heading "Компания" [level=3] [ref=e71]
+          - list [ref=e72]:
+            - listitem [ref=e73]:
+              - link "Цены" [ref=e74] [cursor=pointer]:
+                - /url: /pricing
+            - listitem [ref=e75]:
+              - link "Политика конфиденциальности" [ref=e76] [cursor=pointer]:
+                - /url: /privacy
+            - listitem [ref=e77]:
+              - link "Условия использования" [ref=e78] [cursor=pointer]:
+                - /url: /terms
+            - listitem [ref=e79]:
+              - link "Контакт" [ref=e80] [cursor=pointer]:
+                - /url: /contact
+      - paragraph [ref=e82]: © 2026 PDFX. Все права защищены.

@@ -42,7 +42,7 @@ export default function Home() {
   const stats = [
     { value: "2M+", label: lang === "ru" ? "Файлов обработано" : "Files processed", gradient: "from-purple-400 to-pink-400" },
     { value: "180+", label: lang === "ru" ? "Стран" : "Countries", gradient: "from-blue-400 to-cyan-400" },
-    { value: "28", label: lang === "ru" ? "PDF инструментов" : "PDF tools", gradient: "from-emerald-400 to-green-400" },
+    { value: String(tools.length), label: lang === "ru" ? "PDF инструментов" : "PDF tools", gradient: "from-emerald-400 to-green-400" },
     { value: "100%", label: lang === "ru" ? "Бесплатно начать" : "Free to start", gradient: "from-yellow-400 to-orange-400" },
   ];
 
@@ -137,7 +137,7 @@ export default function Home() {
           className="flex flex-col sm:flex-row items-center justify-center gap-4"
         >
           <Link
-            href="/#tools"
+            href="/pricing"
             className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl font-semibold text-white text-base transition-all duration-200 hover:opacity-90 hover:-translate-y-px"
             style={{
               background: "linear-gradient(135deg, #7c3aed 0%, #2563eb 100%)",

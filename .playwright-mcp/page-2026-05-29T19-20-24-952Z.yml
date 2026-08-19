@@ -1,0 +1,100 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - link "PDFX calm tools for document work" [ref=e7] [cursor=pointer]:
+          - /url: /
+          - img [ref=e9]
+          - generic [ref=e12]:
+            - generic [ref=e13]: PDFX
+            - generic [ref=e14]: calm tools for document work
+        - navigation [ref=e15]:
+          - button "Инструменты" [ref=e17] [cursor=pointer]:
+            - text: Инструменты
+            - img [ref=e18]
+          - link "Цены" [ref=e20] [cursor=pointer]:
+            - /url: /pricing
+        - generic [ref=e21]:
+          - button "Switch to night mode" [ref=e22] [cursor=pointer]:
+            - img [ref=e24]
+            - generic [ref=e26]: Night
+          - button "Change language" [ref=e28] [cursor=pointer]:
+            - img [ref=e29]
+            - generic [ref=e32]: Русский
+            - img [ref=e33]
+          - link "Связаться" [ref=e35] [cursor=pointer]:
+            - /url: /contact
+    - main [ref=e36]:
+      - generic [ref=e38]: Preparing PDFX...
+    - contentinfo [ref=e40]:
+      - generic [ref=e41]:
+        - generic [ref=e42]:
+          - generic [ref=e43]:
+            - link "PDFX" [ref=e44] [cursor=pointer]:
+              - /url: /
+              - img [ref=e46]
+              - generic [ref=e49]: PDFX
+            - paragraph [ref=e50]: Надежный сервис для работы с PDF документами онлайн.
+            - link "hello@pdfx.tools" [ref=e51] [cursor=pointer]:
+              - /url: mailto:hello@pdfx.tools
+              - img [ref=e52]
+              - text: hello@pdfx.tools
+          - generic [ref=e55]:
+            - heading "PDF Инструменты" [level=3] [ref=e56]
+            - list [ref=e57]:
+              - listitem [ref=e58]:
+                - link "Конвертация из PDF" [ref=e59] [cursor=pointer]:
+                  - /url: /?category=convert-from
+              - listitem [ref=e60]:
+                - link "Конвертация в PDF" [ref=e61] [cursor=pointer]:
+                  - /url: /?category=convert-to
+              - listitem [ref=e62]:
+                - link "Организация" [ref=e63] [cursor=pointer]:
+                  - /url: /?category=organize
+              - listitem [ref=e64]:
+                - link "Безопасность" [ref=e65] [cursor=pointer]:
+                  - /url: /?category=security
+          - generic [ref=e66]:
+            - heading "Ещё инструменты" [level=3] [ref=e67]
+            - list [ref=e68]:
+              - listitem [ref=e69]:
+                - link "Оптимизация" [ref=e70] [cursor=pointer]:
+                  - /url: /?category=optimize
+              - listitem [ref=e71]:
+                - link "OCR и сканирование" [ref=e72] [cursor=pointer]:
+                  - /url: /?category=ocr
+              - listitem [ref=e73]:
+                - link "Утилиты" [ref=e74] [cursor=pointer]:
+                  - /url: /?category=utility
+          - generic [ref=e75]:
+            - heading "Компания" [level=3] [ref=e76]
+            - list [ref=e77]:
+              - listitem [ref=e78]:
+                - link "Цены" [ref=e79] [cursor=pointer]:
+                  - /url: /pricing
+              - listitem [ref=e80]:
+                - link "Политика конфиденциальности" [ref=e81] [cursor=pointer]:
+                  - /url: /privacy
+              - listitem [ref=e82]:
+                - link "Условия использования" [ref=e83] [cursor=pointer]:
+                  - /url: /terms
+              - listitem [ref=e84]:
+                - link "Контакт" [ref=e85] [cursor=pointer]:
+                  - /url: /contact
+        - generic [ref=e86]:
+          - paragraph [ref=e87]: © 2026 PDFX. Все права защищены.
+          - generic [ref=e88]:
+            - link [ref=e89] [cursor=pointer]:
+              - /url: "#"
+              - img [ref=e90]
+            - link [ref=e92] [cursor=pointer]:
+              - /url: "#"
+              - img [ref=e93]
+            - link [ref=e95] [cursor=pointer]:
+              - /url: "#"
+              - img [ref=e96]
+            - link [ref=e99] [cursor=pointer]:
+              - /url: "#"
+              - img [ref=e100]
+  - region "Notifications (F8)":
+    - list
