@@ -79,14 +79,15 @@ export default function EditPdfPage() {
   const [fontColor, setFontColor] = useState("#1a1a1a");
   const [signModalOpen, setSignModalOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [mobilePagesOpen, setMobilePagesOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
   const fabricElRef = useRef<HTMLCanvasElement>(null);
   const fabricRef = useRef<any>(null); // fabric.Canvas instance
-  const historyRef = useRef<string[]>([]);
-  const historyIndexRef = useRef(-1);
+  const historyByPageRef = useRef<Map<number, { stack: string[]; idx: number }>>(new Map());
+  const currentPageRef = useRef(1);
   const pageStatesRef = useRef<Map<number, string>>(new Map());
   const pageOrigBytesRef = useRef<ArrayBuffer | null>(null);
   const signCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -94,6 +95,7 @@ export default function EditPdfPage() {
   const renderingRef = useRef(false);
   const activeToolRef = useRef<ToolType>(activeTool);
   const suppressHistoryRef = useRef(false);
+  const pdfjsDocRef = useRef<any>(null);
 
   const t = {
     title: isRu ? "Редактировать PDF" : "Edit PDF",
@@ -133,20 +135,35 @@ export default function EditPdfPage() {
     signClear: isRu ? "Очистить" : "Clear",
     signConfirm: isRu ? "Добавить" : "Add",
     eraseHint: isRu ? "Кликните на объект чтобы удалить" : "Click an object to delete it",
+    pages: isRu ? "Страницы" : "Pages",
+    close: isRu ? "Закрыть" : "Close",
   };
+
+  useEffect(() => {
+    currentPageRef.current = currentPage;
+  }, [currentPage]);
+
+  const getPageHistory = useCallback((page: number) => {
+    let hist = historyByPageRef.current.get(page);
+    if (!hist) {
+      hist = { stack: [], idx: -1 };
+      historyByPageRef.current.set(page, hist);
+    }
+    return hist;
+  }, []);
 
   const pushHistory = useCallback(() => {
     if (suppressHistoryRef.current) return;
     if (!fabricRef.current) return;
     const json = JSON.stringify(fabricRef.current.toJSON());
-    const hist = historyRef.current;
-    const idx = historyIndexRef.current;
-    const newHist = hist.slice(0, idx + 1);
-    newHist.push(json);
-    if (newHist.length > 50) newHist.shift();
-    historyRef.current = newHist;
-    historyIndexRef.current = newHist.length - 1;
-  }, []);
+    const hist = getPageHistory(currentPageRef.current);
+    if (hist.stack[hist.idx] === json) return;
+    const newStack = hist.stack.slice(0, hist.idx + 1);
+    newStack.push(json);
+    if (newStack.length > 50) newStack.shift();
+    hist.stack = newStack;
+    hist.idx = newStack.length - 1;
+  }, [getPageHistory]);
 
   const initFabric = useCallback(async () => {
     if (!fabricElRef.current || !pdfCanvasRef.current) return;
@@ -162,8 +179,6 @@ export default function EditPdfPage() {
     });
     (fc as any)._pdfxPencilBrush = new PencilBrush(fc);
     fabricRef.current = fc;
-    historyRef.current = [];
-    historyIndexRef.current = -1;
 
     fc.on("object:added", pushHistory);
     fc.on("object:modified", pushHistory);
@@ -186,8 +201,12 @@ export default function EditPdfPage() {
         suppressHistoryRef.current = false;
       }
     }
-    pushHistory();
-  }, [currentPage, pushHistory]);
+    const hist = getPageHistory(currentPage);
+    if (hist.stack.length === 0) {
+      hist.stack.push(JSON.stringify(fc.toJSON()));
+      hist.idx = 0;
+    }
+  }, [currentPage, pushHistory, getPageHistory]);
 
   const saveCurrent = useCallback(() => {
     if (!fabricRef.current) return;
@@ -218,6 +237,7 @@ export default function EditPdfPage() {
     return () => {
       fabricRef.current?.dispose?.();
       signFabricRef.current?.dispose?.();
+      pdfjsDocRef.current?.destroy?.();
     };
   }, []);
 
@@ -287,10 +307,13 @@ export default function EditPdfPage() {
       const bytesForPdfJs = bytes.slice(0);
       pageOrigBytesRef.current = bytesForPdfLib;
       pageStatesRef.current.clear();
+      historyByPageRef.current.clear();
 
       const pdfjs = await loadPdfJs();
       setLoadProgress(30);
       const doc = await pdfjs.getDocument({ data: new Uint8Array(bytesForPdfJs) }).promise;
+      pdfjsDocRef.current?.destroy?.();
+      pdfjsDocRef.current = doc;
       const count = doc.numPages;
       setLoadProgress(50);
 
@@ -343,8 +366,8 @@ export default function EditPdfPage() {
     if (activeTool === "select" || activeTool === "draw" || activeTool === "eraser") return;
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const x = (e.clientX - rect.left) / zoom;
-    const y = (e.clientY - rect.top) / zoom;
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
 
     const { IText, Rect, Circle: FabricCircle, Line } = await import("fabric");
 
@@ -384,7 +407,7 @@ export default function EditPdfPage() {
       fabricRef.current.add(obj);
     }
     fabricRef.current.renderAll();
-  }, [activeTool, fontSize, fontColor, drawColor, zoom, isRu]);
+  }, [activeTool, fontSize, fontColor, drawColor, isRu]);
 
   const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const img = e.target.files?.[0];
@@ -406,29 +429,28 @@ export default function EditPdfPage() {
   }, []);
 
   const handleUndo = useCallback(() => {
-    const idx = historyIndexRef.current;
-    if (idx <= 0 || !fabricRef.current) return;
-    historyIndexRef.current = idx - 1;
+    const hist = getPageHistory(currentPageRef.current);
+    if (hist.idx <= 0 || !fabricRef.current) return;
+    hist.idx -= 1;
     suppressHistoryRef.current = true;
-    fabricRef.current.loadFromJSON(JSON.parse(historyRef.current[idx - 1])).then(() => {
+    fabricRef.current.loadFromJSON(JSON.parse(hist.stack[hist.idx])).then(() => {
       fabricRef.current.renderAll();
     }).finally(() => {
       suppressHistoryRef.current = false;
     });
-  }, []);
+  }, [getPageHistory]);
 
   const handleRedo = useCallback(() => {
-    const idx = historyIndexRef.current;
-    const hist = historyRef.current;
-    if (idx >= hist.length - 1 || !fabricRef.current) return;
-    historyIndexRef.current = idx + 1;
+    const hist = getPageHistory(currentPageRef.current);
+    if (hist.idx >= hist.stack.length - 1 || !fabricRef.current) return;
+    hist.idx += 1;
     suppressHistoryRef.current = true;
-    fabricRef.current.loadFromJSON(JSON.parse(hist[idx + 1])).then(() => {
+    fabricRef.current.loadFromJSON(JSON.parse(hist.stack[hist.idx])).then(() => {
       fabricRef.current.renderAll();
     }).finally(() => {
       suppressHistoryRef.current = false;
     });
-  }, []);
+  }, [getPageHistory]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -471,9 +493,10 @@ export default function EditPdfPage() {
       if (!signCanvasRef.current) return;
       const { Canvas: FabricCanvas, PencilBrush } = await import("fabric");
       if (signFabricRef.current) signFabricRef.current.dispose();
+      const cw = Math.max(240, Math.min(480, signCanvasRef.current.parentElement?.clientWidth || 480));
       const sc = new FabricCanvas(signCanvasRef.current, {
-        isDrawingMode: true, backgroundColor: "#ffffff",
-        width: 480, height: 180,
+        isDrawingMode: true, backgroundColor: "",
+        width: cw, height: 180,
       });
       const pb = new PencilBrush(sc);
       pb.color = "#1a1a1a";
@@ -715,9 +738,9 @@ export default function EditPdfPage() {
   return (
     <>
       <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
-        {/* Left sidebar: thumbnails */}
+        {/* Left sidebar: thumbnails (desktop) */}
         <div
-          className="w-44 flex-shrink-0 flex flex-col overflow-y-auto"
+          className="hidden md:flex w-44 flex-shrink-0 flex-col overflow-y-auto"
           style={{ background: "rgba(2,6,23,0.9)", borderRight: "1px solid rgba(255,255,255,0.08)" }}
         >
           <div className="p-2 text-xs font-medium text-slate-400 sticky top-0 z-10 py-3 px-3"
@@ -860,6 +883,17 @@ export default function EditPdfPage() {
 
             <div className="flex-1" />
 
+            {/* Pages drawer button (mobile) */}
+            <button
+              onClick={() => setMobilePagesOpen(true)}
+              aria-label={t.pages}
+              data-testid="button-pages"
+              className="md:hidden flex items-center gap-1 px-2 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all text-xs font-medium"
+            >
+              <ChevronRight className="size-4 rotate-180" />
+              {t.pages}
+            </button>
+
             {/* Page nav */}
             <div className="flex items-center gap-2 text-sm text-slate-300">
               <button
@@ -924,6 +958,52 @@ export default function EditPdfPage() {
         </div>
       </div>
 
+      {/* Mobile pages drawer */}
+      {mobilePagesOpen && (
+        <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-label={t.pages}>
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setMobilePagesOpen(false)}
+            data-testid="drawer-backdrop"
+          />
+          <div
+            className="absolute left-0 top-0 bottom-0 w-[80vw] max-w-[80vw] flex flex-col overflow-y-auto"
+            style={{ background: "rgba(2,6,23,0.98)", borderRight: "1px solid rgba(255,255,255,0.08)" }}
+          >
+            <div className="flex items-center justify-between py-3 px-3 text-xs font-medium text-slate-400"
+              style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              <span>{pageCount} {isRu ? "страниц" : "pages"}</span>
+              <button
+                onClick={() => setMobilePagesOpen(false)}
+                aria-label={t.close}
+                data-testid="button-close-pages"
+                className="flex size-7 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/10"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex flex-col gap-2 p-2">
+              {thumbnails.map((src, i) => (
+                <button
+                  key={i}
+                  onClick={() => { switchPage(i + 1); setMobilePagesOpen(false); }}
+                  data-testid={`thumb-page-mobile-${i + 1}`}
+                  className={cn(
+                    "rounded-lg overflow-hidden border-2 transition-all duration-150",
+                    currentPage === i + 1
+                      ? "border-blue-500 shadow-lg shadow-blue-500/20"
+                      : "border-transparent hover:border-white/20"
+                  )}
+                >
+                  <img src={src} alt={`Page ${i + 1}`} className="w-full block" />
+                  <div className="text-center text-xs text-slate-500 py-1">{i + 1}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Image upload input */}
       <input
         id="img-upload-input"
@@ -950,8 +1030,8 @@ export default function EditPdfPage() {
               <canvas
                 ref={signCanvasRef}
                 id="sign-canvas"
-                className="block w-full"
-                style={{ touchAction: "none" }}
+                className="block"
+                style={{ touchAction: "none", background: "transparent" }}
               />
             </div>
             <div className="flex gap-3 mt-4">

@@ -1,7 +1,7 @@
 ﻿# PDFX — Tasks & Technical Debt
 
 > Обновляется AI-агентами после каждой значимой задачи.  
-> Last updated: 2026-06-22
+> Last updated: 2026-08-26
 
 ---
 
@@ -20,7 +20,7 @@
 
 ## 🔄 Текущие задачи (In Progress)
 
-- [ ] Нет активных задач.
+- [~] **Восстановление после broken merge 8ddf5fa (2026-08-26)** — pdf-utils.ts восстановлен (~3068 строк, все функции из спеки тестов), tool-page.tsx переписан на registry/worker-routing со всеми контролами, home.tsx честный + поиск, i18n без фейков, SEO без aggregateRating, статический sitemap синхронизирован, edit-pdf: фикс координат клика/per-page undo/прозрачная подпись/pdfjs destroy/мобильный drawer страниц, README+LICENSE, git index очищен от мусора. **НЕ ПРОВЕРЕНО компилятором** — на машине агента нет Node: требуется `npm run check`, `npm test`, e2e (rotation/worker-tools/smoke/editor-mobile) и ручной прогон ключевых инструментов.
 
 ## ✅ Решено
 
@@ -279,3 +279,11 @@
 | BUG-11 | ~~sanitizePdf не удалял JS/tracking~~ | pdf-utils.ts | ✅ Исправлено: удаление OpenAction/AA/URI/JS/EmbeddedFiles |
 | BUG-12 | ~~split-by-chapters скачивает как .zip при 1 главе~~ | tool-page.tsx | ✅ Исправлено: magic bytes check |
 | BUG-13 | ~~pdfjs memory leaks в 12 функциях~~ | pdf-utils.ts | ✅ Исправлено: try/finally + destroy() |
+
+## ⚠️ Техдолг (выявлен аудитом 2026-08-26, не блокирует)
+
+- [ ] **edit-pdf: векторное сохранение** — сейчас аннотации растеризуются в полностраничный PNG (DISPLAY_SCALE 1.5): текст нерезкий и невыделяемый. Нужна конвертация fabric-объектов в pdf-lib примитивы (текст/фигуры) с растером только для freehand.
+- [ ] **Мёртвые npm-зависимости** — @libpdf/core, pptxgenjs (теперь используется pdfToPptx ✅), tesseract.js, xlsx, date-fns, ws + половина shadcn-обвязки; allowlist в script/build.ts содержит призрачные пакеты (drizzle/stripe/passport/openai/multer).
+- [ ] **SEO: prerender/SSR** — SPA без серверного рендера; статический sitemap теперь дублирует динамический (в проде выигрывает серверный), оставить как fallback для статики.
+- [ ] **Pro-план не купить** — tool-page default кидает proOnlyError, но pricing Pro = «By request»; нужен явный контакт/CTA.
+- [ ] **FAQ упоминает «3 файла за раз»** — проверить реальный batch-лимит upload-limits.

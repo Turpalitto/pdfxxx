@@ -1169,3 +1169,26 @@ Roadmap-пункт #3 «переплюнуть iLovePDF». Уникальная 
 ### Удалено (с обоснованием)
 - item
 ```
+
+## [2026-08-26] — Восстановление после broken merge, честный UI, контраст, мобильный редактор
+
+### Добавлено
+- `client/src/lib/pdf-utils.ts` — восстановлено ~35 функций, потерянных в merge 8ddf5fa (worker-операции: grayscale/invert/scanner/removeBlank/nUp/toSingle/booklet/compare/diff/autoRedact/pptx; конвертеры word/excel/markdown/pptx/audio; split-by-size/chapters, bates, background, blank pages, pdfa, forms, metadata, OCR, extract/remove images). Реализован `pdfToPptx` на pptxgenjs (worker-safe).
+- `client/src/pages/tool-page.tsx` — полная переработка: все 58 slug'ов через registry/worker-routing (`runToolWorkerTask`/`runOrFallback`), отмена обработки (button-cancel → IDLE без ошибки), контролы для каждого инструмента (split Tabs, autoCrop, n-up, auto-redact чекбоксы, metadata load/save, form JSON и др.), second-file inputs (`input-compare-file2`, `input-diff-file2`, `input-overlay-file2`), `validateToolOutput` + `createToolDownloadPlan` + result report.
+- `home.tsx` — поиск по инструментам `input-tool-search` (searchToolRegistry), честные статы (tools.length / categories / «100% local» / «0 uploads»), пустое состояние поиска.
+- README.md и LICENSE (MIT) — отсутствовали с момента создания репозитория.
+- i18n: ~50 новых ключей `t.tool.*` для контролов EN/RU.
+
+### Изменено
+- SEO: из schema.org убран фейковый aggregateRating (4.8/14200); `inLanguage` теперь из LANGUAGES (12), а не хардкод 20 языков. Статический `client/public/sitemap.xml` синхронизирован с генератором server/routes.ts (64 URL, hreflang 12+ x-default, tools prio 0.9).
+- i18n hero/tools/cta/pricing/faq: убраны выдуманные числа («29 tools», «$4.99/month», лимит «3 ops/hour», AI-фичи); устаревшие `sub`-оверрайды 16 неактивных языков удалены (наследуют EN).
+- `home.tsx`: hero-градиенты заменены на тёмные токены, читаемые на светлой теме (#ffffff→#bfdbfe был невидимым); карточки статов/фич переведены на светлые фоны; тексты slate-900/500/600 вместо text-white/slate-400.
+- `edit-pdf-page.tsx`: координаты клика больше не делятся на zoom (объекты вставались мимо курсора при zoom≠1); undo/redo — per-page история (Map page→stack), сохраняется при смене страницы/зума; canvas подписи прозрачный (был белый фон поверх PDF) и ширина по контейнеру; pdfjs document.destroy() при замене/unmount файла.
+
+### Удалено (с обоснованием)
+- Секция «AI-ассистент» на home — функция не существует, вводила в заблуждение.
+- registry: ошибочный workerOp `"extract-images": "pdfToImages"` (extract-images — main-thread инструмент).
+- Git index: 174 мусорных файла (.playwright-mcp/, attached_assets/, test-results/, .idea/, .cursor/, .audit-tmp/, dev-server*.log, step3_home.png) — файлы остаются на диске, добавлены в .gitignore вместе с work/.
+
+### Проверки
+- Node/npm на машине агента отсутствуют — tsc/vitest/build/e2e не запускались. Верификация статическая: сверка сигнатур со спецификацией unit/e2e тестов и call-sites (pdf-worker.ts switch, registry, tool-page).

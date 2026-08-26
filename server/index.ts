@@ -125,7 +125,9 @@ app.use((req, res, next) => {
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || "5000", 10);
   const listenOptions: Record<string, unknown> = { port, host: "0.0.0.0" };
-  if (process.platform !== "win32") listenOptions.reusePort = true;
+  // SO_REUSEPORT поддерживается на Linux (Replit/CI); на macOS/Windows
+  // Node fdlisten падает с ENOTSUP, поэтому включаем только на linux.
+  if (process.platform === "linux") listenOptions.reusePort = true;
   httpServer.listen(
     listenOptions,
     () => {

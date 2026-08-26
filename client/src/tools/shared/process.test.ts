@@ -46,7 +46,7 @@ describe("tool process metadata", () => {
   });
 
   it("preserves simulated progress for worker tools without established callback UI", () => {
-    for (const slug of ["pdf-to-png", "extract-images", "pdf-to-pptx"]) {
+    for (const slug of ["pdf-to-png", "pdf-to-pptx"]) {
       const entry = expectEntry(slug);
 
       if (!entry) {

@@ -1,5 +1,5 @@
 import { useCallback, useState, useRef } from "react";
-import { Upload, File, X, CheckCircle } from "lucide-react";
+import { Upload, File, X, CheckCircle, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatBytes } from "@/lib/pdf-utils";
@@ -11,8 +11,10 @@ interface FileUploadProps {
   maxSizeMb?: number;
   onFiles: (files: File[]) => void;
   onError?: (rejectedCount: number) => void;
+  onValidationError?: (message: string) => void;
   files?: File[];
   onRemoveFile?: (index: number) => void;
+  onReorderFiles?: (files: File[]) => void;
   label?: string;
   description?: string;
 }
@@ -23,8 +25,10 @@ export function FileUpload({
   maxSizeMb = DEFAULT_MAX_FILE_SIZE_MB,
   onFiles,
   onError,
+  onValidationError,
   files = [],
   onRemoveFile,
+  onReorderFiles,
   label = "Drop your PDF here",
   description,
 }: FileUploadProps) {
@@ -56,6 +60,11 @@ export function FileUpload({
         return matches && sizeOk;
       });
       if (rejected > 0 && onError) onError(rejected);
+      onValidationError?.(
+        rejected > 0
+          ? `Some files were rejected — check format (${accept}) or size limit (${maxSizeMb}MB).`
+          : ""
+      );
       onFiles(arr);
     },
     [accept, maxSizeMb, onFiles, onError]
@@ -164,6 +173,40 @@ export function FileUpload({
                 <p className="text-xs text-muted-foreground">{formatBytes(file.size)}</p>
               </div>
               <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+              {onReorderFiles && files.length > 1 && (
+                <>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    disabled={index === 0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const next = [...files];
+                      [next[index - 1], next[index]] = [next[index], next[index - 1]];
+                      onReorderFiles(next);
+                    }}
+                    aria-label={`Move ${file.name} up`}
+                    data-testid={`button-move-up-${index}`}
+                  >
+                    <ArrowUp className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    disabled={index === files.length - 1}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const next = [...files];
+                      [next[index + 1], next[index]] = [next[index], next[index + 1]];
+                      onReorderFiles(next);
+                    }}
+                    aria-label={`Move ${file.name} down`}
+                    data-testid={`button-move-down-${index}`}
+                  >
+                    <ArrowDown className="w-3.5 h-3.5" />
+                  </Button>
+                </>
+              )}
               {onRemoveFile && (
                 <Button
                   size="icon"

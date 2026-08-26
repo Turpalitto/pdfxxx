@@ -21,7 +21,6 @@ const WORKER_OP_BY_SLUG: Partial<Record<string, WorkerOp>> = {
   "grayscale-pdf": "grayscalePdf",
   "auto-redact": "autoRedactPdf",
   "n-up-pdf": "nUpPdf",
-  "extract-images": "pdfToImages",
   "pdf-diff": "pdfDiff",
   "pdf-to-pptx": "pdfToPptx",
 };

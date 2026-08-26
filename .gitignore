@@ -26,3 +26,8 @@ tests/e2e/fixtures/
 # Playwright artifacts
 test-results/
 playwright-report/
+
+# local artifacts
+attached_assets/
+step3_home.png
+work/
