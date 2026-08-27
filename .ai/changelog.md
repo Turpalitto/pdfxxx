@@ -4,6 +4,50 @@
 
 ---
 
+## 2026-08-27 — Ремедиация находок экспертизы
+
+### Добавлено
+
+- PWA-иконки 192×192 и 512×512 (+ maskable) в манифесте — было только favicon 128×128.
+- 4 unit-теста клиентского error-report (`client/src/lib/error-report.test.ts`): disabled-сервер не постит, enabled постит корректный JSON, non-Error/circular payload не бросает, beacon переживает сетевые сбои.
+
+### Изменено
+
+- npm audit fix (10 → 2 уязвимости) + `overrides: image-size ^2.0.2` (уязвимы все версии; в браузерный бандл не попадает — риск принят).
+- server/error-report.ts: timing-safe сравнение Bearer-токена, контекст ≤ 4KB, чистка stale IP из rate-limit карты. Проверено live: 400/401/429/200.
+
+### Проверка
+
+- tsc 0 · vitest 139/139 (16 файлов) · build OK · prerender 64/64 · e2e 61 passed / 3 skipped.
+
+### Найдено и оставлено
+
+- Пререндер с `lang="en"` — не баг (hreflang + клиентский document.lang компенсируют).
+- 14 exhaustive-deps warning (ref-паттерн), нет component-тестов страниц, монолиты pdf-utils/tool-page, Pro «By request» — продуктовая развилка.
+
+---
+
+## 2026-08-27 — Независимая экспертиза: npm audit fix + харднинг error-report
+
+### Изменено
+
+- `npm audit fix`: 10 уязвимостей (7 high) → 2; оставшиеся — `image-size` (транзитив от pptxgenjs, все версии уязвимы, фикса нет): библиотека **не попадает в браузерный бандл** (проверено grep'ом по dist), Node-only путь для локальных файлов — риск принят и задокументирован; `overrides: image-size@^2.0.2` пинит последнюю версию.
+- `server/error-report.ts` харднинг: timing-safe сравление Bearer-токена (`crypto.timingSafeEqual`), контекст отчёта ограничен 4 КБ (было неограниченно), чистка `hitsByIp` при >1000 записей.
+
+### Проверка
+
+- tsc 0 · vitest 135/135 · build OK · e2e 61 passed / 3 skipped.
+- Live-смоук error-report в прод-режиме: status/POST ok/bad 400/no-token 401/token 200/wrong 401/rate-limit 20×200→429.
+
+### Найдено и оставлено (осознанно)
+
+- PWA-иконки только 128×128 (нет 192/512 для install-promo).
+- Пререндер-HTML всегда `lang="en"` (компенсируется hreflang-ссылками).
+- 11 lib-файлов без юнит-тестов (в осн. данные), компонентных тестов страниц нет (e2e покрывает потоки).
+- 14 exhaustive-deps warning (refs-паттерн, ложные срабатывания).
+
+---
+
 ## 2026-08-27 — Раунд «уровень мировой компании»: CI-e2e, пререндер, мониторинг, векторный save, share-links
 
 ### Добавлено
