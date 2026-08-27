@@ -1,16 +1,17 @@
-import type { Express } from "express";
-import { type Server } from "http";
+import type { Express } from 'express';
+import { type Server } from 'http';
 
-import { LANG_CODES, STATIC_PAGES, TOOL_SLUGS } from "../shared/tool-registry";
+import { LANG_CODES, STATIC_PAGES, TOOL_SLUGS } from '../shared/tool-registry';
 
-const BASE_URL = "https://pdfx.tools";
+const BASE_URL = 'https://pdfx.tools';
 
 function buildHreflangLinks(path: string): string {
   const links = LANG_CODES.map(
-    (lang) => `    <xhtml:link rel="alternate" hreflang="${lang}" href="${BASE_URL}${path}?lang=${lang}"/>`
-  ).join("\n");
+    (lang) =>
+      `    <xhtml:link rel="alternate" hreflang="${lang}" href="${BASE_URL}${path}?lang=${lang}"/>`,
+  ).join('\n');
   const xdefault = `    <xhtml:link rel="alternate" hreflang="x-default" href="${BASE_URL}${path}"/>`;
-  return links + "\n" + xdefault;
+  return links + '\n' + xdefault;
 }
 
 function buildSitemap(): string {
@@ -38,25 +39,21 @@ ${buildHreflangLinks(path)}
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
-${urls.join("\n")}
+${urls.join('\n')}
 </urlset>`;
 }
 
-export async function registerRoutes(
-  httpServer: Server,
-  app: Express
-): Promise<Server> {
-
-  app.get("/sitemap.xml", (_req, res) => {
-    res.setHeader("Content-Type", "application/xml; charset=utf-8");
-    res.setHeader("Cache-Control", "public, max-age=86400");
+export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
+  app.get('/sitemap.xml', (_req, res) => {
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
     res.send(buildSitemap());
   });
 
-  app.get("/robots.txt", (_req, res) => {
-    res.setHeader("Content-Type", "text/plain");
+  app.get('/robots.txt', (_req, res) => {
+    res.setHeader('Content-Type', 'text/plain');
     res.send(
-`User-agent: *
+      `User-agent: *
 Allow: /
 
 # Disallow admin/API routes
@@ -66,7 +63,7 @@ Sitemap: ${BASE_URL}/sitemap.xml
 
 # Crawl-delay for polite bots
 Crawl-delay: 1
-`
+`,
     );
   });
 

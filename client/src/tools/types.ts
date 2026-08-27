@@ -1,30 +1,24 @@
-import type { ToolMaturity } from "@/lib/tools";
-import type { WorkerOp } from "@/workers/pdf-worker-types";
+import type { ToolMaturity } from '@/lib/tools';
+import type { WorkerOp } from '@/workers/pdf-worker-types';
 
 export type ToolCategoryId =
-  | "convert-from"
-  | "convert-to"
-  | "organize"
-  | "security"
-  | "optimize"
-  | "ocr"
-  | "utility";
+  'convert-from' | 'convert-to' | 'organize' | 'security' | 'optimize' | 'ocr' | 'utility';
 
-export type ToolExecutionMode = "worker" | "main-thread" | "hybrid";
-export type ToolProgressMode = "simulated" | "callback";
+export type ToolExecutionMode = 'worker' | 'main-thread' | 'hybrid';
+export type ToolProgressMode = 'simulated' | 'callback';
 
 export type ToolOutputKind =
-  | "pdf"
-  | "zip"
-  | "text"
-  | "html"
-  | "docx"
-  | "xlsx"
-  | "pptx"
-  | "json"
-  | "markdown"
-  | "audio"
-  | "image";
+  | 'pdf'
+  | 'zip'
+  | 'text'
+  | 'html'
+  | 'docx'
+  | 'xlsx'
+  | 'pptx'
+  | 'json'
+  | 'markdown'
+  | 'audio'
+  | 'image';
 
 export interface ToolOutputDefinition {
   kind: ToolOutputKind;

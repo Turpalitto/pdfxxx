@@ -4,16 +4,16 @@ import {
   type StepOptions,
   type WorkflowItem,
   type WorkflowStepDef,
-} from "./workflow-engine";
+} from './workflow-engine';
 
-export const WORKFLOW_CHAINS_STORAGE_KEY = "pdfx.workflow.savedChains.v1";
+export const WORKFLOW_CHAINS_STORAGE_KEY = 'pdfx.workflow.savedChains.v1';
 
 const STORAGE_VERSION = 1;
 const MAX_SAVED_CHAINS = 12;
 const MAX_CHAIN_NAME_LENGTH = 80;
 const MAX_TEXT_OPTION_LENGTH = 500;
 
-type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
 export type SavedWorkflowItem = {
   stepId: string;
@@ -36,7 +36,7 @@ type SaveWorkflowInput = {
 };
 
 function getBrowserStorage(): StorageLike | null {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return null;
   }
 
@@ -48,20 +48,20 @@ function getBrowserStorage(): StorageLike | null {
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function toTimestamp(value: unknown, fallback: number): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
 function toSafeName(value: unknown): string {
-  if (typeof value !== "string") {
-    return "Workflow";
+  if (typeof value !== 'string') {
+    return 'Workflow';
   }
 
   const trimmed = value.trim().slice(0, MAX_CHAIN_NAME_LENGTH);
-  return trimmed.length > 0 ? trimmed : "Workflow";
+  return trimmed.length > 0 ? trimmed : 'Workflow';
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -80,24 +80,25 @@ function sanitizeOptions(def: WorkflowStepDef, rawOptions: unknown): StepOptions
   for (const option of def.options) {
     const value = rawOptions[option.key];
 
-    if (option.kind === "select") {
-      const asString = typeof value === "string" ? value : String(defaults[option.key] ?? option.default);
+    if (option.kind === 'select') {
+      const asString =
+        typeof value === 'string' ? value : String(defaults[option.key] ?? option.default);
       const allowed = option.choices.some((choice) => choice.value === asString);
       output[option.key] = allowed ? asString : option.default;
       continue;
     }
 
-    if (option.kind === "range") {
-      const asNumber = typeof value === "number" ? value : Number(value);
+    if (option.kind === 'range') {
+      const asNumber = typeof value === 'number' ? value : Number(value);
       output[option.key] = Number.isFinite(asNumber)
         ? clamp(asNumber, option.min, option.max)
         : option.default;
       continue;
     }
 
-    if (option.kind === "text" || option.kind === "password") {
+    if (option.kind === 'text' || option.kind === 'password') {
       output[option.key] =
-        typeof value === "string" ? value.slice(0, MAX_TEXT_OPTION_LENGTH) : option.default;
+        typeof value === 'string' ? value.slice(0, MAX_TEXT_OPTION_LENGTH) : option.default;
     }
   }
 
@@ -105,7 +106,7 @@ function sanitizeOptions(def: WorkflowStepDef, rawOptions: unknown): StepOptions
 }
 
 function sanitizeItem(value: unknown): SavedWorkflowItem | null {
-  if (!isRecord(value) || typeof value.stepId !== "string") {
+  if (!isRecord(value) || typeof value.stepId !== 'string') {
     return null;
   }
 
@@ -138,7 +139,7 @@ function sanitizeChain(value: unknown, fallbackNow: number): SavedWorkflowChain 
   const createdAt = toTimestamp(value.createdAt, updatedAt);
 
   return {
-    id: typeof value.id === "string" && value.id.trim() ? value.id : `workflow-${createdAt}`,
+    id: typeof value.id === 'string' && value.id.trim() ? value.id : `workflow-${createdAt}`,
     version: STORAGE_VERSION,
     name: toSafeName(value.name),
     items,

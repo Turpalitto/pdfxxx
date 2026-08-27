@@ -1,6 +1,6 @@
-import { useDeferredValue, useEffect, useState } from "react";
-import { useLocation } from "wouter";
-import { Clock, Search, Sparkles, Workflow } from "lucide-react";
+import { useDeferredValue, useEffect, useState } from 'react';
+import { useLocation } from 'wouter';
+import { Clock, Search, Sparkles, Workflow } from 'lucide-react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -9,25 +9,22 @@ import {
   CommandItem,
   CommandList,
   CommandShortcut,
-} from "@/components/ui/command";
-import { Button } from "@/components/ui/button";
-import { loadRecentFiles, type RecentFile } from "@/hooks/use-recent-files";
-import { useLang } from "@/lib/lang-context";
-import { getCategoryLabel, getToolBySlug } from "@/lib/tools";
-import { getToolTranslation } from "@/lib/tool-translations";
-import { searchToolRegistry } from "@/tools/search-index";
-import {
-  buildRecentToolCommands,
-  buildWorkflowPresetCommands,
-} from "./command-palette-sources";
+} from '@/components/ui/command';
+import { Button } from '@/components/ui/button';
+import { loadRecentFiles, type RecentFile } from '@/hooks/use-recent-files';
+import { useLang } from '@/lib/lang-context';
+import { getCategoryLabel, getToolBySlug } from '@/lib/tools';
+import { getToolTranslation } from '@/lib/tool-translations';
+import { searchToolRegistry } from '@/tools/search-index';
+import { buildRecentToolCommands, buildWorkflowPresetCommands } from './command-palette-sources';
 
-const DEFAULT_QUERY = "pdf";
+const DEFAULT_QUERY = 'pdf';
 
 export function GlobalCommandPalette() {
   const { lang } = useLang();
   const [, navigate] = useLocation();
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState('');
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>(() => loadRecentFiles());
   const deferredQuery = useDeferredValue(query);
   const effectiveQuery = deferredQuery.trim() || DEFAULT_QUERY;
@@ -47,14 +44,14 @@ export function GlobalCommandPalette() {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
         setOpen((current) => !current);
       }
     }
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   useEffect(() => {
@@ -65,7 +62,7 @@ export function GlobalCommandPalette() {
 
   function handleNavigate(url: string) {
     setOpen(false);
-    setQuery("");
+    setQuery('');
     navigate(url);
   }
 
@@ -82,7 +79,7 @@ export function GlobalCommandPalette() {
         onClick={() => setOpen(true)}
       >
         <Search className="h-4 w-4" />
-        <span>{lang === "ru" ? "Поиск" : "Search"}</span>
+        <span>{lang === 'ru' ? 'Поиск' : 'Search'}</span>
         <kbd className="rounded border border-border bg-white/45 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
           Ctrl K
         </kbd>
@@ -94,7 +91,7 @@ export function GlobalCommandPalette() {
         size="icon"
         className="rounded-full text-muted-foreground hover:bg-white/55 hover:text-foreground md:hidden"
         onClick={() => setOpen(true)}
-        aria-label={lang === "ru" ? "Поиск инструментов" : "Search tools"}
+        aria-label={lang === 'ru' ? 'Поиск инструментов' : 'Search tools'}
       >
         <Search className="h-4 w-4" />
       </Button>
@@ -103,13 +100,15 @@ export function GlobalCommandPalette() {
         <CommandInput
           value={query}
           onValueChange={setQuery}
-          placeholder={lang === "ru" ? "Что нужно сделать с PDF?" : "What do you need to do with a PDF?"}
+          placeholder={
+            lang === 'ru' ? 'Что нужно сделать с PDF?' : 'What do you need to do with a PDF?'
+          }
         />
         <CommandList>
           <CommandEmpty>
-            {lang === "ru" ? "Инструменты не найдены." : "No tools found."}
+            {lang === 'ru' ? 'Инструменты не найдены.' : 'No tools found.'}
           </CommandEmpty>
-          <CommandGroup heading={lang === "ru" ? "Инструменты" : "Tools"}>
+          <CommandGroup heading={lang === 'ru' ? 'Инструменты' : 'Tools'}>
             {results.map(({ entry, tool }) => {
               const translation = getToolTranslation(entry.slug, lang);
 
@@ -136,7 +135,7 @@ export function GlobalCommandPalette() {
               );
             })}
           </CommandGroup>
-          <CommandGroup heading={lang === "ru" ? "Workflow-пресеты" : "Workflow presets"}>
+          <CommandGroup heading={lang === 'ru' ? 'Workflow-пресеты' : 'Workflow presets'}>
             {workflowCommands.map((command) => (
               <CommandItem
                 key={command.id}
@@ -153,13 +152,13 @@ export function GlobalCommandPalette() {
                   </span>
                 </span>
                 <CommandShortcut className="normal-case tracking-normal">
-                  {lang === "ru" ? "Цепочка" : "Chain"}
+                  {lang === 'ru' ? 'Цепочка' : 'Chain'}
                 </CommandShortcut>
               </CommandItem>
             ))}
           </CommandGroup>
           {recentCommands.length > 0 && (
-            <CommandGroup heading={lang === "ru" ? "Недавние инструменты" : "Recent tools"}>
+            <CommandGroup heading={lang === 'ru' ? 'Недавние инструменты' : 'Recent tools'}>
               {recentCommands.map((command) => (
                 <CommandItem
                   key={command.slug}
@@ -176,16 +175,19 @@ export function GlobalCommandPalette() {
                     </span>
                   </span>
                   <CommandShortcut className="normal-case tracking-normal">
-                    {lang === "ru" ? "Недавно" : "Recent"}
+                    {lang === 'ru' ? 'Недавно' : 'Recent'}
                   </CommandShortcut>
                 </CommandItem>
               ))}
             </CommandGroup>
           )}
-          <CommandGroup heading={lang === "ru" ? "Быстрые действия" : "Quick actions"}>
-            <CommandItem value="workflow chains pipeline" onSelect={() => handleNavigate("/workflow")}>
+          <CommandGroup heading={lang === 'ru' ? 'Быстрые действия' : 'Quick actions'}>
+            <CommandItem
+              value="workflow chains pipeline"
+              onSelect={() => handleNavigate('/workflow')}
+            >
               <Sparkles className="h-4 w-4" />
-              <span>{lang === "ru" ? "Открыть Workflow-цепочки" : "Open Workflow chains"}</span>
+              <span>{lang === 'ru' ? 'Открыть Workflow-цепочки' : 'Open Workflow chains'}</span>
             </CommandItem>
           </CommandGroup>
         </CommandList>

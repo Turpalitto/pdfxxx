@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from 'react';
 
 export function useLazyRender(boxCount: number, chunkSize = 12) {
   const [visibleCount, setVisibleCount] = useState(chunkSize);
@@ -18,7 +18,7 @@ export function useLazyRender(boxCount: number, chunkSize = 12) {
           setVisibleCount((prev) => Math.min(prev + chunkSize, boxCount));
         }
       },
-      { rootMargin: "200px" }
+      { rootMargin: '200px' },
     );
     observer.observe(el);
     return () => observer.disconnect();

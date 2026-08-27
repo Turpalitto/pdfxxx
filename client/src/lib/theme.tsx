@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect } from "react";
+import { createContext, useContext, useEffect } from 'react';
 
-type Theme = "light";
+type Theme = 'light';
 
 interface ThemeContextType {
   theme: Theme;
@@ -9,7 +9,7 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: "light",
+  theme: 'light',
   toggleTheme: () => {},
   setTheme: () => {},
 });
@@ -17,15 +17,15 @@ const ThemeContext = createContext<ThemeContextType>({
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.remove("dark");
-    root.classList.add("light");
+    root.classList.remove('dark');
+    root.classList.add('light');
     try {
-      localStorage.removeItem("pdfx-theme");
+      localStorage.removeItem('pdfx-theme');
     } catch {}
   }, []);
 
   return (
-    <ThemeContext.Provider value={{ theme: "light", toggleTheme: () => {}, setTheme: () => {} }}>
+    <ThemeContext.Provider value={{ theme: 'light', toggleTheme: () => {}, setTheme: () => {} }}>
       {children}
     </ThemeContext.Provider>
   );

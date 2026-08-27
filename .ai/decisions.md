@@ -13,12 +13,14 @@
 **Решение:** Все PDF-операции выполняются в браузере пользователя.
 
 **Причины:**
+
 - Приватность: файлы не покидают устройство
 - Нет серверных расходов на CPU/хранилище
 - Работает офлайн
 - Конкурентное преимущество перед ilovepdf/smallpdf
 
 **Последствия:**
+
 - Нельзя использовать Ghostscript, LibreOffice, Python-библиотеки
 - Ограничены браузерными API и WASM
 - Тяжёлые операции блокируют UI thread
@@ -36,12 +38,14 @@
 **Решение:** `pdf-lib` для всех операций создания/модификации PDF.
 
 **Причины:**
+
 - Чистый TypeScript API
 - Поддержка embedPages, copyPages, drawPage, форм, метаданных
 - Активно поддерживается
 - Работает без WASM
 
 **Ограничения:**
+
 - Не поддерживает рендер страниц в изображения (для этого pdfjs-dist)
 - `embedPages()` и `copyPages()` нельзя смешивать (разные типы)
 
@@ -55,12 +59,14 @@
 **Решение:** `pdfjs-dist` для чтения, рендера и извлечения текста.
 
 **Паттерн (обязательный):**
+
 ```typescript
-const pdfjs = await loadPdfJs();  // lazy, кэшируется
+const pdfjs = await loadPdfJs(); // lazy, кэшируется
 const doc = await pdfjs.getDocument({ data: bytes }).promise;
 ```
 
 **Причины:**
+
 - Mozilla-разработка, браузерная оптимизация
 - getTextContent() с координатами для Find & Replace и Auto-Redact
 - getOutline() для закладок/TOC
@@ -76,11 +82,13 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 **Решение:** Fabric.js v7 для интерактивного редактора в `edit-pdf-page.tsx`.
 
 **Причины:**
+
 - Богатый API для объектов (Rect, Textbox, PencilBrush, FabricImage)
 - History/undo встроен через toJSON/fromJSON
 - Поддержка grouping, selection, transform
 
 **Известные тонкости:**
+
 - `DISPLAY_SCALE = 1.5` — pdfjs рендерит в 1.5× для чёткости
 - Fabric canvas coordinates != PDF coordinates
 - Сохранение: per-page JSON → pageStatesRef → при export в pdf-lib
@@ -95,6 +103,7 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 **Решение:** Единая страница `tool-page.tsx` для всех инструментов кроме `edit-pdf`.
 
 **Причины:**
+
 - Единый UX (upload → options → process → download)
 - Меньше дублирования
 - Общий sidebar (How to use, Similar tools, Workflows)
@@ -111,6 +120,7 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 **Решение:** Tailwind для стилизации, shadcn/ui для компонентов.
 
 **Причины:**
+
 - shadcn/ui = Radix UI + Tailwind = доступность + кастомизируемость
 - Компоненты копируются в проект (не зависимость)
 - Цветовая палитра зафиксирована через CSS-переменные
@@ -127,6 +137,7 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 **Решение:** Поддержка 18 языков, но активная разработка только для EN и RU.
 
 **Причины:**
+
 - Остальные 16 языков перенесены из Stirling-PDF
 - Поддержка всех языков требует ресурсов
 - RU — основная аудитория владельца
@@ -143,6 +154,7 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 **Решение:** Find & Replace в edit-pdf работает через кэш `pageTextLinesRef` а не через повторный парсинг.
 
 **Причины:**
+
 - `extractTextLines()` уже парсит `pdfjs getTextContent()` при загрузке страницы
 - Повторный парсинг при каждом поиске избыточен
 - Координаты текста уже нормализованы в TextLineMetric
@@ -159,6 +171,7 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 **Решение:** `splitBySize()` использует бинарный поиск для определения оптимального размера чанка.
 
 **Причины:**
+
 - Размер PDF на диске непредсказуем (сжатие, медиа внутри)
 - Линейный поиск слишком медленный для больших файлов
 - Бинарный поиск даёт O(log n) сложность
@@ -173,11 +186,13 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 **Решение:** Тяжёлые pdfjs-операции (grayscale, invert, pdfToImages) выполняются в Web Worker (`client/src/workers/`). Один и тот же код `pdf-utils` работает и в воркере, и в main thread за счёт canvas-абстракции (`createRenderCanvas` → `OffscreenCanvas` в воркере, `HTMLCanvasElement` на main thread).
 
 **Причины:**
+
 - Тяжёлые операции блокировали UI thread (известный техдолг).
 - Дублировать функции под воркер — плохо; абстракция canvas позволяет переиспользовать существующий код.
 - `worker-client.runPdfTask` даёт прогресс, отмену и **fallback**: если воркер недоступен (нет OffscreenCanvas/Worker) или упал — операция повторяется в main thread. Воркер — оптимизация UX, а не единственный путь, поэтому корректность гарантирована.
 
 **Последствия:**
+
 - Требуется `worker: { format: "es" }` в `vite.config.ts` (воркер использует dynamic import → code-splitting, несовместимый с `iife`).
 - Браузеры без OffscreenCanvas автоматически идут по main-thread пути.
 - Отмена воркер-операции = `worker.terminate()` + пересоздание воркера на следующий запуск (надёжно прерывает синхронные циклы pdfjs/pdf-lib).
@@ -185,6 +200,7 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 **Перенесено в воркер (на 2026-06-04):** grayscalePdf, invertColors, pdfToImages, scannerEffect, removeBlankPages, nUpPdf, toSinglePage, bookletImposition.
 
 **Ограничения:**
+
 - `pdfToPptx` (pptxgenjs зависит от DOM) и `ocrPdf` (tesseract.js создаёт вложенные воркеры) пока не перенесены — инфраструктура (WorkerOp, switch в pdf-worker) уже их поддерживает.
 
 **Правило:** Чтобы перенести новую функцию в воркер — (1) убрать прямой `document.createElement("canvas")` в пользу `createRenderCanvas`/`canvasTo*`, (2) добавить op в `WorkerOp` и `switch` в `pdf-worker.ts`, (3) вызвать через `runPdfTask(op, () => oldFn(...), {...})` с fallback на старую функцию.
@@ -199,12 +215,14 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 **Решение:** Цепочки инструментов (`/workflow`) реализованы как тонкий движок `client/src/lib/workflow-engine.ts` поверх существующих функций `pdf-utils`. Каждый шаг пайплайна оборачивает уже существующую функцию `(File) → Uint8Array`; выход шага конвертируется обратно во `File` через `bytesToFile()` и подаётся на вход следующему. Логика инструментов **не дублируется**.
 
 **Причины:**
+
 - Почти все функции `pdf-utils` уже имеют сигнатуру `(File, options) → Uint8Array` — их можно сцеплять без изменений.
 - Дублировать обработку под «batch/chain» — техдолг; адаптер `Uint8Array→File` переиспользует проверенный код (как canvas-абстракция в ADR-010 переиспользовала код для воркеров).
 - Цепочка — чистый frontend: промежуточные файлы живут только в памяти браузера, ничего не выгружается (ADR-001).
 - При нескольких входных файлах `mergePdfs` становится неявным первым шагом — покрывает сценарий merge→compress→watermark.
 
 **Последствия:**
+
 - В цепочку можно класть только PDF→PDF шаги. Конвертеры (pdf-to-word, pdf-to-images), OCR и split (1→N) в реестр `WORKFLOW_STEPS` не входят — у них другой выход.
 - Порядок шагов ответственность пользователя: `protect` шифрует PDF, поэтому последующие pdfjs-шаги (grayscale/scanner/invert/remove-blank) на нём упадут. Раннер не переупорядочивает шаги, а показывает ошибку конкретного шага и прерывает прогон (fail-fast).
 - Шаги выполняются на main thread (как и одиночные вызовы со страницы инструмента). Перевод в воркер — отдельная задача (см. ADR-010), напрямую совместимая.
@@ -223,11 +241,13 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 **Решение:** Повышение точности `pdf-to-word`/`pdf-to-excel` строится на обогащении единого слоя `extractPdfLayout` (общего для word/excel/text/html/markdown), а не отдельных парсеров на инструмент. В слой добавлены стиль (`fontSize` из матрицы трансформации текста, `bold`/`italic` из имени встроенного шрифта) и геометрия (ширина страницы, выравнивание строки). Конвертеры читают это обогащённое представление.
 
 **Причины:**
+
 - pdfjs `getTextContent()` не отдаёт вес/начертание напрямую, но размер выводится из `transform` надёжно, а bold/italic — эвристически из имени шрифта (`Arial-BoldMT` и т.п.) через `detectFontStyle`.
 - Один обогащённый слой переиспользуется всеми конвертерами — без дублирования логики извлечения.
 - Выравнивание колонок Excel требует кластеризации x-границ ячеек по всей странице (`clusterColumns`), а не построчного угадывания — только так колонки совпадают между строками.
 
 **Последствия / границы:**
+
 - Phase A покрыто: размеры шрифтов, заголовки (по относительному размеру), bold/italic (best-effort), выравнивание абзацев (`w:jc`), выровненные колонки Excel.
 - Phase B покрыто: детекция таблиц (`detectTableRegions`, консервативно: ≥2 смежных строк × ≥2 ячейки × ≥2 колонки) → Word `<w:tbl>` с границами; нетабличные строки идут абзацами.
 - НЕ покрыто (Phase C): объединённые ячейки, встроенные картинки, цвет текста, межстрочные интервалы. Excel-таблицы не получают границ (формат сам табличный).
@@ -246,11 +266,13 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 **Решение:** Slug инструментов и статические страницы для server-side sitemap вынесены в `shared/tool-registry.ts`. `server/routes.ts` строит `/sitemap.xml` из этого shared registry, а unit-тест сверяет `TOOL_SLUGS` с UI-каталогом `client/src/lib/tools.ts`.
 
 **Причины:**
+
 - Ручной список slug в `server/routes.ts` легко расходится с каталогом инструментов.
 - Server-side sitemap не должен импортировать `client/src/lib/tools.ts`, потому что там есть React/lucide icon metadata.
 - Pure shared registry даёт серверу лёгкий источник slug без клиентских зависимостей.
 
 **Последствия:**
+
 - При добавлении инструмента нужно обновлять shared registry и UI-каталог синхронно.
 - `tool-registry.test.ts` падает, если sitemap registry и UI-каталог расходятся.
 - Следующий этап может перенести больше метаданных в registry, но без риска для текущих URL.
@@ -267,11 +289,13 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 **Решение:** Производные metadata инструментов (maturity, limits, output, execution mode/worker op, progress mode, search keywords) добавляются в `client/src/tools/registry.ts` как typed facade поверх существующего `client/src/lib/tools.ts`, а не через одномоментный перенос всего каталога.
 
 **Причины:**
+
 - `tools.ts` содержит React/lucide icon metadata и активно используется UI; резкий перенос создаёт высокий regression-risk.
 - Typed facade даёт новый единый слой для search/workflow/runner без смены публичных slug и без изменения цветовой палитры.
 - Тесты могут сверять `tools.ts`, typed registry и shared sitemap registry, ловя drift до runtime.
 
 **Последствия:**
+
 - `tools.ts` временно остаётся UI source of truth для отображения карточек и иконок.
 - Новые подсистемы должны брать execution/output/search/progress metadata из typed registry.
 - Download runner использует output metadata через `client/src/tools/shared/download.ts`; динамические PDF/ZIP split-исключения остаются маленьким runtime-контекстом, а не ручной MIME-матрицей в `tool-page.tsx`.
@@ -290,6 +314,7 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 **Решение:** Главная страница и command palette используют единый `searchToolRegistry()` из `client/src/tools/search-index.ts` для поиска инструментов. Command palette может добавлять отдельные lightweight command sources для Workflow presets и recent tools через `client/src/components/command-palette-sources.ts`: presets читаются из `client/src/lib/workflow-presets.ts`, recent tools строятся из sanitized recent storage без имён файлов.
 
 **Причины:**
+
 - Поиск должен отвечать на пользовательскую задачу, а не только на видимые названия карточек.
 - Единый индекс предотвращает drift между home search, command palette и workflow/recent-tool поверхностями.
 - Search metadata уже строится из typed registry и EN/RU переводов, поэтому не требует новых ручных списков.
@@ -297,6 +322,7 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 - Recent tools должны быть быстрым переходом по slug, а не историей документов: имена файлов, пути и bytes остаются вне command palette.
 
 **Последствия:**
+
 - Добавление новых поисковых keywords должно идти через registry/search-index, а не через отдельные компоненты.
 - Command palette остаётся browser-only и не отправляет запросы на сервер.
 - UI использует существующую palette/classes, без изменения дизайн-системы.
@@ -314,11 +340,13 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 **Решение:** Идеи из PP-OCRv6 Studio внедряются в PDFX только через browser-only, reusable OCR/text-box helpers. В текущем срезе `pdf-to-excel` использует `buildExcelRowsFromLineCells()`: table-like regions определяются по геометрии строк и колонок, а prose rows остаются single-cell и не загрязняют spreadsheet columns.
 
 **Причины:**
+
 - PDFX по ADR-001 остаётся browser-only; FastAPI/Python backend, SQLite history, uploads и CoreML runtime из внешнего OCR workbench не подходят.
 - `onnxruntime-web` и PP-OCR модели требуют отдельного решения о новом npm-пакете, model hosting, lazy loading, worker strategy и UX fallback.
 - Геометрия OCR/text boxes уже полезна с текущим `pdfjs`/Tesseract pipeline и подготовит общий контракт для будущего PP-OCR Tiny engine.
 
 **Последствия:**
+
 - Улучшения scanned/table fidelity должны начинаться с чистых, тестируемых helpers над `{ text, x }`/bbox данными, а не с копирования внешнего приложения.
 - Будущий PP-OCR engine может отдавать такие же line/cell boxes и переиспользовать table-region сборку для `pdf-to-excel`, `pdf-to-word`, `pdf-to-text` и `pdf-to-audio` fallback.
 - Новый OCR runtime нельзя добавлять скрыто: нужен отдельный explicit approval на dependency/model assets и performance budget.

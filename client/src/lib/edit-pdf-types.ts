@@ -1,8 +1,22 @@
-export type ToolType = "select" | "text" | "edit-text" | "draw" | "image" | "sign" | "rect" | "circle" | "line" | "highlight" | "eraser";
-export type DrawColor = "#1a1a1a" | "#e53e3e" | "#3182ce" | "#38a169" | "#facc15";
-export type TextAlignOption = "left" | "center" | "right" | "justify";
+export type ToolType =
+  | 'select'
+  | 'text'
+  | 'edit-text'
+  | 'draw'
+  | 'image'
+  | 'sign'
+  | 'rect'
+  | 'circle'
+  | 'line'
+  | 'highlight'
+  | 'eraser';
+export type DrawColor = '#1a1a1a' | '#e53e3e' | '#3182ce' | '#38a169' | '#facc15';
+export type TextAlignOption = 'left' | 'center' | 'right' | 'justify';
 
-export interface PageDims { width: number; height: number }
+export interface PageDims {
+  width: number;
+  height: number;
+}
 
 export interface TextSegmentMetric {
   top: number;
@@ -14,8 +28,8 @@ export interface TextSegmentMetric {
   text: string;
   fontFamily: string;
   fontSize: number;
-  fontWeight: "normal" | "bold";
-  fontStyle: "normal" | "italic";
+  fontWeight: 'normal' | 'bold';
+  fontStyle: 'normal' | 'italic';
 }
 
 export interface TextLineMetric {
@@ -29,8 +43,8 @@ export interface TextLineMetric {
   segments: TextSegmentMetric[];
   fontFamily: string;
   fontSize: number;
-  fontWeight: "normal" | "bold";
-  fontStyle: "normal" | "italic";
+  fontWeight: 'normal' | 'bold';
+  fontStyle: 'normal' | 'italic';
 }
 
 export interface TextInsertionStyle {
@@ -39,8 +53,8 @@ export interface TextInsertionStyle {
   maxWidth: number;
   fontFamily: string;
   fontSize: number;
-  fontWeight: "normal" | "bold";
-  fontStyle: "normal" | "italic";
+  fontWeight: 'normal' | 'bold';
+  fontStyle: 'normal' | 'italic';
 }
 
 export interface FindMatch {
@@ -65,8 +79,8 @@ export interface ActiveTextEditor {
   lineHeight: number;
   fontFamily: string;
   fontSize: number;
-  fontWeight: "normal" | "bold";
-  fontStyle: "normal" | "italic";
+  fontWeight: 'normal' | 'bold';
+  fontStyle: 'normal' | 'italic';
   underline: boolean;
   textAlign: TextAlignOption;
   color: string;
@@ -81,26 +95,41 @@ export interface ActiveTextEditor {
 export const DISPLAY_SCALE = 1.5;
 export const THUMB_SCALE = 0.15;
 
-export const EDITOR_COLORS: DrawColor[] = ["#1a1a1a", "#e53e3e", "#3182ce", "#38a169", "#facc15"];
+export const EDITOR_COLORS: DrawColor[] = ['#1a1a1a', '#e53e3e', '#3182ce', '#38a169', '#facc15'];
 
-export const EDITOR_FONT_FAMILIES = ["Arial", "Calibri", "Cambria", "Times New Roman", "Georgia", "Garamond", "Courier New"] as const;
+export const EDITOR_FONT_FAMILIES = [
+  'Arial',
+  'Calibri',
+  'Cambria',
+  'Times New Roman',
+  'Georgia',
+  'Garamond',
+  'Courier New',
+] as const;
 
 export const DISALLOWED_FONT_FAMILIES = new Set([
-  "Clock2017L_v0.4_170118",
-  "Clock2017R_v0.4_170118",
-  "clock2016_v1.1",
-  "AndroidClock",
-  "Noto Color Emoji",
-  "Noto Naskh Arabic",
-  "Noto Naskh Arabic UI",
-  "Noto Sans Symbols",
-  "Noto Sans Symbols2",
-  "Noto Sans Mono",
-  "SamsungKhmerUI",
-  "SamsungMyanmarUI",
-  "SamsungMyanmarZawgyiUI",
-  "SamsungThaiUI",
-  "SECFallback",
+  'Clock2017L_v0.4_170118',
+  'Clock2017R_v0.4_170118',
+  'clock2016_v1.1',
+  'AndroidClock',
+  'Noto Color Emoji',
+  'Noto Naskh Arabic',
+  'Noto Naskh Arabic UI',
+  'Noto Sans Symbols',
+  'Noto Sans Symbols2',
+  'Noto Sans Mono',
+  'SamsungKhmerUI',
+  'SamsungMyanmarUI',
+  'SamsungMyanmarZawgyiUI',
+  'SamsungThaiUI',
+  'SECFallback',
 ]);
 
-export const PDFX_TEXT_CUSTOM_PROPS = ["pdfxBaseFontSize", "pdfxMaxWidth", "pdfxBaseTop", "pdfxBaseLineHeight", "pdfxBaselineY", "pdfxAutoWidth"] as const;
+export const PDFX_TEXT_CUSTOM_PROPS = [
+  'pdfxBaseFontSize',
+  'pdfxMaxWidth',
+  'pdfxBaseTop',
+  'pdfxBaseLineHeight',
+  'pdfxBaselineY',
+  'pdfxAutoWidth',
+] as const;

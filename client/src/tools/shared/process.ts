@@ -1,7 +1,7 @@
-import { runPdfTask, type RunPdfTaskOptions } from "@/workers/worker-client";
-import type { ToolOutputKind, ToolRegistryEntry } from "../types";
+import { runPdfTask, type RunPdfTaskOptions } from '@/workers/worker-client';
+import type { ToolOutputKind, ToolRegistryEntry } from '../types';
 
-export type ToolTextResultTarget = "text" | "html";
+export type ToolTextResultTarget = 'text' | 'html';
 
 export interface ToolTextResult {
   bytes: Uint8Array;
@@ -15,10 +15,10 @@ export interface ToolNamedBytesPart {
 }
 
 export interface ToolNamedPartsResultOptions {
-  singlePartMode?: "bytes" | "zip";
+  singlePartMode?: 'bytes' | 'zip';
 }
 
-export type ToolImageArchiveFormat = "jpg" | "png";
+export type ToolImageArchiveFormat = 'jpg' | 'png';
 
 export interface ToolImageArchiveItem {
   dataUrl: string;
@@ -28,24 +28,20 @@ export interface ToolImageArchiveItem {
 export type ToolMetadataFields = Record<string, string>;
 
 export type ToolMetadataResult =
-  | { status: "loaded"; fields: ToolMetadataFields }
-  | { status: "saved"; bytes: Uint8Array };
+  { status: 'loaded'; fields: ToolMetadataFields } | { status: 'saved'; bytes: Uint8Array };
 
 const TEXT_RESULT_TARGET_BY_OUTPUT_KIND: Partial<Record<ToolOutputKind, ToolTextResultTarget>> = {
-  html: "html",
-  json: "text",
-  markdown: "text",
-  text: "text",
+  html: 'html',
+  json: 'text',
+  markdown: 'text',
+  text: 'text',
 };
 
 export function shouldSimulateToolProgress(entry: ToolRegistryEntry): boolean {
-  return entry.execution.progress === "simulated";
+  return entry.execution.progress === 'simulated';
 }
 
-export function createToolTextResult(
-  entry: ToolRegistryEntry,
-  content: string
-): ToolTextResult {
+export function createToolTextResult(entry: ToolRegistryEntry, content: string): ToolTextResult {
   const target = TEXT_RESULT_TARGET_BY_OUTPUT_KIND[entry.output.kind];
 
   if (!target) {
@@ -62,9 +58,9 @@ export function createToolTextResult(
 export async function createToolNamedPartsResult(
   entry: ToolRegistryEntry,
   parts: ToolNamedBytesPart[],
-  options: ToolNamedPartsResultOptions = {}
+  options: ToolNamedPartsResultOptions = {},
 ): Promise<Uint8Array> {
-  if (entry.output.kind !== "zip") {
+  if (entry.output.kind !== 'zip') {
     throw new Error(`Tool "${entry.slug}" does not produce a split archive result.`);
   }
 
@@ -74,29 +70,29 @@ export async function createToolNamedPartsResult(
     throw new Error(`Tool "${entry.slug}" did not produce any split parts.`);
   }
 
-  if (parts.length === 1 && options.singlePartMode !== "zip") {
+  if (parts.length === 1 && options.singlePartMode !== 'zip') {
     return firstPart.bytes;
   }
 
-  const JSZip = (await import("jszip")).default;
+  const JSZip = (await import('jszip')).default;
   const zip = new JSZip();
 
   for (const part of parts) {
     zip.file(part.name, part.bytes);
   }
 
-  return zip.generateAsync({ type: "uint8array" });
+  return zip.generateAsync({ type: 'uint8array' });
 }
 
 export async function createToolNumberedPartsResult(
   entry: ToolRegistryEntry,
   parts: Uint8Array[],
   baseName: string,
-  options: ToolNamedPartsResultOptions = {}
+  options: ToolNamedPartsResultOptions = {},
 ): Promise<Uint8Array> {
   const padLength = String(parts.length).length;
   const namedParts = parts.map((bytes, index) => {
-    const partNumber = String(index + 1).padStart(padLength, "0");
+    const partNumber = String(index + 1).padStart(padLength, '0');
 
     return {
       name: `${baseName}-part${partNumber}.pdf`,
@@ -111,17 +107,17 @@ export async function createToolImageArchiveResult(
   entry: ToolRegistryEntry,
   images: ToolImageArchiveItem[],
   format: ToolImageArchiveFormat,
-  baseName: string
+  baseName: string,
 ): Promise<Uint8Array> {
-  if (entry.output.kind !== "zip") {
+  if (entry.output.kind !== 'zip') {
     throw new Error(`Tool "${entry.slug}" does not produce an image archive result.`);
   }
 
-  const JSZip = (await import("jszip")).default;
+  const JSZip = (await import('jszip')).default;
   const zip = new JSZip();
 
   for (const image of images) {
-    const base64 = image.dataUrl.split(",")[1];
+    const base64 = image.dataUrl.split(',')[1];
 
     if (!base64) {
       continue;
@@ -130,14 +126,14 @@ export async function createToolImageArchiveResult(
     zip.file(`${baseName}-page-${image.page}.${format}`, base64, { base64: true });
   }
 
-  return zip.generateAsync({ type: "uint8array" });
+  return zip.generateAsync({ type: 'uint8array' });
 }
 
 export async function runToolMainThreadTask<T>(
   entry: ToolRegistryEntry,
-  task: () => Promise<T>
+  task: () => Promise<T>,
 ): Promise<T> {
-  if (entry.execution.mode !== "main-thread" || entry.execution.workerOp) {
+  if (entry.execution.mode !== 'main-thread' || entry.execution.workerOp) {
     throw new Error(`Tool "${entry.slug}" is not registered as a main-thread tool.`);
   }
 
@@ -146,9 +142,9 @@ export async function runToolMainThreadTask<T>(
 
 export async function runToolAudioSideEffectTask(
   entry: ToolRegistryEntry,
-  task: () => Promise<void>
+  task: () => Promise<void>,
 ): Promise<void> {
-  if (entry.output.kind !== "audio") {
+  if (entry.output.kind !== 'audio') {
     throw new Error(`Tool "${entry.slug}" does not produce an audio side-effect result.`);
   }
 
@@ -159,27 +155,27 @@ export async function runToolMetadataEditTask(
   entry: ToolRegistryEntry,
   isLoaded: boolean,
   loadMetadata: () => Promise<ToolMetadataFields>,
-  saveMetadata: () => Promise<Uint8Array>
+  saveMetadata: () => Promise<Uint8Array>,
 ): Promise<ToolMetadataResult> {
-  if (entry.slug !== "pdf-metadata") {
+  if (entry.slug !== 'pdf-metadata') {
     throw new Error(`Tool "${entry.slug}" is not registered as a metadata editor.`);
   }
 
   if (!isLoaded) {
     const fields = await runToolMainThreadTask(entry, loadMetadata);
 
-    return { status: "loaded", fields };
+    return { status: 'loaded', fields };
   }
 
   const bytes = await runToolMainThreadTask(entry, saveMetadata);
 
-  return { status: "saved", bytes };
+  return { status: 'saved', bytes };
 }
 
 export async function runToolWorkerTask<T>(
   entry: ToolRegistryEntry,
   fallback: () => Promise<T>,
-  options: RunPdfTaskOptions
+  options: RunPdfTaskOptions,
 ): Promise<T> {
   const workerOp = entry.execution.workerOp;
 

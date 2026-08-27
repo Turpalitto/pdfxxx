@@ -1,9 +1,9 @@
-import { useCallback, useState, useRef } from "react";
-import { Upload, File, X, CheckCircle, ArrowUp, ArrowDown } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { formatBytes } from "@/lib/pdf-utils";
-import { DEFAULT_MAX_FILE_SIZE_MB, mbToBytes } from "@/lib/upload-limits";
+import { useCallback, useState, useRef } from 'react';
+import { Upload, File, X, CheckCircle, ArrowUp, ArrowDown } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { formatBytes } from '@/lib/pdf-utils';
+import { DEFAULT_MAX_FILE_SIZE_MB, mbToBytes } from '@/lib/upload-limits';
 
 interface FileUploadProps {
   accept?: string;
@@ -20,7 +20,7 @@ interface FileUploadProps {
 }
 
 export function FileUpload({
-  accept = ".pdf",
+  accept = '.pdf',
   multiple = false,
   maxSizeMb = DEFAULT_MAX_FILE_SIZE_MB,
   onFiles,
@@ -29,7 +29,7 @@ export function FileUpload({
   files = [],
   onRemoveFile,
   onReorderFiles,
-  label = "Drop your PDF here",
+  label = 'Drop your PDF here',
   description,
 }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
@@ -38,7 +38,7 @@ export function FileUpload({
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
+    if (e.type === 'dragenter' || e.type === 'dragover') {
       setIsDragging(true);
     } else {
       setIsDragging(false);
@@ -50,10 +50,10 @@ export function FileUpload({
       if (!newFiles) return;
       let rejected = 0;
       const arr = Array.from(newFiles).filter((f) => {
-        const acceptTypes = accept.split(",").map((a) => a.trim());
+        const acceptTypes = accept.split(',').map((a) => a.trim());
         const matches = acceptTypes.some((a) => {
-          if (a.startsWith(".")) return f.name.toLowerCase().endsWith(a);
-          return f.type.startsWith(a.replace("*", ""));
+          if (a.startsWith('.')) return f.name.toLowerCase().endsWith(a);
+          return f.type.startsWith(a.replace('*', ''));
         });
         const sizeOk = f.size <= mbToBytes(maxSizeMb);
         if (!matches || !sizeOk) rejected++;
@@ -63,11 +63,11 @@ export function FileUpload({
       onValidationError?.(
         rejected > 0
           ? `Some files were rejected — check format (${accept}) or size limit (${maxSizeMb}MB).`
-          : ""
+          : '',
       );
       onFiles(arr);
     },
-    [accept, maxSizeMb, onFiles, onError]
+    [accept, maxSizeMb, onFiles, onError],
   );
 
   const handleDrop = useCallback(
@@ -77,15 +77,15 @@ export function FileUpload({
       setIsDragging(false);
       processFiles(e.dataTransfer.files);
     },
-    [processFiles]
+    [processFiles],
   );
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       processFiles(e.target.files);
-      e.target.value = "";
+      e.target.value = '';
     },
-    [processFiles]
+    [processFiles],
   );
 
   const hasFiles = files.length > 0;
@@ -99,17 +99,17 @@ export function FileUpload({
         onDragLeave={handleDrag}
         onDrop={handleDrop}
         className={cn(
-          "relative flex flex-col items-center justify-center gap-3 p-8 rounded-md border-2 border-dashed cursor-pointer transition-all duration-200",
+          'relative flex flex-col items-center justify-center gap-3 p-8 rounded-md border-2 border-dashed cursor-pointer transition-all duration-200',
           isDragging
-            ? "border-primary bg-primary/5 scale-[1.01]"
-            : "border-border hover:border-primary/50 hover:bg-accent/40",
-          hasFiles && "border-primary/30 bg-primary/3"
+            ? 'border-primary bg-primary/5 scale-[1.01]'
+            : 'border-border hover:border-primary/50 hover:bg-accent/40',
+          hasFiles && 'border-primary/30 bg-primary/3',
         )}
         data-testid="dropzone-file-upload"
         role="button"
         tabIndex={0}
         aria-label="Upload files"
-        onKeyDown={(e) => e.key === "Enter" && inputRef.current?.click()}
+        onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
       >
         <input
           ref={inputRef}
@@ -123,8 +123,8 @@ export function FileUpload({
 
         <div
           className={cn(
-            "w-14 h-14 rounded-xl flex items-center justify-center transition-all duration-200",
-            isDragging ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+            'w-14 h-14 rounded-xl flex items-center justify-center transition-all duration-200',
+            isDragging ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
           )}
         >
           <Upload className="w-6 h-6" />
@@ -133,7 +133,7 @@ export function FileUpload({
         <div className="text-center">
           <p className="font-semibold text-sm">{label}</p>
           <p className="text-xs text-muted-foreground mt-1">
-            {description || `${multiple ? "Multiple files" : "Single file"} up to ${maxSizeMb}MB`}
+            {description || `${multiple ? 'Multiple files' : 'Single file'} up to ${maxSizeMb}MB`}
           </p>
         </div>
 
@@ -147,7 +147,7 @@ export function FileUpload({
           }}
           data-testid="button-select-files"
         >
-          Choose File{multiple ? "s" : ""}
+          Choose File{multiple ? 's' : ''}
         </Button>
 
         {isDragging && (

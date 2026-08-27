@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from 'react';
 
-export const RECENT_FILES_STORAGE_KEY = "pdfx_recent_files";
+export const RECENT_FILES_STORAGE_KEY = 'pdfx_recent_files';
 const MAX_RECENT = 10;
-type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
 export interface RecentFile {
   name: string;
@@ -12,8 +12,8 @@ export interface RecentFile {
 }
 
 function privateRecentLabel(name: string): string {
-  const ext = name.split(".").pop()?.trim().toUpperCase();
-  return ext ? `${ext} file` : "Local file";
+  const ext = name.split('.').pop()?.trim().toUpperCase();
+  return ext ? `${ext} file` : 'Local file';
 }
 
 function sanitizeRecentFile(file: RecentFile): RecentFile {
@@ -27,23 +27,23 @@ function sanitizeRecentFile(file: RecentFile): RecentFile {
 
 function isRecentFile(value: unknown): value is RecentFile {
   return (
-    typeof value === "object" &&
+    typeof value === 'object' &&
     value !== null &&
-    "name" in value &&
-    "size" in value &&
-    "lastOpened" in value &&
-    "slug" in value &&
-    typeof value.name === "string" &&
-    typeof value.size === "number" &&
-    typeof value.lastOpened === "number" &&
-    typeof value.slug === "string" &&
+    'name' in value &&
+    'size' in value &&
+    'lastOpened' in value &&
+    'slug' in value &&
+    typeof value.name === 'string' &&
+    typeof value.size === 'number' &&
+    typeof value.lastOpened === 'number' &&
+    typeof value.slug === 'string' &&
     Number.isFinite(value.size) &&
     Number.isFinite(value.lastOpened)
   );
 }
 
 function getBrowserStorage(): StorageLike | null {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return null;
   }
 
@@ -72,10 +72,7 @@ export function loadRecentFiles(storage: StorageLike | null = getBrowserStorage(
       return [];
     }
 
-    const sanitized = parsed
-      .filter(isRecentFile)
-      .map(sanitizeRecentFile)
-      .slice(0, MAX_RECENT);
+    const sanitized = parsed.filter(isRecentFile).map(sanitizeRecentFile).slice(0, MAX_RECENT);
     storage.setItem(RECENT_FILES_STORAGE_KEY, JSON.stringify(sanitized));
 
     return sanitized;

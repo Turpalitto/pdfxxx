@@ -109,17 +109,33 @@ handleDownload() → downloadBlob() / downloadText()
 ### `tools.ts` — Реестр инструментов
 
 Каждый инструмент:
+
 ```typescript
 {
-  slug: string          // URL: /tools/{slug}
-  name: string          // Отображаемое имя (EN)
-  description: string
-  icon: LucideIcon
-  emoji: string
-  category: "organize" | "convert-from" | "convert-to" | "security" | "utility" | "ocr" | "optimize"
-  color: "blue"|"violet"|"green"|"orange"|"teal"|"indigo"|"amber"|"rose"|"sky"|"slate"
-  accept: string        // MIME/расширения для file picker
-  outputExt: string     // Расширение выходного файла
+  slug: string; // URL: /tools/{slug}
+  name: string; // Отображаемое имя (EN)
+  description: string;
+  icon: LucideIcon;
+  emoji: string;
+  category: 'organize' |
+    'convert-from' |
+    'convert-to' |
+    'security' |
+    'utility' |
+    'ocr' |
+    'optimize';
+  color: 'blue' |
+    'violet' |
+    'green' |
+    'orange' |
+    'teal' |
+    'indigo' |
+    'amber' |
+    'rose' |
+    'sky' |
+    'slate';
+  accept: string; // MIME/расширения для file picker
+  outputExt: string; // Расширение выходного файла
 }
 ```
 
@@ -162,8 +178,9 @@ handleDownload() → downloadBlob() / downloadText()
 Все функции async, принимают `File`, возвращают `Uint8Array` или специфические типы.
 
 **Паттерн pdfjs (обязательный):**
+
 ```typescript
-const pdfjs = await loadPdfJs();  // кэшируется после первого вызова
+const pdfjs = await loadPdfJs(); // кэшируется после первого вызова
 const doc = await pdfjs.getDocument({ data: bytes }).promise;
 ```
 
@@ -176,12 +193,14 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 Обрабатывает **все инструменты кроме** `edit-pdf`.
 
 Секции:
+
 1. **State**: файлы, прогресс, результат, опции каждого инструмента
 2. **`handleProcess()`**: switch(slug) вызывает pdf-utils
 3. **`handleDownload()`**: роутит в правильный формат скачивания
 4. **JSX**: upload + controls + progress + result + sidebar
 
 **Точки вставки для новых инструментов:**
+
 - State vars: после блока `resizeFit`
 - Switch case: перед `case "compare-pdf":`
 - Download handler: перед split-pdf handler
@@ -192,22 +211,24 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 **Автономный** — не использует `tool-page.tsx`.
 
 Ключевые refs:
+
 ```typescript
-fabricRef          // Fabric.js Canvas instance
-pdfCanvasRef       // <canvas> для pdfjs рендера
-fabricElRef        // <canvas> для Fabric.js
-pageStatesRef      // Map<pageNum, fabricJSON>
-pageTextLinesRef   // Map<pageNum, TextLineMetric[]>
-pageOrigBytesRef   // Uint8Array исходного PDF
+fabricRef; // Fabric.js Canvas instance
+pdfCanvasRef; // <canvas> для pdfjs рендера
+fabricElRef; // <canvas> для Fabric.js
+pageStatesRef; // Map<pageNum, fabricJSON>
+pageTextLinesRef; // Map<pageNum, TextLineMetric[]>
+pageOrigBytesRef; // Uint8Array исходного PDF
 ```
 
 Find & Replace (Ctrl+F):
+
 ```typescript
-findInPage()           // Ищет в pageTextLinesRef, рисует rect-хайлайты
-navigateFindMatch()    // Навигация по совпадениям
-replaceCurrentMatch()  // Белый rect-маска + Fabric Textbox
-replaceAllMatches()    // Batch замена всех
-clearFindHighlights()  // Удаляет временные rect-объекты
+findInPage(); // Ищет в pageTextLinesRef, рисует rect-хайлайты
+navigateFindMatch(); // Навигация по совпадениям
+replaceCurrentMatch(); // Белый rect-маска + Fabric Textbox
+replaceAllMatches(); // Batch замена всех
+clearFindHighlights(); // Удаляет временные rect-объекты
 ```
 
 ---
@@ -231,10 +252,10 @@ clearFindHighlights()  // Удаляет временные rect-объекты
 
 ```typescript
 // UI строки
-const { lang, t } = useLang();  // t.someKey
+const { lang, t } = useLang(); // t.someKey
 
 // Названия инструментов
-getToolTranslation(slug, lang)  // из tool-translations.ts
+getToolTranslation(slug, lang); // из tool-translations.ts
 ```
 
 Язык хранится в `localStorage`. Поддержано 18 языков:
@@ -247,6 +268,7 @@ getToolTranslation(slug, lang)  // из tool-translations.ts
 ## Дизайн-система
 
 CSS-переменные в `index.css`:
+
 ```css
 --background        /* фон страницы */
 --foreground        /* текст */
@@ -290,12 +312,12 @@ edit-pdf-page.tsx
 
 ## Технический долг (известный)
 
-| Проблема | Серьёзность | Описание |
-|---|---|---|
-| Main thread blocking | Средняя | PDF обрабатывается в main thread. Тяжёлые операции (OCR, grayscale больших файлов) подвешивают UI. Решение: Web Workers |
-| edit-pdf-page.tsx размер | Средняя | 3506 строк — нужна декомпозиция на хуки и подкомпоненты |
-| tool-page.tsx размер | Низкая | 1876 строк — switch-case монолит, можно разбить на стратегии |
-| Drizzle/Passport мёртвый код | Низкая | Backend зависимости подключены, но не используются для PDF |
-| Нет Web Workers | Средняя | Все PDF операции блокируют UI thread |
-| Нет unit tests для pdf-utils | Средняя | Логика без покрытия тестами |
-| compare-pdf input[type=file] | Низкая | Всегда видимый input триггерит Playwright file chooser |
+| Проблема                     | Серьёзность | Описание                                                                                                                |
+| ---------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Main thread blocking         | Средняя     | PDF обрабатывается в main thread. Тяжёлые операции (OCR, grayscale больших файлов) подвешивают UI. Решение: Web Workers |
+| edit-pdf-page.tsx размер     | Средняя     | 3506 строк — нужна декомпозиция на хуки и подкомпоненты                                                                 |
+| tool-page.tsx размер         | Низкая      | 1876 строк — switch-case монолит, можно разбить на стратегии                                                            |
+| Drizzle/Passport мёртвый код | Низкая      | Backend зависимости подключены, но не используются для PDF                                                              |
+| Нет Web Workers              | Средняя     | Все PDF операции блокируют UI thread                                                                                    |
+| Нет unit tests для pdf-utils | Средняя     | Логика без покрытия тестами                                                                                             |
+| compare-pdf input[type=file] | Низкая      | Всегда видимый input триггерит Playwright file chooser                                                                  |

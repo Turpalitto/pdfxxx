@@ -20,20 +20,20 @@
  * перенос отдельным этапом после проверки совместимости.
  */
 export type WorkerOp =
-  | "grayscalePdf"
-  | "invertColors"
-  | "pdfToImages"
-  | "scannerEffect"
-  | "removeBlankPages"
-  | "nUpPdf"
-  | "toSinglePage"
-  | "bookletImposition"
-  | "comparePdf"
-  | "autoRedactPdf"
-  | "pdfDiff"
-  | "redactPdf"
-  | "pdfToPptx"
-  | "ocrPdf";
+  | 'grayscalePdf'
+  | 'invertColors'
+  | 'pdfToImages'
+  | 'scannerEffect'
+  | 'removeBlankPages'
+  | 'nUpPdf'
+  | 'toSinglePage'
+  | 'bookletImposition'
+  | 'comparePdf'
+  | 'autoRedactPdf'
+  | 'pdfDiff'
+  | 'redactPdf'
+  | 'pdfToPptx'
+  | 'ocrPdf';
 
 /** Запрос на выполнение операции. file и args передаются structured-clone. */
 export interface WorkerRequest {
@@ -46,19 +46,19 @@ export interface WorkerRequest {
 
 export interface ProgressMessage {
   id: number;
-  type: "progress";
+  type: 'progress';
   pct: number;
 }
 
 export interface DoneMessage {
   id: number;
-  type: "done";
+  type: 'done';
   result: unknown;
 }
 
 export interface ErrorMessage {
   id: number;
-  type: "error";
+  type: 'error';
   message: string;
 }
 

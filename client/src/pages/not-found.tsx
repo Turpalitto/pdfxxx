@@ -1,17 +1,19 @@
-import { Link } from "wouter";
-import { FileQuestion, ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useLang } from "@/lib/lang-context";
-import { useSeo } from "@/hooks/use-seo";
+import { Link } from 'wouter';
+import { FileQuestion, ArrowLeft } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useLang } from '@/lib/lang-context';
+import { useSeo } from '@/hooks/use-seo';
 
 export default function NotFound() {
   const { lang } = useLang();
-  const isRu = lang === "ru";
+  const isRu = lang === 'ru';
 
   useSeo({
-    title: isRu ? "Страница не найдена — PDFX" : "Page not found — PDFX",
-    description: isRu ? "Запрашиваемая страница не существует." : "The page you're looking for doesn't exist.",
-    path: "/404",
+    title: isRu ? 'Страница не найдена — PDFX' : 'Page not found — PDFX',
+    description: isRu
+      ? 'Запрашиваемая страница не существует.'
+      : "The page you're looking for doesn't exist.",
+    path: '/404',
   });
 
   return (
@@ -22,12 +24,12 @@ export default function NotFound() {
         </div>
 
         <h1 className="paper-title mb-2 text-3xl font-bold text-foreground">
-          {isRu ? "Страница не найдена" : "Page not found"}
+          {isRu ? 'Страница не найдена' : 'Page not found'}
         </h1>
 
         <p className="mb-6 max-w-sm text-sm leading-6 text-muted-foreground">
           {isRu
-            ? "Запрашиваемая страница не существует или была перемещена. Попробуйте вернуться на главную."
+            ? 'Запрашиваемая страница не существует или была перемещена. Попробуйте вернуться на главную.'
             : "The page you're looking for doesn't exist or has been moved. Try going back to the home page."}
         </p>
 
@@ -35,13 +37,11 @@ export default function NotFound() {
           <Button asChild>
             <Link href="/">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              {isRu ? "На главную" : "Back to home"}
+              {isRu ? 'На главную' : 'Back to home'}
             </Link>
           </Button>
           <Button variant="outline" asChild>
-            <Link href="/contact">
-              {isRu ? "Связаться" : "Contact us"}
-            </Link>
+            <Link href="/contact">{isRu ? 'Связаться' : 'Contact us'}</Link>
           </Button>
         </div>
       </div>

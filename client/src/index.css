@@ -4,11 +4,11 @@
 
 /* LIGHT MODE */
 :root {
-  --button-outline: rgba(0,0,0, .10);
-  --badge-outline: rgba(0,0,0, .05);
+  --button-outline: rgba(0, 0, 0, 0.1);
+  --badge-outline: rgba(0, 0, 0, 0.05);
   --opaque-button-border-intensity: -8;
-  --elevate-1: rgba(0,0,0, .03);
-  --elevate-2: rgba(0,0,0, .08);
+  --elevate-1: rgba(0, 0, 0, 0.03);
+  --elevate-2: rgba(0, 0, 0, 0.08);
   --background: 43 30% 91%;
   --foreground: 160 17% 16%;
   --border: 100 11% 76%;
@@ -43,29 +43,37 @@
   --chart-3: 43 74% 49%;
   --chart-4: 345 72% 58%;
   --chart-5: 222 47% 32%;
-  --font-sans: "Noto Sans", sans-serif;
+  --font-sans: 'Noto Sans', sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
-  --radius: .5rem;
+  --radius: 0.5rem;
   --shadow-2xs: 0px 2px 0px 0px hsl(220 13% 91% / 0.05);
   --shadow-xs: 0px 2px 0px 0px hsl(220 13% 91% / 0.08);
-  --shadow-sm: 0px 2px 0px 0px hsl(220 13% 91% / 0.05), 0px 1px 2px -1px hsl(220 13% 91% / 0.10);
-  --shadow: 0px 2px 0px 0px hsl(220 13% 91% / 0.05), 0px 1px 2px -1px hsl(220 13% 91% / 0.10);
+  --shadow-sm: 0px 2px 0px 0px hsl(220 13% 91% / 0.05), 0px 1px 2px -1px hsl(220 13% 91% / 0.1);
+  --shadow: 0px 2px 0px 0px hsl(220 13% 91% / 0.05), 0px 1px 2px -1px hsl(220 13% 91% / 0.1);
   --shadow-md: 0px 2px 0px 0px hsl(220 13% 91% / 0.05), 0px 2px 4px -1px hsl(220 13% 91% / 0.12);
   --shadow-lg: 0px 2px 0px 0px hsl(220 13% 91% / 0.05), 0px 4px 6px -1px hsl(220 13% 91% / 0.15);
-  --shadow-xl: 0px 2px 0px 0px hsl(220 13% 91% / 0.05), 0px 8px 10px -1px hsl(220 13% 91% / 0.20);
+  --shadow-xl: 0px 2px 0px 0px hsl(220 13% 91% / 0.05), 0px 8px 10px -1px hsl(220 13% 91% / 0.2);
   --shadow-2xl: 0px 2px 0px 0px hsl(220 13% 91% / 0.25);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
   --pdfx-page-bg:
     radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.55), transparent 22%),
-    radial-gradient(circle at 80% 0%, rgba(217, 229, 215, 0.50), transparent 24%),
+    radial-gradient(circle at 80% 0%, rgba(217, 229, 215, 0.5), transparent 24%),
     linear-gradient(180deg, #f1ede3 0%, #ebe6d8 100%);
   --pdfx-nav-bg: rgba(247, 243, 234, 0.82);
   --pdfx-nav-border: rgba(58, 71, 62, 0.12);
-  --pdfx-panel: linear-gradient(180deg, rgba(247, 243, 234, 0.94) 0%, rgba(241, 236, 227, 0.96) 100%);
-  --pdfx-panel-strong: linear-gradient(180deg, rgba(248, 245, 238, 0.96) 0%, rgba(238, 232, 219, 0.98) 100%);
-  --pdfx-panel-muted: rgba(255, 255, 255, 0.40);
+  --pdfx-panel: linear-gradient(
+    180deg,
+    rgba(247, 243, 234, 0.94) 0%,
+    rgba(241, 236, 227, 0.96) 100%
+  );
+  --pdfx-panel-strong: linear-gradient(
+    180deg,
+    rgba(248, 245, 238, 0.96) 0%,
+    rgba(238, 232, 219, 0.98) 100%
+  );
+  --pdfx-panel-muted: rgba(255, 255, 255, 0.4);
   --pdfx-panel-border: rgba(59, 70, 63, 0.12);
   --pdfx-soft-ink: rgb(55, 91, 84);
   --pdfx-subtle-ink: rgb(93, 106, 102);
@@ -76,41 +84,55 @@
   --pdfx-editor-rail: rgba(247, 243, 234, 0.86);
   --pdfx-editor-toolbar: rgba(247, 243, 234, 0.94);
 
-/* Fallback for older browsers */
+  /* Fallback for older browsers */
   --sidebar-primary-border: hsl(var(--sidebar-primary));
-  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --sidebar-primary-border: hsl(
+    from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
 
   /* Fallback for older browsers */
   --sidebar-accent-border: hsl(var(--sidebar-accent));
-  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --sidebar-accent-border: hsl(
+    from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
 
   /* Fallback for older browsers */
   --primary-border: hsl(var(--primary));
-  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --primary-border: hsl(
+    from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
 
   /* Fallback for older browsers */
   --secondary-border: hsl(var(--secondary));
-  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --secondary-border: hsl(
+    from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
 
   /* Fallback for older browsers */
   --muted-border: hsl(var(--muted));
-  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --muted-border: hsl(
+    from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
 
   /* Fallback for older browsers */
   --accent-border: hsl(var(--accent));
-  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --accent-border: hsl(
+    from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
 
   /* Fallback for older browsers */
   --destructive-border: hsl(var(--destructive));
-  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --destructive-border: hsl(
+    from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
 }
 
 .dark {
-  --button-outline: rgba(255,255,255, .10);
-  --badge-outline: rgba(255,255,255, .05);
+  --button-outline: rgba(255, 255, 255, 0.1);
+  --badge-outline: rgba(255, 255, 255, 0.05);
   --opaque-button-border-intensity: 9;
-  --elevate-1: rgba(255,255,255, .03);
-  --elevate-2: rgba(255,255,255, .07);
+  --elevate-1: rgba(255, 255, 255, 0.03);
+  --elevate-2: rgba(255, 255, 255, 0.07);
   --background: 230 40% 7%;
   --foreground: 210 40% 96%;
   --border: 228 28% 17%;
@@ -154,49 +176,63 @@
   --shadow-xl: 0px 2px 0px 0px hsl(230 40% 5% / 0.1), 0px 8px 10px -1px hsl(230 40% 5% / 0.35);
   --shadow-2xl: 0px 2px 0px 0px hsl(230 40% 5% / 0.4);
   --pdfx-page-bg:
-    radial-gradient(circle at 14% 8%, rgba(45, 212, 191, 0.10), transparent 28rem),
+    radial-gradient(circle at 14% 8%, rgba(45, 212, 191, 0.1), transparent 28rem),
     radial-gradient(circle at 88% 0%, rgba(56, 189, 248, 0.08), transparent 26rem),
     linear-gradient(180deg, #12141b 0%, #10131a 48%, #0f1218 100%);
   --pdfx-nav-bg: rgba(18, 20, 27, 0.88);
-  --pdfx-nav-border: rgba(226, 232, 240, 0.10);
+  --pdfx-nav-border: rgba(226, 232, 240, 0.1);
   --pdfx-panel: rgba(25, 29, 39, 0.76);
   --pdfx-panel-strong: rgba(27, 31, 42, 0.92);
   --pdfx-panel-muted: rgba(33, 38, 50, 0.62);
-  --pdfx-panel-border: rgba(226, 232, 240, 0.10);
+  --pdfx-panel-border: rgba(226, 232, 240, 0.1);
   --pdfx-soft-ink: rgb(203, 213, 225);
   --pdfx-subtle-ink: rgb(148, 163, 184);
-  --pdfx-shadow: 0 24px 70px rgba(0, 0, 0, 0.30);
+  --pdfx-shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
   --pdfx-editor-bg: #151922;
   --pdfx-editor-rail: rgba(20, 24, 33, 0.92);
   --pdfx-editor-toolbar: rgba(19, 23, 32, 0.96);
 
-/* Fallback for older browsers */
+  /* Fallback for older browsers */
   --sidebar-primary-border: hsl(var(--sidebar-primary));
-  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --sidebar-primary-border: hsl(
+    from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
 
   /* Fallback for older browsers */
   --sidebar-accent-border: hsl(var(--sidebar-accent));
-  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --sidebar-accent-border: hsl(
+    from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
 
   /* Fallback for older browsers */
   --primary-border: hsl(var(--primary));
-  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --primary-border: hsl(
+    from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
 
   /* Fallback for older browsers */
   --secondary-border: hsl(var(--secondary));
-  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --secondary-border: hsl(
+    from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
 
   /* Fallback for older browsers */
   --muted-border: hsl(var(--muted));
-  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --muted-border: hsl(
+    from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
 
   /* Fallback for older browsers */
   --accent-border: hsl(var(--accent));
-  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --accent-border: hsl(
+    from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
 
   /* Fallback for older browsers */
   --destructive-border: hsl(var(--destructive));
-  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --destructive-border: hsl(
+    from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
 }
 
 @layer base {
@@ -212,13 +248,13 @@
     @apply font-sans antialiased bg-background text-foreground;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
     text-rendering: geometricPrecision;
     background: var(--pdfx-page-bg);
   }
 
   body::before {
-    content: "";
+    content: '';
     position: fixed;
     inset: 0;
     z-index: -1;
@@ -227,8 +263,12 @@
     background-image:
       radial-gradient(rgba(44, 54, 48, 0.06) 0.7px, transparent 0.7px),
       radial-gradient(rgba(44, 54, 48, 0.03) 0.9px, transparent 0.9px);
-    background-position: 0 0, 22px 24px;
-    background-size: 26px 26px, 31px 31px;
+    background-position:
+      0 0,
+      22px 24px;
+    background-size:
+      26px 26px,
+      31px 31px;
     mix-blend-mode: multiply;
   }
 
@@ -272,7 +312,7 @@
   .pdfx-panel::before,
   .pdfx-panel-strong::before,
   .paper-tool-card::before {
-    content: "";
+    content: '';
     position: absolute;
     inset: 10px;
     border: 1px solid var(--pdfx-inner-line);
@@ -294,7 +334,7 @@
     border: 1px solid rgba(226, 232, 240, 0.12);
     background:
       radial-gradient(circle at 18% 0%, rgba(20, 184, 166, 0.24), transparent 24rem),
-      radial-gradient(circle at 84% 14%, rgba(14, 165, 233, 0.20), transparent 22rem),
+      radial-gradient(circle at 84% 14%, rgba(14, 165, 233, 0.2), transparent 22rem),
       linear-gradient(135deg, #111827 0%, #172033 48%, #10151f 100%);
     box-shadow: 0 28px 90px rgba(15, 23, 42, 0.26);
   }
@@ -357,7 +397,7 @@
   }
 
   .paper-title {
-    font-family: Georgia, Cambria, "Times New Roman", serif;
+    font-family: Georgia, Cambria, 'Times New Roman', serif;
     letter-spacing: 0;
   }
 
@@ -407,9 +447,8 @@
  * need to be distinguished from eachother visually.
  */
 @layer utilities {
-
   /* Hide ugly search cancel button in Chrome until we can style it properly */
-  input[type="search"]::-webkit-search-cancel-button {
+  input[type='search']::-webkit-search-cancel-button {
     @apply hidden;
   }
 
@@ -423,10 +462,11 @@
   /* .no-default-hover-elevate/no-default-active-elevate is an escape hatch so consumers of
    * buttons/badges can remove the automatic brightness adjustment on interactions
    * and program their own. */
-  .no-default-hover-elevate {}
+  .no-default-hover-elevate {
+  }
 
-  .no-default-active-elevate {}
-
+  .no-default-active-elevate {
+  }
 
   /**
    * Toggleable backgrounds go behind the content. Hoverable/active goes on top.
@@ -436,7 +476,7 @@
    */
   .toggle-elevate::before,
   .toggle-elevate-2::before {
-    content: "";
+    content: '';
     pointer-events: none;
     position: absolute;
     inset: 0px;
@@ -468,7 +508,7 @@
   .active-elevate:not(.no-default-active-elevate)::after,
   .hover-elevate-2:not(.no-default-hover-elevate)::after,
   .active-elevate-2:not(.no-default-active-elevate)::after {
-    content: "";
+    content: '';
     pointer-events: none;
     position: absolute;
     inset: 0px;
@@ -499,61 +539,113 @@
 }
 
 /* ── RTL support (Arabic and other RTL languages) ─────────────────────── */
-[dir="rtl"] {
-  font-family: "Noto Sans Arabic", "Inter", system-ui, sans-serif;
+[dir='rtl'] {
+  font-family: 'Noto Sans Arabic', 'Inter', system-ui, sans-serif;
 }
 
-[dir="rtl"] .flex-row,
-[dir="rtl"] .flex {
+[dir='rtl'] .flex-row,
+[dir='rtl'] .flex {
   --tw-space-direction: -1;
 }
 
-[dir="rtl"] .gap-2,
-[dir="rtl"] .gap-3,
-[dir="rtl"] .gap-4 {
+[dir='rtl'] .gap-2,
+[dir='rtl'] .gap-3,
+[dir='rtl'] .gap-4 {
   direction: rtl;
 }
 
-[dir="rtl"] nav,
-[dir="rtl"] header {
+[dir='rtl'] nav,
+[dir='rtl'] header {
   direction: rtl;
 }
 
-[dir="rtl"] .text-left {
+[dir='rtl'] .text-left {
   text-align: right;
 }
 
-[dir="rtl"] .text-right {
+[dir='rtl'] .text-right {
   text-align: left;
 }
 
-[dir="rtl"] .mr-1 { margin-right: 0; margin-left: 0.25rem; }
-[dir="rtl"] .mr-2 { margin-right: 0; margin-left: 0.5rem; }
-[dir="rtl"] .mr-3 { margin-right: 0; margin-left: 0.75rem; }
-[dir="rtl"] .mr-4 { margin-right: 0; margin-left: 1rem; }
-[dir="rtl"] .ml-1 { margin-left: 0; margin-right: 0.25rem; }
-[dir="rtl"] .ml-2 { margin-left: 0; margin-right: 0.5rem; }
-[dir="rtl"] .ml-3 { margin-left: 0; margin-right: 0.75rem; }
-[dir="rtl"] .ml-4 { margin-left: 0; margin-right: 1rem; }
-[dir="rtl"] .ml-auto { margin-left: 0; margin-right: auto; }
-[dir="rtl"] .mr-auto { margin-right: 0; margin-left: auto; }
+[dir='rtl'] .mr-1 {
+  margin-right: 0;
+  margin-left: 0.25rem;
+}
+[dir='rtl'] .mr-2 {
+  margin-right: 0;
+  margin-left: 0.5rem;
+}
+[dir='rtl'] .mr-3 {
+  margin-right: 0;
+  margin-left: 0.75rem;
+}
+[dir='rtl'] .mr-4 {
+  margin-right: 0;
+  margin-left: 1rem;
+}
+[dir='rtl'] .ml-1 {
+  margin-left: 0;
+  margin-right: 0.25rem;
+}
+[dir='rtl'] .ml-2 {
+  margin-left: 0;
+  margin-right: 0.5rem;
+}
+[dir='rtl'] .ml-3 {
+  margin-left: 0;
+  margin-right: 0.75rem;
+}
+[dir='rtl'] .ml-4 {
+  margin-left: 0;
+  margin-right: 1rem;
+}
+[dir='rtl'] .ml-auto {
+  margin-left: 0;
+  margin-right: auto;
+}
+[dir='rtl'] .mr-auto {
+  margin-right: 0;
+  margin-left: auto;
+}
 
-[dir="rtl"] .pl-3 { padding-left: 0; padding-right: 0.75rem; }
-[dir="rtl"] .pr-3 { padding-right: 0; padding-left: 0.75rem; }
-[dir="rtl"] .pl-4 { padding-left: 0; padding-right: 1rem; }
-[dir="rtl"] .pr-4 { padding-right: 0; padding-left: 1rem; }
+[dir='rtl'] .pl-3 {
+  padding-left: 0;
+  padding-right: 0.75rem;
+}
+[dir='rtl'] .pr-3 {
+  padding-right: 0;
+  padding-left: 0.75rem;
+}
+[dir='rtl'] .pl-4 {
+  padding-left: 0;
+  padding-right: 1rem;
+}
+[dir='rtl'] .pr-4 {
+  padding-right: 0;
+  padding-left: 1rem;
+}
 
-[dir="rtl"] .rounded-l-full { border-radius: 0 9999px 9999px 0; }
-[dir="rtl"] .rounded-r-full { border-radius: 9999px 0 0 9999px; }
+[dir='rtl'] .rounded-l-full {
+  border-radius: 0 9999px 9999px 0;
+}
+[dir='rtl'] .rounded-r-full {
+  border-radius: 9999px 0 0 9999px;
+}
 
-[dir="rtl"] .border-l { border-left: none; border-right: 1px solid; }
-[dir="rtl"] .border-r { border-right: none; border-left: 1px solid; }
+[dir='rtl'] .border-l {
+  border-left: none;
+  border-right: 1px solid;
+}
+[dir='rtl'] .border-r {
+  border-right: none;
+  border-left: 1px solid;
+}
 
-[dir="rtl"] input[type="text"],
-[dir="rtl"] input[type="number"],
-[dir="rtl"] input[type="email"],
-[dir="rtl"] textarea,
-[dir="rtl"] select {
+[dir='rtl'] input[type='text'],
+[dir='rtl'] input[type='number'],
+[dir='rtl'] input[type='email'],
+[dir='rtl'] textarea,
+[dir='rtl'] select {
   text-align: right;
   direction: rtl;
 }

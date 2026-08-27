@@ -1,8 +1,8 @@
-import type { LangCode } from "@/lib/i18n";
-import { getToolBySlug } from "@/lib/tools";
-import { getToolTranslation } from "@/lib/tool-translations";
-import { WORKFLOW_PRESETS, pickCopy } from "@/lib/workflow-presets";
-import type { RecentFile } from "@/hooks/use-recent-files";
+import type { LangCode } from '@/lib/i18n';
+import { getToolBySlug } from '@/lib/tools';
+import { getToolTranslation } from '@/lib/tool-translations';
+import { WORKFLOW_PRESETS, pickCopy } from '@/lib/workflow-presets';
+import type { RecentFile } from '@/hooks/use-recent-files';
 
 export type WorkflowPresetCommand = {
   id: string;
@@ -34,7 +34,7 @@ export function buildWorkflowPresetCommands(lang: LangCode): WorkflowPresetComma
       title,
       description,
       url: workflowPresetUrl(preset.id),
-      value: `${title} ${description} workflow preset ${preset.id} ${preset.stepIds.join(" ")}`,
+      value: `${title} ${description} workflow preset ${preset.id} ${preset.stepIds.join(' ')}`,
     };
   });
 }
@@ -63,10 +63,7 @@ export function buildRecentToolCommands(
     commands.push({
       slug: recentFile.slug,
       title: translation.name,
-      description:
-        lang === "ru"
-          ? "Недавно использованный инструмент"
-          : "Recently used tool",
+      description: lang === 'ru' ? 'Недавно использованный инструмент' : 'Recently used tool',
       url: `/tools/${recentFile.slug}`,
       value: `${translation.name} ${translation.description} recent tool ${recentFile.slug}`,
     });

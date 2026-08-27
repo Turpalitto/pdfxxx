@@ -23,40 +23,46 @@
 
 ## Текущее состояние (2026-06-21)
 
-| Параметр | Значение |
-|---|---|
-| Инструментов | **58 активных** |
-| Категорий | 7 (organize, convert-from, convert-to, security, utility, ocr, optimize) |
-| Языков | 18 (активные для разработки: EN + RU) |
-| TypeScript | ✅ 0 ошибок |
-| Тесты | Vitest 122 unit-теста + Playwright E2E baseline 55 passed / 3 skipped; editor-mobile targeted 1 passed / 1 skipped |
-| CI/CD | GitHub Actions настроен ранее; текущий раунд добавляет локальные проверки |
-| База данных | Drizzle ORM + PostgreSQL (подключена, но не используется для PDF) |
+| Параметр     | Значение                                                                                                           |
+| ------------ | ------------------------------------------------------------------------------------------------------------------ |
+| Инструментов | **58 активных**                                                                                                    |
+| Категорий    | 7 (organize, convert-from, convert-to, security, utility, ocr, optimize)                                           |
+| Языков       | 18 (активные для разработки: EN + RU)                                                                              |
+| TypeScript   | ✅ 0 ошибок                                                                                                        |
+| Тесты        | Vitest 122 unit-теста + Playwright E2E baseline 55 passed / 3 skipped; editor-mobile targeted 1 passed / 1 skipped |
+| CI/CD        | GitHub Actions настроен ранее; текущий раунд добавляет локальные проверки                                          |
+| База данных  | Drizzle ORM + PostgreSQL (подключена, но не используется для PDF)                                                  |
 
 ---
 
 ## Ключевые функции
 
 ### Конвертация
+
 - PDF → Word, JPG, PNG, Text, HTML, Excel
 - Word, Images, Excel, Text → PDF
 
 ### Редактирование
+
 - Полный canvas-редактор (Fabric.js): текст, рисование, фигуры, подпись, хайлайт
 - **Find & Replace** (Ctrl+F) с regex-подсветкой прямо в редакторе
 
 ### Организация
+
 - Merge, Split, Rotate, Delete/Reorder Pages, Extract Pages
 - Crop (обрезка полей), N-up (несколько страниц на лист), Resize Pages
 - Split by Size (разбивка по размеру файла), Compare PDF, Remove Blank Pages
 
 ### Безопасность
+
 - Protect/Unlock (AES-256), Sign PDF, Redact, **Auto-Redact** (email/phone/SSN/regex)
 
 ### Обогащение
+
 - Watermark, Page Numbers, Header/Footer, OCR (Tesseract.js, 8 языков)
 
 ### Утилиты
+
 - Compress, Repair, **Flatten Forms**, Grayscale, **Overlay PDF**
 - Metadata Editor, Bookmarks Export
 
@@ -65,35 +71,38 @@
 ## Технологический стек
 
 ### Frontend
-| Технология | Версия | Зачем |
-|---|---|---|
-| React | 18.3 | UI framework |
-| TypeScript | 5.x | Типизация |
-| Vite | 5.x | Bundler + dev server |
-| Tailwind CSS | 3.x | Стилизация |
-| shadcn/ui | последняя | UI компоненты (Radix-based) |
-| wouter | 3.x | Лёгкий роутер |
-| framer-motion | 11.x | Анимации |
+
+| Технология    | Версия    | Зачем                       |
+| ------------- | --------- | --------------------------- |
+| React         | 18.3      | UI framework                |
+| TypeScript    | 5.x       | Типизация                   |
+| Vite          | 5.x       | Bundler + dev server        |
+| Tailwind CSS  | 3.x       | Стилизация                  |
+| shadcn/ui     | последняя | UI компоненты (Radix-based) |
+| wouter        | 3.x       | Лёгкий роутер               |
+| framer-motion | 11.x      | Анимации                    |
 
 ### PDF-движки (все в браузере)
-| Библиотека | Зачем |
-|---|---|
-| `pdf-lib` | Создание, модификация, сохранение PDF |
-| `pdfjs-dist` | Рендер страниц на canvas, извлечение текста |
-| `fabric` v7 | Canvas-редактор страниц |
-| `tesseract.js` | OCR в браузере |
-| `jszip` | ZIP-архивы (batch export) |
-| `mammoth` | DOCX → HTML → PDF |
-| `xlsx` (SheetJS) | Excel ↔ PDF |
-| `@pdf-lib/fontkit` | Кастомные шрифты в pdf-lib |
+
+| Библиотека         | Зачем                                       |
+| ------------------ | ------------------------------------------- |
+| `pdf-lib`          | Создание, модификация, сохранение PDF       |
+| `pdfjs-dist`       | Рендер страниц на canvas, извлечение текста |
+| `fabric` v7        | Canvas-редактор страниц                     |
+| `tesseract.js`     | OCR в браузере                              |
+| `jszip`            | ZIP-архивы (batch export)                   |
+| `mammoth`          | DOCX → HTML → PDF                           |
+| `xlsx` (SheetJS)   | Excel ↔ PDF                                 |
+| `@pdf-lib/fontkit` | Кастомные шрифты в pdf-lib                  |
 
 ### Backend
-| Технология | Роль |
-|---|---|
-| Express.js 5 | Только раздача статики + SPA fallback |
-| Drizzle ORM | ORM (подключён, не активно используется) |
-| PostgreSQL | БД (подключена, не активно используется) |
-| Passport.js | Auth (подключён, не активно используется) |
+
+| Технология   | Роль                                      |
+| ------------ | ----------------------------------------- |
+| Express.js 5 | Только раздача статики + SPA fallback     |
+| Drizzle ORM  | ORM (подключён, не активно используется)  |
+| PostgreSQL   | БД (подключена, не активно используется)  |
+| Passport.js  | Auth (подключён, не активно используется) |
 
 > ⚠️ Backend НЕ обрабатывает PDF. Все библиотеки (pdf-lib и др.) работают только на клиенте.
 

@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle, Loader2, AlertCircle } from "lucide-react";
+import { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 // import { getPdfPageThumbnails } from "@/lib/pdf-utils";
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 
 interface PageThumbnailsProps {
   file: File;
@@ -34,40 +34,29 @@ export function PageThumbnails({
   const [dragOver, setDragOver] = useState<number | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
     setLoading(true);
     setError(null);
     setThumbnails([]);
 
-    // getPdfPageThumbnails(file, scale, maxPages)
-    //   .then((thumbs: any) => {
-    //     if (!cancelled) {
-    //       setThumbnails(thumbs);
-    //       setLoading(false);
-    //     }
-    //   })
-    //   .catch((err: any) => {
-    //     if (!cancelled) {
-    //       setError(err?.message ?? "Failed to render thumbnails");
-    //       setLoading(false);
-    //     }
-    //   });
-    
-    // Temporary: thumbnails disabled
+    // getPdfPageThumbnails(file, scale, maxPages) is temporarily disabled
     setLoading(false);
-
-    return () => { cancelled = true; };
   }, [file, scale, maxPages]);
 
-  const handleDragStart = useCallback((e: React.DragEvent<HTMLButtonElement>, displayIndex: number) => {
-    setDragSource(displayIndex);
-    e.dataTransfer.effectAllowed = "move";
-  }, []);
+  const handleDragStart = useCallback(
+    (e: React.DragEvent<HTMLButtonElement>, displayIndex: number) => {
+      setDragSource(displayIndex);
+      e.dataTransfer.effectAllowed = 'move';
+    },
+    [],
+  );
 
-  const handleDragOver = useCallback((e: React.DragEvent<HTMLButtonElement>, displayIndex: number) => {
-    e.preventDefault();
-    setDragOver(displayIndex);
-  }, []);
+  const handleDragOver = useCallback(
+    (e: React.DragEvent<HTMLButtonElement>, displayIndex: number) => {
+      e.preventDefault();
+      setDragOver(displayIndex);
+    },
+    [],
+  );
 
   const handleDrop = useCallback(
     (e: React.DragEvent<HTMLButtonElement>, targetIndex: number) => {
@@ -80,7 +69,7 @@ export function PageThumbnails({
       onReorder(order);
       setDragSource(null);
     },
-    [dragSource, pageOrder, thumbnails, onReorder]
+    [dragSource, pageOrder, thumbnails, onReorder],
   );
 
   if (loading) {
@@ -105,9 +94,7 @@ export function PageThumbnails({
 
   return (
     <div className="space-y-2">
-      {label && (
-        <p className="text-sm font-medium text-foreground">{label}</p>
-      )}
+      {label && <p className="text-sm font-medium text-foreground">{label}</p>}
       <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6">
         <AnimatePresence>
           {displayOrder.map((pageIdx, displayIdx) => {
@@ -128,20 +115,32 @@ export function PageThumbnails({
                 <button
                   type="button"
                   draggable={reorderMode}
-                  onDragStart={reorderMode ? (e: React.DragEvent<HTMLButtonElement>) => handleDragStart(e, displayIdx) : undefined}
-                  onDragOver={reorderMode ? (e: React.DragEvent<HTMLButtonElement>) => handleDragOver(e, displayIdx) : undefined}
+                  onDragStart={
+                    reorderMode
+                      ? (e: React.DragEvent<HTMLButtonElement>) => handleDragStart(e, displayIdx)
+                      : undefined
+                  }
+                  onDragOver={
+                    reorderMode
+                      ? (e: React.DragEvent<HTMLButtonElement>) => handleDragOver(e, displayIdx)
+                      : undefined
+                  }
                   onDragLeave={reorderMode ? () => setDragOver(null) : undefined}
-                  onDrop={reorderMode ? (e: React.DragEvent<HTMLButtonElement>) => handleDrop(e, displayIdx) : undefined}
+                  onDrop={
+                    reorderMode
+                      ? (e: React.DragEvent<HTMLButtonElement>) => handleDrop(e, displayIdx)
+                      : undefined
+                  }
                   onClick={() => !reorderMode && onToggle(pageIdx)}
                   aria-pressed={!reorderMode ? isSelected : undefined}
                   title={`Page ${pageIdx + 1}`}
                   className={cn(
-                    "group relative flex w-full flex-col items-center gap-1 rounded-lg border p-1 transition-all duration-150 select-none",
+                    'group relative flex w-full flex-col items-center gap-1 rounded-lg border p-1 transition-all duration-150 select-none',
                     isSelected && !reorderMode
-                      ? "border-primary bg-primary/8 shadow-[0_0_0_2px_rgba(35,65,56,0.25)]"
-                      : "border-border bg-white/40 hover:border-primary/40 hover:bg-white/60",
-                    reorderMode && "cursor-grab active:cursor-grabbing",
-                    isDragTarget && "border-primary bg-primary/10 scale-105"
+                      ? 'border-primary bg-primary/8 shadow-[0_0_0_2px_rgba(35,65,56,0.25)]'
+                      : 'border-border bg-white/40 hover:border-primary/40 hover:bg-white/60',
+                    reorderMode && 'cursor-grab active:cursor-grabbing',
+                    isDragTarget && 'border-primary bg-primary/10 scale-105',
                   )}
                 >
                   {/* Thumbnail */}
@@ -150,7 +149,7 @@ export function PageThumbnails({
                       src={thumb}
                       alt={`Page ${pageIdx + 1}`}
                       className="w-full object-contain"
-                      style={{ aspectRatio: "0.707", display: "block" }}
+                      style={{ aspectRatio: '0.707', display: 'block' }}
                       draggable={false}
                     />
 
@@ -170,10 +169,12 @@ export function PageThumbnails({
                   </div>
 
                   {/* Page number label */}
-                  <span className={cn(
-                    "text-[10px] font-medium leading-none",
-                    isSelected && !reorderMode ? "text-primary" : "text-muted-foreground"
-                  )}>
+                  <span
+                    className={cn(
+                      'text-[10px] font-medium leading-none',
+                      isSelected && !reorderMode ? 'text-primary' : 'text-muted-foreground',
+                    )}
+                  >
                     {pageIdx + 1}
                   </span>
                 </button>
@@ -185,12 +186,11 @@ export function PageThumbnails({
 
       {!reorderMode && selectedPages.size > 0 && (
         <p className="text-xs text-muted-foreground">
-          {selectedPages.size} page{selectedPages.size !== 1 ? "s" : ""} selected
-          {" "}(
+          {selectedPages.size} page{selectedPages.size !== 1 ? 's' : ''} selected (
           {Array.from(selectedPages)
             .sort((a, b) => a - b)
             .map((i) => i + 1)
-            .join(", ")}
+            .join(', ')}
           )
         </p>
       )}

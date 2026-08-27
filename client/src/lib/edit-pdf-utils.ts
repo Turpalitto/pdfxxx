@@ -3,39 +3,46 @@ import {
   type TextSegmentMetric,
   type TextInsertionStyle,
   type DrawColor,
-  DISPLAY_SCALE,
   DISALLOWED_FONT_FAMILIES,
   EDITOR_COLORS,
+} from './edit-pdf-types';
+
+export { DISPLAY_SCALE, THUMB_SCALE } from './edit-pdf-types';
+export {
+  EDITOR_COLORS,
   EDITOR_FONT_FAMILIES,
-} from "./edit-pdf-types";
-
-import { DEFAULT_MAX_FILE_SIZE_MB } from "./upload-limits";
-
-export { DISPLAY_SCALE, THUMB_SCALE } from "./edit-pdf-types";
-export { EDITOR_COLORS, EDITOR_FONT_FAMILIES, DISALLOWED_FONT_FAMILIES, PDFX_TEXT_CUSTOM_PROPS } from "./edit-pdf-types";
-export { DEFAULT_MAX_FILE_SIZE_MB as MAX_EDIT_PDF_FILE_SIZE_MB } from "./upload-limits";
+  DISALLOWED_FONT_FAMILIES,
+  PDFX_TEXT_CUSTOM_PROPS,
+} from './edit-pdf-types';
+export { DEFAULT_MAX_FILE_SIZE_MB as MAX_EDIT_PDF_FILE_SIZE_MB } from './upload-limits';
 
 export async function loadPdfJs() {
-  const pdfjs = await import("pdfjs-dist");
-  pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.mjs", import.meta.url).href;
+  const pdfjs = await import('pdfjs-dist');
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.mjs',
+    import.meta.url,
+  ).href;
   return pdfjs;
 }
 
 export async function renderPageToCanvas(
-  pdfjsDoc: any, pageNum: number, canvas: HTMLCanvasElement, scale: number
+  pdfjsDoc: any,
+  pageNum: number,
+  canvas: HTMLCanvasElement,
+  scale: number,
 ) {
   const page = await pdfjsDoc.getPage(pageNum);
   const vp = page.getViewport({ scale });
   canvas.width = Math.round(vp.width);
   canvas.height = Math.round(vp.height);
-  const ctx = canvas.getContext("2d")!;
+  const ctx = canvas.getContext('2d')!;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   await page.render({ canvasContext: ctx, viewport: vp, canvas }).promise;
   return { width: vp.width, height: vp.height };
 }
 
 export function dataUrlToBytes(dataUrl: string): Uint8Array {
-  const base64 = dataUrl.split(",")[1];
+  const base64 = dataUrl.split(',')[1];
   const bin = atob(base64);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
@@ -43,10 +50,14 @@ export function dataUrlToBytes(dataUrl: string): Uint8Array {
 }
 
 export function hexToRgba(hex: string, alpha: number) {
-  const sanitized = hex.replace("#", "");
-  const normalized = sanitized.length === 3
-    ? sanitized.split("").map((char) => char + char).join("")
-    : sanitized;
+  const sanitized = hex.replace('#', '');
+  const normalized =
+    sanitized.length === 3
+      ? sanitized
+          .split('')
+          .map((char) => char + char)
+          .join('')
+      : sanitized;
   const value = parseInt(normalized, 16);
   const r = (value >> 16) & 255;
   const g = (value >> 8) & 255;
@@ -59,22 +70,22 @@ export function clamp(value: number, min: number, max: number) {
 }
 
 export function normalizeEditorFontFamily(fontFamily?: string) {
-  const normalized = (fontFamily ?? "").replace(/\s+/g, " ").trim();
-  if (!normalized) return "Arial";
-  if (DISALLOWED_FONT_FAMILIES.has(normalized)) return "Arial";
+  const normalized = (fontFamily ?? '').replace(/\s+/g, ' ').trim();
+  if (!normalized) return 'Arial';
+  if (DISALLOWED_FONT_FAMILIES.has(normalized)) return 'Arial';
   return normalized;
 }
 
 export function isEditableTextObject(obj: any) {
-  return obj?.type === "textbox" || obj?.type === "i-text" || obj?.type === "text";
+  return obj?.type === 'textbox' || obj?.type === 'i-text' || obj?.type === 'text';
 }
 
 export function rgbComponentToHex(value: number) {
-  return clamp(Math.round(value), 0, 255).toString(16).padStart(2, "0");
+  return clamp(Math.round(value), 0, 255).toString(16).padStart(2, '0');
 }
 
 export function parseCanvasColor(color?: string): { hex: string; alpha: number } | null {
-  if (!color || typeof color !== "string") return null;
+  if (!color || typeof color !== 'string') return null;
   const normalized = color.trim().toLowerCase();
   if (/^#[0-9a-f]{6}$/i.test(normalized)) {
     return { hex: normalized as DrawColor, alpha: 1 };
@@ -82,13 +93,16 @@ export function parseCanvasColor(color?: string): { hex: string; alpha: number }
 
   const shortHexMatch = normalized.match(/^#([0-9a-f]{3})$/i);
   if (shortHexMatch) {
-    const expanded = `#${shortHexMatch[1].split("").map((char) => char + char).join("")}`;
+    const expanded = `#${shortHexMatch[1]
+      .split('')
+      .map((char) => char + char)
+      .join('')}`;
     return { hex: expanded, alpha: 1 };
   }
 
   const rgbaMatch = normalized.match(/^rgba?\(([^)]+)\)$/i);
   if (!rgbaMatch) return null;
-  const parts = rgbaMatch[1].split(",").map((part) => part.trim());
+  const parts = rgbaMatch[1].split(',').map((part) => part.trim());
   if (parts.length < 3) return null;
   const [r, g, b] = parts.slice(0, 3).map((part) => Number(part));
   if (![r, g, b].every((part) => Number.isFinite(part))) return null;
@@ -112,7 +126,7 @@ export function fitTextObjectToBounds(obj: any, fallbackFontSize: number) {
   if (!(Number.isFinite(maxWidth) && maxWidth > 24)) return;
   const autoWidth = Boolean((obj as any).pdfxAutoWidth);
 
-  const text = typeof obj.text === "string" ? obj.text : "";
+  const text = typeof obj.text === 'string' ? obj.text : '';
   obj.set({
     fontSize: baseFontSize,
   });
@@ -122,19 +136,17 @@ export function fitTextObjectToBounds(obj: any, fallbackFontSize: number) {
   obj.initDimensions?.();
 
   if (text.trim()) {
-    if (!text.includes("\n")) {
-      const measuredWidth = typeof obj.calcTextWidth === "function"
-        ? obj.calcTextWidth()
-        : (obj.width ?? maxWidth);
+    if (!text.includes('\n')) {
+      const measuredWidth =
+        typeof obj.calcTextWidth === 'function' ? obj.calcTextWidth() : (obj.width ?? maxWidth);
       if (measuredWidth > maxWidth) {
         obj.set({
           fontSize: Math.max(8, Math.round(baseFontSize * (maxWidth / measuredWidth) * 10) / 10),
         });
         obj.initDimensions?.();
       }
-      const nextMeasuredWidth = typeof obj.calcTextWidth === "function"
-        ? obj.calcTextWidth()
-        : measuredWidth;
+      const nextMeasuredWidth =
+        typeof obj.calcTextWidth === 'function' ? obj.calcTextWidth() : measuredWidth;
       if (autoWidth) {
         obj.set({
           width: clamp(nextMeasuredWidth + Math.max(6, obj.fontSize * 0.35), 18, maxWidth),
@@ -164,46 +176,59 @@ export function fitTextObjectToBounds(obj: any, fallbackFontSize: number) {
   } else if (!autoWidth) {
     obj.set({ width: maxWidth });
   }
-  if (typeof obj.minHeight === "number" && obj.minHeight > 0) {
+  if (typeof obj.minHeight === 'number' && obj.minHeight > 0) {
     obj.set({ height: Math.max(obj.height ?? 0, obj.minHeight) });
   }
-  if (typeof (obj as any).pdfxBaseTop === "number") {
+  if (typeof (obj as any).pdfxBaseTop === 'number') {
     obj.set({ top: (obj as any).pdfxBaseTop });
   }
 }
 
-export function buildEditorFontString(editor: Pick<import("./edit-pdf-types").ActiveTextEditor, "fontStyle" | "fontWeight" | "fontSize" | "fontFamily">) {
+export function buildEditorFontString(
+  editor: Pick<
+    import('./edit-pdf-types').ActiveTextEditor,
+    'fontStyle' | 'fontWeight' | 'fontSize' | 'fontFamily'
+  >,
+) {
   return `${editor.fontStyle} ${editor.fontWeight} ${editor.fontSize}px "${editor.fontFamily}"`;
 }
 
 export function measureEditorTextWidth(
   ctx: CanvasRenderingContext2D,
   text: string,
-  editor: Pick<import("./edit-pdf-types").ActiveTextEditor, "fontStyle" | "fontWeight" | "fontSize" | "fontFamily">
+  editor: Pick<
+    import('./edit-pdf-types').ActiveTextEditor,
+    'fontStyle' | 'fontWeight' | 'fontSize' | 'fontFamily'
+  >,
 ) {
   ctx.font = buildEditorFontString(editor);
   // Canvas measureText collapses trailing whitespace out of the advance width,
   // so a line ending in spaces measures the same as without them. The inline
   // editor auto-fits its width to this value and clips overflow, making typed
   // trailing spaces invisible. Re-add the trailing run explicitly.
-  const spaceWidth = ctx.measureText(" ").width;
-  const lines = text.split("\n");
+  const spaceWidth = ctx.measureText(' ').width;
+  const lines = text.split('\n');
   const widestLine = lines.reduce((max, line) => {
-    const trailing = line.length - line.replace(/[ \t]+$/, "").length;
-    return Math.max(max, ctx.measureText(line || " ").width + trailing * spaceWidth);
+    const trailing = line.length - line.replace(/[ \t]+$/, '').length;
+    return Math.max(max, ctx.measureText(line || ' ').width + trailing * spaceWidth);
   }, 0);
   return widestLine;
 }
 
 export function measureEditorTextMetrics(
   ctx: CanvasRenderingContext2D,
-  editor: Pick<import("./edit-pdf-types").ActiveTextEditor, "fontStyle" | "fontWeight" | "fontSize" | "fontFamily">,
-  lineHeightHint?: number
+  editor: Pick<
+    import('./edit-pdf-types').ActiveTextEditor,
+    'fontStyle' | 'fontWeight' | 'fontSize' | 'fontFamily'
+  >,
+  lineHeightHint?: number,
 ) {
   ctx.font = buildEditorFontString(editor);
-  const metrics = ctx.measureText("Hg");
-  const fontBoxAscent = metrics.fontBoundingBoxAscent || metrics.actualBoundingBoxAscent || editor.fontSize * 0.8;
-  const fontBoxDescent = metrics.fontBoundingBoxDescent || metrics.actualBoundingBoxDescent || editor.fontSize * 0.2;
+  const metrics = ctx.measureText('Hg');
+  const fontBoxAscent =
+    metrics.fontBoundingBoxAscent || metrics.actualBoundingBoxAscent || editor.fontSize * 0.8;
+  const fontBoxDescent =
+    metrics.fontBoundingBoxDescent || metrics.actualBoundingBoxDescent || editor.fontSize * 0.2;
   const actualAscent = metrics.actualBoundingBoxAscent || fontBoxAscent;
   const actualDescent = metrics.actualBoundingBoxDescent || fontBoxDescent;
   const fontBoxHeight = Math.max(1, fontBoxAscent + fontBoxDescent);
@@ -211,7 +236,7 @@ export function measureEditorTextMetrics(
     Math.ceil(lineHeightHint ?? 0),
     Math.ceil(fontBoxHeight),
     Math.ceil(editor.fontSize * 1.05),
-    18
+    18,
   );
   const baselineFromTop = (lineHeight - fontBoxHeight) / 2 + fontBoxAscent;
 
@@ -225,16 +250,16 @@ export function measureEditorTextMetrics(
 }
 
 export function normalizePdfFontFamily(fontFamily?: string, fontName?: string) {
-  const familyCandidate = (fontFamily ?? "")
-    .split(",")[0]
-    .replace(/^[/]+/, "")
-    .replace(/[+]/g, " ")
-    .replace(/[-_]/g, " ")
-    .replace(/\s+/g, " ")
+  const familyCandidate = (fontFamily ?? '')
+    .split(',')[0]
+    .replace(/^[/]+/, '')
+    .replace(/[+]/g, ' ')
+    .replace(/[-_]/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
   const normalizedCandidate = familyCandidate
-    .replace(/\b(mt|ps|std|identity|cid)\b/gi, "")
-    .replace(/\s+/g, " ")
+    .replace(/\b(mt|ps|std|identity|cid)\b/gi, '')
+    .replace(/\s+/g, ' ')
     .trim();
 
   if (
@@ -246,25 +271,24 @@ export function normalizePdfFontFamily(fontFamily?: string, fontName?: string) {
     return normalizeEditorFontFamily(normalizedCandidate);
   }
 
-  const source = `${fontFamily ?? ""} ${fontName ?? ""}`.toLowerCase();
-  if (source.includes("calibri")) return "Calibri";
-  if (source.includes("cambria")) return "Cambria";
-  if (source.includes("garamond")) return "Garamond";
-  if (source.includes("mono") || source.includes("courier")) return "Courier New";
-  if (source.includes("helvetica") || source.includes("arial") || source.includes("sans")) return "Arial";
-  if (source.includes("times") || source.includes("georgia") || source.includes("serif")) return "Times New Roman";
-  return "Times New Roman";
+  const source = `${fontFamily ?? ''} ${fontName ?? ''}`.toLowerCase();
+  if (source.includes('calibri')) return 'Calibri';
+  if (source.includes('cambria')) return 'Cambria';
+  if (source.includes('garamond')) return 'Garamond';
+  if (source.includes('mono') || source.includes('courier')) return 'Courier New';
+  if (source.includes('helvetica') || source.includes('arial') || source.includes('sans'))
+    return 'Arial';
+  if (source.includes('times') || source.includes('georgia') || source.includes('serif'))
+    return 'Times New Roman';
+  return 'Times New Roman';
 }
 
 export function getFontTraits(fontName?: string, fontFamily?: string) {
-  const source = `${fontName ?? ""} ${fontFamily ?? ""}`.toLowerCase();
+  const source = `${fontName ?? ''} ${fontFamily ?? ''}`.toLowerCase();
   return {
-    fontWeight: (source.includes("bold") ? "bold" : "normal") as "normal" | "bold",
-    fontStyle: (
-      source.includes("italic") || source.includes("oblique")
-        ? "italic"
-        : "normal"
-    ) as "normal" | "italic",
+    fontWeight: (source.includes('bold') ? 'bold' : 'normal') as 'normal' | 'bold',
+    fontStyle: (source.includes('italic') || source.includes('oblique') ? 'italic' : 'normal') as
+      'normal' | 'italic',
   };
 }
 
@@ -277,9 +301,9 @@ export function splitTextIntoSegments(
   style: {
     fontFamily: string;
     fontSize: number;
-    fontWeight: "normal" | "bold";
-    fontStyle: "normal" | "italic";
-  }
+    fontWeight: 'normal' | 'bold';
+    fontStyle: 'normal' | 'italic';
+  },
 ): TextSegmentMetric[] {
   const matches: Array<{ index: number; value: string }> = [];
   const pattern = /\S+/g;
@@ -292,19 +316,21 @@ export function splitTextIntoSegments(
   if (matches.length <= 1 || text.length <= 1 || width <= 1) {
     const normalizedText = text.trim();
     if (!normalizedText) return [];
-    return [{
-      top,
-      bottom,
-      left,
-      right: left + width,
-      centerY: (top + bottom) / 2,
-      height: baseHeight,
-      text: normalizedText,
-      fontFamily: style.fontFamily,
-      fontSize: style.fontSize,
-      fontWeight: style.fontWeight,
-      fontStyle: style.fontStyle,
-    }];
+    return [
+      {
+        top,
+        bottom,
+        left,
+        right: left + width,
+        centerY: (top + bottom) / 2,
+        height: baseHeight,
+        text: normalizedText,
+        fontFamily: style.fontFamily,
+        fontSize: style.fontSize,
+        fontWeight: style.fontWeight,
+        fontStyle: style.fontStyle,
+      },
+    ];
   }
 
   return matches.map((match) => {
@@ -336,7 +362,7 @@ export async function extractTextLines(page: any, scale: number): Promise<TextLi
     const lines: TextLineMetric[] = [];
 
     for (const item of textContent.items ?? []) {
-      if (!item?.transform || typeof item.str !== "string" || !item.str.trim()) continue;
+      if (!item?.transform || typeof item.str !== 'string' || !item.str.trim()) continue;
 
       const [, , , , tx, ty] = item.transform;
       const [x, y] = viewport.convertToViewportPoint(tx, ty);
@@ -363,7 +389,7 @@ export async function extractTextLines(page: any, scale: number): Promise<TextLi
         existing.bottom = Math.max(existing.bottom, bottom);
         existing.left = Math.min(existing.left, x);
         existing.right = Math.max(existing.right, x + width);
-        existing.text = `${existing.text} ${item.str}`.replace(/\s+/g, " ").trim();
+        existing.text = `${existing.text} ${item.str}`.replace(/\s+/g, ' ').trim();
         existing.segments.push(...segments);
         existing.height = existing.bottom - existing.top;
         existing.centerY = (existing.top + existing.bottom) / 2;
@@ -402,16 +428,18 @@ export async function extractTextLines(page: any, scale: number): Promise<TextLi
   }
 }
 
-export function findNearestTextLine(lines: TextLineMetric[], x: number, y: number, maxScore = 40): TextLineMetric | null {
+export function findNearestTextLine(
+  lines: TextLineMetric[],
+  x: number,
+  y: number,
+  maxScore = 40,
+): TextLineMetric | null {
   let best: TextLineMetric | null = null;
   let bestScore = Number.POSITIVE_INFINITY;
 
   for (const line of lines) {
     const verticalDistance = Math.abs(line.centerY - y);
-    const horizontalOverflow =
-      x < line.left ? line.left - x :
-      x > line.right ? x - line.right :
-      0;
+    const horizontalOverflow = x < line.left ? line.left - x : x > line.right ? x - line.right : 0;
     const score = verticalDistance + horizontalOverflow * 0.2;
     if (score < bestScore) {
       best = line;
@@ -430,10 +458,8 @@ export function findNearestTextSegment(line: TextLineMetric, x: number): TextSeg
 
   for (const segment of line.segments) {
     const distance =
-      x < segment.left ? segment.left - x :
-      x > segment.right ? x - segment.right :
-      0;
-    const score = distance + Math.abs(((segment.left + segment.right) / 2) - x) * 0.05;
+      x < segment.left ? segment.left - x : x > segment.right ? x - segment.right : 0;
+    const score = distance + Math.abs((segment.left + segment.right) / 2 - x) * 0.05;
     if (score < bestScore) {
       best = segment;
       bestScore = score;
@@ -444,7 +470,7 @@ export function findNearestTextSegment(line: TextLineMetric, x: number): TextSeg
 }
 
 export function estimateLineCaretIndex(line: TextLineMetric, x: number) {
-  const text = line.text ?? "";
+  const text = line.text ?? '';
   if (!text) return 0;
   const ratio = clamp((x - line.left) / Math.max(1, line.right - line.left), 0, 1);
   return clamp(Math.round(text.length * ratio), 0, text.length);
@@ -464,7 +490,7 @@ export function clampHighlightX(line: TextLineMetric, x: number, paddingX = 2) {
 export function resolveHighlightEndLine(
   lines: TextLineMetric[],
   startLine: TextLineMetric | null,
-  pointer: { x: number; y: number }
+  pointer: { x: number; y: number },
 ) {
   if (!startLine) {
     return findNearestTextLine(lines, pointer.x, pointer.y, 32);
@@ -482,7 +508,7 @@ export function resolveHighlightEndLine(
 export function resolveTextInsertionStyle(
   lines: TextLineMetric[],
   pointer: { x: number; y: number },
-  fallback: Pick<TextInsertionStyle, "fontFamily" | "fontSize" | "fontWeight" | "fontStyle">
+  fallback: Pick<TextInsertionStyle, 'fontFamily' | 'fontSize' | 'fontWeight' | 'fontStyle'>,
 ): TextInsertionStyle {
   const line = findNearestTextLine(lines, pointer.x, pointer.y, 34);
   const segment = line ? findNearestTextSegment(line, pointer.x) : null;
@@ -493,10 +519,8 @@ export function resolveTextInsertionStyle(
     : line
       ? clamp(pointer.x, line.left, line.right)
       : pointer.x;
-  const rightBound = line?.right ?? (insertionLeft + Math.max(fontSize * 12, 220));
-  const top = line
-    ? line.bottom - fontSize * 0.82
-    : pointer.y - fontSize * 0.5;
+  const rightBound = line?.right ?? insertionLeft + Math.max(fontSize * 12, 220);
+  const top = line ? line.bottom - fontSize * 0.82 : pointer.y - fontSize * 0.5;
 
   return {
     left: insertionLeft,
@@ -517,8 +541,8 @@ export interface LineEditSeed {
   maxWidth: number;
   fontFamily: string;
   fontSize: number;
-  fontWeight: "normal" | "bold";
-  fontStyle: "normal" | "italic";
+  fontWeight: 'normal' | 'bold';
+  fontStyle: 'normal' | 'italic';
   mask: { left: number; top: number; width: number; height: number };
 }
 
@@ -532,15 +556,15 @@ export function buildLineEditSeed(line: TextLineMetric): LineEditSeed {
   const maskPadX = Math.max(2, fontSize * 0.15);
   const maskPadY = Math.max(2, fontSize * 0.18);
   return {
-    text: line.text ?? "",
+    text: line.text ?? '',
     left: line.left,
     top,
     baselineY,
     maxWidth: Math.max(line.right - line.left + fontSize * 0.5, fontSize * 4.5, 72),
     fontFamily: normalizeEditorFontFamily(line.fontFamily),
     fontSize,
-    fontWeight: line.fontWeight === "bold" ? "bold" : "normal",
-    fontStyle: line.fontStyle === "italic" ? "italic" : "normal",
+    fontWeight: line.fontWeight === 'bold' ? 'bold' : 'normal',
+    fontStyle: line.fontStyle === 'italic' ? 'italic' : 'normal',
     mask: {
       left: line.left - maskPadX,
       top: line.top - maskPadY,
@@ -554,12 +578,12 @@ export function resolveHighlightRange(
   line: TextLineMetric,
   fromX: number,
   toX: number,
-  paddingX: number
+  paddingX: number,
 ) {
   const minX = Math.min(fromX, toX);
   const maxX = Math.max(fromX, toX);
   const overlapping = line.segments.filter(
-    (segment) => segment.right >= minX && segment.left <= maxX
+    (segment) => segment.right >= minX && segment.left <= maxX,
   );
 
   if (overlapping.length > 0) {
@@ -576,12 +600,12 @@ export function resolveHighlightRange(
       left: clampHighlightX(
         line,
         Math.min(startSegment.left, endSegment.left) - paddingX,
-        paddingX
+        paddingX,
       ),
       right: clampHighlightX(
         line,
         Math.max(startSegment.right, endSegment.right) + paddingX,
-        paddingX
+        paddingX,
       ),
     };
   }
@@ -599,7 +623,7 @@ export function buildHighlightRectMetrics(
   startLine: TextLineMetric,
   endLine: TextLineMetric,
   paddingX = 2,
-  paddingY = 3
+  paddingY = 3,
 ) {
   const startIndex = lines.findIndex((line) => line === startLine);
   const endIndex = lines.findIndex((line) => line === endLine);
@@ -607,8 +631,7 @@ export function buildHighlightRectMetrics(
   if (startIndex === -1 || endIndex === -1) return [];
 
   const startComesFirst =
-    startIndex < endIndex ||
-    (startIndex === endIndex && startPoint.x <= endPoint.x);
+    startIndex < endIndex || (startIndex === endIndex && startPoint.x <= endPoint.x);
 
   const firstIndex = startComesFirst ? startIndex : endIndex;
   const lastIndex = startComesFirst ? endIndex : startIndex;

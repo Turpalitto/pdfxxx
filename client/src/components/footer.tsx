@@ -1,8 +1,14 @@
-import { Link } from "wouter";
-import { FileText, Mail } from "lucide-react";
-import { categories, getCategoryLabel } from "@/lib/tools";
-import { useLang } from "@/lib/lang-context";
-import { loadContactPage, loadHomePage, loadPricingPage, loadPrivacyPage, loadTermsPage } from "@/lib/route-preload";
+import { Link } from 'wouter';
+import { FileText, Mail } from 'lucide-react';
+import { categories, getCategoryLabel } from '@/lib/tools';
+import { useLang } from '@/lib/lang-context';
+import {
+  loadContactPage,
+  loadHomePage,
+  loadPricingPage,
+  loadPrivacyPage,
+  loadTermsPage,
+} from '@/lib/route-preload';
 
 export function Footer() {
   const { t, lang } = useLang();
@@ -16,7 +22,11 @@ export function Footer() {
             <Link href="/" className="flex items-center gap-2.5 mb-4 group">
               <div
                 className="flex size-10 items-center justify-center rounded-[14px] shadow-lg"
-                style={{ background: "linear-gradient(135deg, #1b96b3 0%, #2f6aa6 100%)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.45), 0 10px 20px rgba(29,95,135,0.20)" }}
+                style={{
+                  background: 'linear-gradient(135deg, #1b96b3 0%, #2f6aa6 100%)',
+                  boxShadow:
+                    'inset 0 1px 0 rgba(255,255,255,0.45), 0 10px 20px rgba(29,95,135,0.20)',
+                }}
               >
                 <FileText className="size-6 text-white" />
               </div>
@@ -25,9 +35,9 @@ export function Footer() {
               </span>
             </Link>
             <p className="mb-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
-              {lang === "ru"
-                ? "Надежный сервис для работы с PDF документами онлайн."
-                : "Reliable online service for working with PDF documents."}
+              {lang === 'ru'
+                ? 'Надежный сервис для работы с PDF документами онлайн.'
+                : 'Reliable online service for working with PDF documents.'}
             </p>
             <a
               href="mailto:hello@pdfx.tools"
@@ -80,17 +90,54 @@ export function Footer() {
           <div>
             <h3 className="mb-4 font-semibold text-foreground">{t.footer.company}</h3>
             <ul className="space-y-2 text-sm">
-              <li><Link href="/pricing" onMouseEnter={() => void loadPricingPage()} onFocus={() => void loadPricingPage()} className="text-muted-foreground transition-colors hover:text-foreground">{t.footer.pricing}</Link></li>
-              <li><Link href="/privacy" onMouseEnter={() => void loadPrivacyPage()} onFocus={() => void loadPrivacyPage()} className="text-muted-foreground transition-colors hover:text-foreground">{t.footer.privacy}</Link></li>
-              <li><Link href="/terms" onMouseEnter={() => void loadTermsPage()} onFocus={() => void loadTermsPage()} className="text-muted-foreground transition-colors hover:text-foreground">{t.footer.terms}</Link></li>
-              <li><Link href="/contact" onMouseEnter={() => void loadContactPage()} onFocus={() => void loadContactPage()} className="text-muted-foreground transition-colors hover:text-foreground">{t.footer.contact}</Link></li>
+              <li>
+                <Link
+                  href="/pricing"
+                  onMouseEnter={() => void loadPricingPage()}
+                  onFocus={() => void loadPricingPage()}
+                  className="text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {t.footer.pricing}
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/privacy"
+                  onMouseEnter={() => void loadPrivacyPage()}
+                  onFocus={() => void loadPrivacyPage()}
+                  className="text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {t.footer.privacy}
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/terms"
+                  onMouseEnter={() => void loadTermsPage()}
+                  onFocus={() => void loadTermsPage()}
+                  className="text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {t.footer.terms}
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/contact"
+                  onMouseEnter={() => void loadContactPage()}
+                  onFocus={() => void loadContactPage()}
+                  className="text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {t.footer.contact}
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
 
         <div className="flex flex-col items-center justify-between gap-4 border-t border-border pt-8 sm:flex-row">
           <p className="text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} PDFX. {lang === "ru" ? "Все права защищены." : "All rights reserved."}
+            &copy; {new Date().getFullYear()} PDFX.{' '}
+            {lang === 'ru' ? 'Все права защищены.' : 'All rights reserved.'}
           </p>
         </div>
       </div>

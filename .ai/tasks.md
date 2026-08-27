@@ -20,7 +20,7 @@
 
 ## 🔄 Текущие задачи (In Progress)
 
-- [~] **Восстановление после broken merge 8ddf5fa (2026-08-26)** — pdf-utils.ts восстановлен (~3068 строк, все функции из спеки тестов), tool-page.tsx переписан на registry/worker-routing со всеми контролами, home.tsx честный + поиск, i18n без фейков, SEO без aggregateRating, статический sitemap синхронизирован, edit-pdf: фикс координат клика/per-page undo/прозрачная подпись/pdfjs destroy/мобильный drawer страниц, README+LICENSE, git index очищен от мусора. **НЕ ПРОВЕРЕНО компилятором** — на машине агента нет Node: требуется `npm run check`, `npm test`, e2e (rotation/worker-tools/smoke/editor-mobile) и ручной прогон ключевых инструментов.
+- [x] **Восстановление после broken merge 8ddf5fa + аудит-чистка (2026-08-26)** — pdf-utils.ts восстановлен (~3070 строк), tool-page.tsx переписан на registry/worker-routing (58 слаг, отмена, контролы), home.tsx честный + поиск, i18n без фейков, SEO без aggregateRating + inLanguage из LANGUAGES, статический sitemap синхронизирован (64 URL), edit-pdf: фикс координат клика/per-page undo/прозрачная подпись/pdfjs destroy/мобильный drawer, README+LICENSE, git index очищен от мусора. Второй круг чистки: ESLint (flat config) + Prettier, pruned dead deps (~20 транзит. пакетов + shadcn wrappers 35 файлов), package.json hygiene (name pdfx, engines, repository), Toaster подключён в App (тосты реально показываются), CSP prod расширен под Tesseract CDN (OCR в проде), build.ts allowlist реальный ['express'], vite без replit-плагинов/alias на attached_assets, FAQ '3 файла' исправлен, og-image 1200x630 + hreflang 13 ссылок в index.html. **Проверено**: tsc 0 ошибок · eslint 0 ошибок · prettier по всему репо · vitest 124/124 · build OK · prod smoke (PORT=5099, node dist/index.cjs, CSP+headers OK) · e2e 57 passed / 3 skipped (RUN_OCR_E2E) на PORT=5057 · git clean, 3 финальных коммита запушены (c8bba3f, 67c175b, 3e83c95).
 
 ## ✅ Решено
 
@@ -177,6 +177,7 @@
 - [x] TD-12: удалена мёртвая функция ocrPdfLegacy
 
 ### 🟡 Найдено аудитом, требует подтверждения владельца (не исправлено)
+
 - [x] TD-11: Find&Replace белая маска через canvas measureText вместо character-ratio (исправлено)
 
 ---
@@ -229,23 +230,24 @@
 
 ### Высокий приоритет
 
-| # | Проблема | Файл | Описание |
-|---|---|---|---|
+| #     | Проблема                  | Файл                | Описание                                                                                                                                                                              |
+| ----- | ------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | TD-02 | edit-pdf-page.tsx монолит | `edit-pdf-page.tsx` | Phase 5 вынесла copy в отдельный модуль. Следующий рефакторинг делать только под конкретное изменение редактора: крупные hook-и сейчас требуют 10+ параметров и несут риск регрессий. |
 
 ### Низкий приоритет
 
-| # | Проблема | Файл | Описание |
-|---|---|---|---|
-| TD-06 | ~~compare/overlay input~~ | `tool-page.tsx` | ✅ Исправлено |
-| TD-07 | ~~Нет CI/CD~~ | — | ✅ CI/CD GitHub Actions настроен |
-| TD-08 | ~~autoRedact координаты~~ | `pdf-utils.ts` | ✅ Исправлено |
+| #     | Проблема                  | Файл            | Описание                         |
+| ----- | ------------------------- | --------------- | -------------------------------- |
+| TD-06 | ~~compare/overlay input~~ | `tool-page.tsx` | ✅ Исправлено                    |
+| TD-07 | ~~Нет CI/CD~~             | —               | ✅ CI/CD GitHub Actions настроен |
+| TD-08 | ~~autoRedact координаты~~ | `pdf-utils.ts`  | ✅ Исправлено                    |
 
 ---
 
 ## 💡 Идеи улучшений (Backlog)
 
 ### Новые инструменты (браузер, реализуемо)
+
 - [x] `pdf-to-pptx` — Конвертация страниц PDF в слайды PowerPoint (уже реализован)
 - [x] `pdf-to-markdown` — Извлечение текста в Markdown формат (уже реализован)
 - [x] `pdf-diff` — Цветное diff-сравнение двух PDF (уже реализован)
@@ -254,6 +256,7 @@
 - [x] `remove-images` — Удаление изображений из PDF (уже реализован)
 
 ### UX улучшения
+
 - [x] Drag-and-drop порядка файлов в merge-pdf
 - [x] Предпросмотр результата до скачивания (уже реализован — previewDataUrl для PDF)
 - [x] История последних файлов (localStorage) — уже реализовано (useRecentFiles)
@@ -261,6 +264,7 @@
 - [ ] Keyboard shortcuts help popup
 
 ### Технические улучшения
+
 - [x] Web Workers для тяжёлых операций (Round 17, 2026-06-04) — инфра + grayscale/invert/pdfToImages, остальное в backlog
 - [x] Service Worker + PWA (vite-plugin-pwa уже настроен)
 - [x] Виртуализация списка инструментов на главной (useLazyRender)
@@ -270,15 +274,15 @@
 
 ## 🐛 Известные баги
 
-| # | Баг | Воспроизведение | Приоритет |
-|---|---|---|---|
-| BUG-01 | ~~auto-redact неточно на ротированных страницах~~ | `pdf-utils.ts` | ✅ Исправлено: переписан на canvas-based подход |
-| BUG-02 | Find & Replace ищет только по исходному тексту | Добавленный в редакторе текст не ищется | Низкий (ожидаемое поведение) |
-| BUG-03 | ~~split-by-size ZIP для 1 части~~ | ✅ Исправлено: при 1 части возвращается исходный PDF, при нескольких — ZIP |
-| BUG-10 | ~~autoRedact split PII~~ | pdf-utils.ts | ✅ Исправлено: sliding window matching 1–3 items |
-| BUG-11 | ~~sanitizePdf не удалял JS/tracking~~ | pdf-utils.ts | ✅ Исправлено: удаление OpenAction/AA/URI/JS/EmbeddedFiles |
-| BUG-12 | ~~split-by-chapters скачивает как .zip при 1 главе~~ | tool-page.tsx | ✅ Исправлено: magic bytes check |
-| BUG-13 | ~~pdfjs memory leaks в 12 функциях~~ | pdf-utils.ts | ✅ Исправлено: try/finally + destroy() |
+| #      | Баг                                                  | Воспроизведение                                                            | Приоритет                                                  |
+| ------ | ---------------------------------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| BUG-01 | ~~auto-redact неточно на ротированных страницах~~    | `pdf-utils.ts`                                                             | ✅ Исправлено: переписан на canvas-based подход            |
+| BUG-02 | Find & Replace ищет только по исходному тексту       | Добавленный в редакторе текст не ищется                                    | Низкий (ожидаемое поведение)                               |
+| BUG-03 | ~~split-by-size ZIP для 1 части~~                    | ✅ Исправлено: при 1 части возвращается исходный PDF, при нескольких — ZIP |
+| BUG-10 | ~~autoRedact split PII~~                             | pdf-utils.ts                                                               | ✅ Исправлено: sliding window matching 1–3 items           |
+| BUG-11 | ~~sanitizePdf не удалял JS/tracking~~                | pdf-utils.ts                                                               | ✅ Исправлено: удаление OpenAction/AA/URI/JS/EmbeddedFiles |
+| BUG-12 | ~~split-by-chapters скачивает как .zip при 1 главе~~ | tool-page.tsx                                                              | ✅ Исправлено: magic bytes check                           |
+| BUG-13 | ~~pdfjs memory leaks в 12 функциях~~                 | pdf-utils.ts                                                               | ✅ Исправлено: try/finally + destroy()                     |
 
 ## ⚠️ Техдолг (выявлен аудитом 2026-08-26, не блокирует)
 

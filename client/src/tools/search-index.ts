@@ -1,7 +1,7 @@
-import type { LangCode } from "@/lib/i18n";
-import { getToolTranslation } from "@/lib/tool-translations";
-import { toolRegistry } from "./registry";
-import type { ToolRegistryEntry } from "./types";
+import type { LangCode } from '@/lib/i18n';
+import { getToolTranslation } from '@/lib/tool-translations';
+import { toolRegistry } from './registry';
+import type { ToolRegistryEntry } from './types';
 
 export interface ToolSearchResult {
   entry: ToolRegistryEntry;
@@ -27,7 +27,9 @@ function scoreEntry(entry: ToolRegistryEntry, tokens: string[], lang: LangCode):
     translation.description,
     ...entry.search.en,
     ...entry.search.ru,
-  ].join(" ").toLowerCase();
+  ]
+    .join(' ')
+    .toLowerCase();
 
   return tokens.reduce((score, token) => {
     if (entry.slug.includes(token)) return score + 6;
@@ -37,7 +39,11 @@ function scoreEntry(entry: ToolRegistryEntry, tokens: string[], lang: LangCode):
   }, 0);
 }
 
-export function searchToolRegistry(query: string, lang: LangCode = "en", limit = 12): ToolSearchResult[] {
+export function searchToolRegistry(
+  query: string,
+  lang: LangCode = 'en',
+  limit = 12,
+): ToolSearchResult[] {
   const tokens = normalizeQuery(query);
 
   if (tokens.length === 0) {

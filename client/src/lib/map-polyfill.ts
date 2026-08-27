@@ -23,8 +23,8 @@ type AnyMap = Map<unknown, unknown> | WeakMap<object, unknown>;
 function install(proto: AnyMap) {
   const p = proto as unknown as Record<string, unknown>;
 
-  if (typeof p.getOrInsert !== "function") {
-    Object.defineProperty(p, "getOrInsert", {
+  if (typeof p.getOrInsert !== 'function') {
+    Object.defineProperty(p, 'getOrInsert', {
       value: function (this: Map<unknown, unknown>, key: unknown, value: unknown) {
         if (this.has(key as never)) return this.get(key as never);
         this.set(key as never, value as never);
@@ -36,8 +36,8 @@ function install(proto: AnyMap) {
     });
   }
 
-  if (typeof p.getOrInsertComputed !== "function") {
-    Object.defineProperty(p, "getOrInsertComputed", {
+  if (typeof p.getOrInsertComputed !== 'function') {
+    Object.defineProperty(p, 'getOrInsertComputed', {
       value: function (
         this: Map<unknown, unknown>,
         key: unknown,

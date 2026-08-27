@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from "react";
-import type { MutableRefObject } from "react";
+import { useCallback, useRef, useState } from 'react';
+import type { MutableRefObject } from 'react';
 
 export interface UseEditorHistoryReturn {
   pushHistory: () => void;
@@ -11,9 +11,7 @@ export interface UseEditorHistoryReturn {
   resetHistory: () => void;
 }
 
-export function useEditorHistory(
-  fabricRef: MutableRefObject<any>
-): UseEditorHistoryReturn {
+export function useEditorHistory(fabricRef: MutableRefObject<any>): UseEditorHistoryReturn {
   const historyRef = useRef<string[]>([]);
   const historyIndexRef = useRef(-1);
   const suppressHistoryRef = useRef(false);
@@ -45,16 +43,19 @@ export function useEditorHistory(
     setHistoryVersion((prev) => prev + 1);
     restoringRef.current = true;
     suppressHistoryRef.current = true;
-    fabricRef.current.loadFromJSON(JSON.parse(historyRef.current[idx - 1])).then(() => {
-      suppressHistoryRef.current = false;
-      restoringRef.current = false;
-      fabricRef.current.renderAll();
-      setHistoryVersion((prev) => prev + 1);
-    }).catch(() => {
-      suppressHistoryRef.current = false;
-      restoringRef.current = false;
-      setHistoryVersion((prev) => prev + 1);
-    });
+    fabricRef.current
+      .loadFromJSON(JSON.parse(historyRef.current[idx - 1]))
+      .then(() => {
+        suppressHistoryRef.current = false;
+        restoringRef.current = false;
+        fabricRef.current.renderAll();
+        setHistoryVersion((prev) => prev + 1);
+      })
+      .catch(() => {
+        suppressHistoryRef.current = false;
+        restoringRef.current = false;
+        setHistoryVersion((prev) => prev + 1);
+      });
   }, []);
 
   const handleRedo = useCallback(() => {
@@ -66,16 +67,19 @@ export function useEditorHistory(
     setHistoryVersion((prev) => prev + 1);
     restoringRef.current = true;
     suppressHistoryRef.current = true;
-    fabricRef.current.loadFromJSON(JSON.parse(hist[idx + 1])).then(() => {
-      suppressHistoryRef.current = false;
-      restoringRef.current = false;
-      fabricRef.current.renderAll();
-      setHistoryVersion((prev) => prev + 1);
-    }).catch(() => {
-      suppressHistoryRef.current = false;
-      restoringRef.current = false;
-      setHistoryVersion((prev) => prev + 1);
-    });
+    fabricRef.current
+      .loadFromJSON(JSON.parse(hist[idx + 1]))
+      .then(() => {
+        suppressHistoryRef.current = false;
+        restoringRef.current = false;
+        fabricRef.current.renderAll();
+        setHistoryVersion((prev) => prev + 1);
+      })
+      .catch(() => {
+        suppressHistoryRef.current = false;
+        restoringRef.current = false;
+        setHistoryVersion((prev) => prev + 1);
+      });
   }, []);
 
   const resetHistory = useCallback(() => {
@@ -88,8 +92,7 @@ export function useEditorHistory(
 
   const canUndo = historyIndexRef.current > 0;
   const canRedo =
-    historyIndexRef.current >= 0 &&
-    historyIndexRef.current < historyRef.current.length - 1;
+    historyIndexRef.current >= 0 && historyIndexRef.current < historyRef.current.length - 1;
 
   return {
     pushHistory,

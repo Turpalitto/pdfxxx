@@ -1,50 +1,87 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { Link } from "wouter";
-import { PDFDocument, rgb } from "pdf-lib";
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Link } from 'wouter';
+import { PDFDocument } from 'pdf-lib';
 import {
-  MousePointer2, Type, Pencil, Image as ImageIcon, PenLine,
-  Square, Circle, Minus, Highlighter, Eraser, Undo2, Redo2,
-  ZoomIn, ZoomOut, Maximize2, Download, ArrowLeft, ChevronLeft, ChevronRight,
-  Upload, Loader2, ArrowRight,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useLang } from "@/lib/lang-context";
-import { useSeo } from "@/hooks/use-seo";
-import { cn } from "@/lib/utils";
-import { DEFAULT_MAX_FILE_SIZE_MB, mbToBytes } from "@/lib/upload-limits";
+  MousePointer2,
+  Type,
+  Pencil,
+  Image as ImageIcon,
+  PenLine,
+  Square,
+  Circle,
+  Minus,
+  Highlighter,
+  Eraser,
+  Undo2,
+  Redo2,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  Download,
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  Upload,
+  Loader2,
+  ArrowRight,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useLang } from '@/lib/lang-context';
+import { useSeo } from '@/hooks/use-seo';
+import { cn } from '@/lib/utils';
+import { DEFAULT_MAX_FILE_SIZE_MB, mbToBytes } from '@/lib/upload-limits';
 
-type ToolType = "select" | "text" | "draw" | "image" | "sign" | "rect" | "circle" | "line" | "highlight" | "eraser";
-type DrawColor = "#1a1a1a" | "#e53e3e" | "#3182ce" | "#38a169" | "#d69e2e";
+type ToolType =
+  | 'select'
+  | 'text'
+  | 'draw'
+  | 'image'
+  | 'sign'
+  | 'rect'
+  | 'circle'
+  | 'line'
+  | 'highlight'
+  | 'eraser';
+type DrawColor = '#1a1a1a' | '#e53e3e' | '#3182ce' | '#38a169' | '#d69e2e';
 
-interface PageDims { width: number; height: number }
+interface PageDims {
+  width: number;
+  height: number;
+}
 
 const DISPLAY_SCALE = 1.5;
 const THUMB_SCALE = 0.15;
 const MAX_EDIT_PDF_FILE_SIZE_MB = DEFAULT_MAX_FILE_SIZE_MB;
 
 async function loadPdfJs() {
-  const pdfjs = await import("pdfjs-dist");
-  pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.mjs", import.meta.url).href;
+  const pdfjs = await import('pdfjs-dist');
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.mjs',
+    import.meta.url,
+  ).href;
   return pdfjs;
 }
 
 async function renderPageToCanvas(
-  pdfjsDoc: any, pageNum: number, canvas: HTMLCanvasElement, scale: number
+  pdfjsDoc: any,
+  pageNum: number,
+  canvas: HTMLCanvasElement,
+  scale: number,
 ) {
   const page = await pdfjsDoc.getPage(pageNum);
   const vp = page.getViewport({ scale });
   canvas.width = Math.round(vp.width);
   canvas.height = Math.round(vp.height);
-  const ctx = canvas.getContext("2d")!;
+  const ctx = canvas.getContext('2d')!;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   await page.render({ canvasContext: ctx, viewport: vp, canvas }).promise;
   return { width: vp.width, height: vp.height };
 }
 
 function dataUrlToBytes(dataUrl: string): Uint8Array {
-  const base64 = dataUrl.split(",")[1];
+  const base64 = dataUrl.split(',')[1];
   const bin = atob(base64);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
@@ -53,13 +90,13 @@ function dataUrlToBytes(dataUrl: string): Uint8Array {
 
 export default function EditPdfPage() {
   const { lang } = useLang();
-  const isRu = lang === "ru";
+  const isRu = lang === 'ru';
 
   useSeo({
-    title: isRu ? "Редактировать PDF — PDFX" : "Edit PDF — PDFX",
+    title: isRu ? 'Редактировать PDF — PDFX' : 'Edit PDF — PDFX',
     description: isRu
-      ? "Добавляйте текст, рисунки, изображения и подписи к PDF прямо в браузере. Файл не покидает ваш компьютер."
-      : "Add text, drawings, images and signatures to PDF directly in the browser. No upload to server.",
+      ? 'Добавляйте текст, рисунки, изображения и подписи к PDF прямо в браузере. Файл не покидает ваш компьютер.'
+      : 'Add text, drawings, images and signatures to PDF directly in the browser. No upload to server.',
   });
 
   const [file, setFile] = useState<File | null>(null);
@@ -68,15 +105,15 @@ export default function EditPdfPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [thumbnails, setThumbnails] = useState<string[]>([]);
   const [pageDims, setPageDims] = useState<PageDims[]>([]);
-  const [loadingState, setLoadingState] = useState<"idle" | "loading" | "ready">("idle");
+  const [loadingState, setLoadingState] = useState<'idle' | 'loading' | 'ready'>('idle');
   const [loadProgress, setLoadProgress] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeTool, setActiveTool] = useState<ToolType>("select");
+  const [activeTool, setActiveTool] = useState<ToolType>('select');
   const [zoom, setZoom] = useState(1);
-  const [drawColor, setDrawColor] = useState<DrawColor>("#1a1a1a");
-  const [brushSize, setBrushSize] = useState(3);
-  const [fontSize, setFontSize] = useState(16);
-  const [fontColor, setFontColor] = useState("#1a1a1a");
+  const [drawColor, setDrawColor] = useState<DrawColor>('#1a1a1a');
+  const [brushSize] = useState(3);
+  const [fontSize] = useState(16);
+  const [fontColor, setFontColor] = useState('#1a1a1a');
   const [signModalOpen, setSignModalOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [mobilePagesOpen, setMobilePagesOpen] = useState(false);
@@ -98,45 +135,47 @@ export default function EditPdfPage() {
   const pdfjsDocRef = useRef<any>(null);
 
   const t = {
-    title: isRu ? "Редактировать PDF" : "Edit PDF",
-    upload: isRu ? "Перетащите PDF сюда или" : "Drop PDF here or",
-    choose: isRu ? "Выберите файл" : "Choose file",
+    title: isRu ? 'Редактировать PDF' : 'Edit PDF',
+    upload: isRu ? 'Перетащите PDF сюда или' : 'Drop PDF here or',
+    choose: isRu ? 'Выберите файл' : 'Choose file',
     limit: isRu ? `Макс. ${MAX_EDIT_PDF_FILE_SIZE_MB} МБ` : `Max ${MAX_EDIT_PDF_FILE_SIZE_MB} MB`,
-    save: isRu ? "Скачать PDF" : "Download PDF",
-    saving: isRu ? "Сохранение…" : "Saving…",
-    undo: isRu ? "Отменить" : "Undo",
-    redo: isRu ? "Повторить" : "Redo",
+    save: isRu ? 'Скачать PDF' : 'Download PDF',
+    saving: isRu ? 'Сохранение…' : 'Saving…',
+    undo: isRu ? 'Отменить' : 'Undo',
+    redo: isRu ? 'Повторить' : 'Redo',
     tools: {
-      select: isRu ? "Выбор" : "Select",
-      text: isRu ? "Текст" : "Text",
-      draw: isRu ? "Рисование" : "Draw",
-      image: isRu ? "Изображение" : "Image",
-      sign: isRu ? "Подпись" : "Signature",
-      rect: isRu ? "Прямоугольник" : "Rectangle",
-      circle: isRu ? "Круг" : "Circle",
-      line: isRu ? "Линия" : "Line",
-      highlight: isRu ? "Маркер" : "Highlight",
-      eraser: isRu ? "Ластик" : "Eraser",
+      select: isRu ? 'Выбор' : 'Select',
+      text: isRu ? 'Текст' : 'Text',
+      draw: isRu ? 'Рисование' : 'Draw',
+      image: isRu ? 'Изображение' : 'Image',
+      sign: isRu ? 'Подпись' : 'Signature',
+      rect: isRu ? 'Прямоугольник' : 'Rectangle',
+      circle: isRu ? 'Круг' : 'Circle',
+      line: isRu ? 'Линия' : 'Line',
+      highlight: isRu ? 'Маркер' : 'Highlight',
+      eraser: isRu ? 'Ластик' : 'Eraser',
     },
-    page: isRu ? "стр." : "p.",
-    howToUse: isRu ? "Как использовать" : "How to use",
-    steps: isRu ? [
-      "Загрузите PDF файл",
-      "Выберите инструмент в тулбаре",
-      "Редактируйте страницы",
-      "Нажмите «Скачать PDF»",
-    ] : [
-      "Upload your PDF file",
-      "Select a tool from the toolbar",
-      "Edit pages as needed",
-      "Click «Download PDF»",
-    ],
-    signTitle: isRu ? "Нарисуйте подпись" : "Draw your signature",
-    signClear: isRu ? "Очистить" : "Clear",
-    signConfirm: isRu ? "Добавить" : "Add",
-    eraseHint: isRu ? "Кликните на объект чтобы удалить" : "Click an object to delete it",
-    pages: isRu ? "Страницы" : "Pages",
-    close: isRu ? "Закрыть" : "Close",
+    page: isRu ? 'стр.' : 'p.',
+    howToUse: isRu ? 'Как использовать' : 'How to use',
+    steps: isRu
+      ? [
+          'Загрузите PDF файл',
+          'Выберите инструмент в тулбаре',
+          'Редактируйте страницы',
+          'Нажмите «Скачать PDF»',
+        ]
+      : [
+          'Upload your PDF file',
+          'Select a tool from the toolbar',
+          'Edit pages as needed',
+          'Click «Download PDF»',
+        ],
+    signTitle: isRu ? 'Нарисуйте подпись' : 'Draw your signature',
+    signClear: isRu ? 'Очистить' : 'Clear',
+    signConfirm: isRu ? 'Добавить' : 'Add',
+    eraseHint: isRu ? 'Кликните на объект чтобы удалить' : 'Click an object to delete it',
+    pages: isRu ? 'Страницы' : 'Pages',
+    close: isRu ? 'Закрыть' : 'Close',
   };
 
   useEffect(() => {
@@ -167,24 +206,24 @@ export default function EditPdfPage() {
 
   const initFabric = useCallback(async () => {
     if (!fabricElRef.current || !pdfCanvasRef.current) return;
-    const { Canvas: FabricCanvas, PencilBrush } = await import("fabric");
+    const { Canvas: FabricCanvas, PencilBrush } = await import('fabric');
     if (fabricRef.current) {
       fabricRef.current.dispose();
     }
     const fc = new FabricCanvas(fabricElRef.current, {
       selection: true,
-      backgroundColor: "",
+      backgroundColor: '',
       width: pdfCanvasRef.current.width,
       height: pdfCanvasRef.current.height,
     });
     (fc as any)._pdfxPencilBrush = new PencilBrush(fc);
     fabricRef.current = fc;
 
-    fc.on("object:added", pushHistory);
-    fc.on("object:modified", pushHistory);
-    fc.on("object:removed", pushHistory);
-    fc.on("mouse:down", (opt: any) => {
-      if (activeToolRef.current === "eraser" && opt.target) {
+    fc.on('object:added', pushHistory);
+    fc.on('object:modified', pushHistory);
+    fc.on('object:removed', pushHistory);
+    fc.on('mouse:down', (opt: any) => {
+      if (activeToolRef.current === 'eraser' && opt.target) {
         fc.remove(opt.target);
         fc.discardActiveObject();
         fc.renderAll();
@@ -214,10 +253,15 @@ export default function EditPdfPage() {
     pageStatesRef.current.set(currentPage, json);
   }, [currentPage]);
 
-  const updateZoom = useCallback((updater: number | ((prev: number) => number)) => {
-    saveCurrent();
-    setZoom((prev) => typeof updater === "function" ? (updater as (prev: number) => number)(prev) : updater);
-  }, [saveCurrent]);
+  const updateZoom = useCallback(
+    (updater: number | ((prev: number) => number)) => {
+      saveCurrent();
+      setZoom((prev) =>
+        typeof updater === 'function' ? (updater as (prev: number) => number)(prev) : updater,
+      );
+    },
+    [saveCurrent],
+  );
 
   const openPdfPicker = useCallback((e?: React.SyntheticEvent) => {
     e?.preventDefault();
@@ -226,7 +270,7 @@ export default function EditPdfPage() {
   }, []);
 
   useEffect(() => {
-    if (loadingState !== "ready") return;
+    if (loadingState !== 'ready') return;
     const timer = setTimeout(() => {
       initFabric();
     }, 50);
@@ -246,7 +290,7 @@ export default function EditPdfPage() {
     activeToolRef.current = activeTool;
     const fc = fabricRef.current;
 
-    if (activeTool === "draw") {
+    if (activeTool === 'draw') {
       fc.isDrawingMode = true;
       const brush = (fc as any)._pdfxPencilBrush;
       brush.color = drawColor;
@@ -256,19 +300,18 @@ export default function EditPdfPage() {
       fc.isDrawingMode = false;
     }
 
-    if (activeTool === "eraser") {
+    if (activeTool === 'eraser') {
       fc.selection = false;
-      fc.hoverCursor = "not-allowed";
-    } else if (activeTool === "select") {
+      fc.hoverCursor = 'not-allowed';
+    } else if (activeTool === 'select') {
       fc.selection = true;
-      fc.hoverCursor = "move";
+      fc.hoverCursor = 'move';
     } else {
       fc.selection = false;
-      fc.hoverCursor = "crosshair";
+      fc.hoverCursor = 'crosshair';
     }
     fc.renderAll();
   }, [activeTool, drawColor, brushSize]);
-
 
   const renderCurrentPage = useCallback(async () => {
     if (!pdfjsDoc || !pdfCanvasRef.current || renderingRef.current) return;
@@ -284,135 +327,164 @@ export default function EditPdfPage() {
     renderCurrentPage();
   }, [renderCurrentPage]);
 
-  const handleFile = useCallback(async (f: File) => {
-    if (f.size > mbToBytes(MAX_EDIT_PDF_FILE_SIZE_MB)) {
-      setError(
-        isRu
-          ? `Файл превышает лимит ${MAX_EDIT_PDF_FILE_SIZE_MB} МБ`
-          : `File exceeds ${MAX_EDIT_PDF_FILE_SIZE_MB} MB limit`
-      );
-      return;
-    }
-    if (!f.name.toLowerCase().endsWith(".pdf")) {
-      setError(isRu ? "Пожалуйста загрузите PDF файл" : "Please upload a PDF file");
-      return;
-    }
-    setError(null);
-    setLoadingState("loading");
-    setLoadProgress(10);
-
-    try {
-      const bytes = await f.arrayBuffer();
-      const bytesForPdfLib = bytes.slice(0);
-      const bytesForPdfJs = bytes.slice(0);
-      pageOrigBytesRef.current = bytesForPdfLib;
-      pageStatesRef.current.clear();
-      historyByPageRef.current.clear();
-
-      const pdfjs = await loadPdfJs();
-      setLoadProgress(30);
-      const doc = await pdfjs.getDocument({ data: new Uint8Array(bytesForPdfJs) }).promise;
-      pdfjsDocRef.current?.destroy?.();
-      pdfjsDocRef.current = doc;
-      const count = doc.numPages;
-      setLoadProgress(50);
-
-      const dims: PageDims[] = [];
-      const thumbs: string[] = [];
-      const thumbCanvas = document.createElement("canvas");
-      for (let i = 1; i <= count; i++) {
-        const page = await doc.getPage(i);
-        const vp = page.getViewport({ scale: 1 });
-        dims.push({ width: vp.width, height: vp.height });
-
-        const tvp = page.getViewport({ scale: THUMB_SCALE });
-        thumbCanvas.width = Math.round(tvp.width);
-        thumbCanvas.height = Math.round(tvp.height);
-        const ctx = thumbCanvas.getContext("2d")!;
-        await page.render({ canvasContext: ctx, viewport: tvp, canvas: thumbCanvas }).promise;
-        thumbs.push(thumbCanvas.toDataURL("image/jpeg", 0.6));
-        setLoadProgress(50 + Math.round((i / count) * 45));
+  const handleFile = useCallback(
+    async (f: File) => {
+      if (f.size > mbToBytes(MAX_EDIT_PDF_FILE_SIZE_MB)) {
+        setError(
+          isRu
+            ? `Файл превышает лимит ${MAX_EDIT_PDF_FILE_SIZE_MB} МБ`
+            : `File exceeds ${MAX_EDIT_PDF_FILE_SIZE_MB} MB limit`,
+        );
+        return;
       }
+      if (!f.name.toLowerCase().endsWith('.pdf')) {
+        setError(isRu ? 'Пожалуйста загрузите PDF файл' : 'Please upload a PDF file');
+        return;
+      }
+      setError(null);
+      setLoadingState('loading');
+      setLoadProgress(10);
 
-      setPdfjsDoc(doc);
-      setPageCount(count);
-      setPageDims(dims);
-      setThumbnails(thumbs);
-      setCurrentPage(1);
-      setFile(f);
-      setLoadProgress(100);
-      setLoadingState("ready");
-    } catch {
-      setError(isRu ? "Не удалось загрузить PDF" : "Failed to load PDF");
-      setLoadingState("idle");
-    }
-  }, [isRu]);
+      try {
+        const bytes = await f.arrayBuffer();
+        const bytesForPdfLib = bytes.slice(0);
+        const bytesForPdfJs = bytes.slice(0);
+        pageOrigBytesRef.current = bytesForPdfLib;
+        pageStatesRef.current.clear();
+        historyByPageRef.current.clear();
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const f = e.dataTransfer.files[0];
-    if (f) handleFile(f);
-  }, [handleFile]);
+        const pdfjs = await loadPdfJs();
+        setLoadProgress(30);
+        const doc = await pdfjs.getDocument({ data: new Uint8Array(bytesForPdfJs) }).promise;
+        pdfjsDocRef.current?.destroy?.();
+        pdfjsDocRef.current = doc;
+        const count = doc.numPages;
+        setLoadProgress(50);
 
-  const switchPage = useCallback((p: number) => {
-    if (p === currentPage) return;
-    saveCurrent();
-    setCurrentPage(p);
-  }, [currentPage, saveCurrent]);
+        const dims: PageDims[] = [];
+        const thumbs: string[] = [];
+        const thumbCanvas = document.createElement('canvas');
+        for (let i = 1; i <= count; i++) {
+          const page = await doc.getPage(i);
+          const vp = page.getViewport({ scale: 1 });
+          dims.push({ width: vp.width, height: vp.height });
 
-  const handleCanvasClick = useCallback(async (e: React.MouseEvent<HTMLElement>) => {
-    if (!fabricRef.current || !pdfCanvasRef.current) return;
-    if (activeTool === "select" || activeTool === "draw" || activeTool === "eraser") return;
+          const tvp = page.getViewport({ scale: THUMB_SCALE });
+          thumbCanvas.width = Math.round(tvp.width);
+          thumbCanvas.height = Math.round(tvp.height);
+          const ctx = thumbCanvas.getContext('2d')!;
+          await page.render({ canvasContext: ctx, viewport: tvp, canvas: thumbCanvas }).promise;
+          thumbs.push(thumbCanvas.toDataURL('image/jpeg', 0.6));
+          setLoadProgress(50 + Math.round((i / count) * 45));
+        }
 
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+        setPdfjsDoc(doc);
+        setPageCount(count);
+        setPageDims(dims);
+        setThumbnails(thumbs);
+        setCurrentPage(1);
+        setFile(f);
+        setLoadProgress(100);
+        setLoadingState('ready');
+      } catch {
+        setError(isRu ? 'Не удалось загрузить PDF' : 'Failed to load PDF');
+        setLoadingState('idle');
+      }
+    },
+    [isRu],
+  );
 
-    const { IText, Rect, Circle: FabricCircle, Line } = await import("fabric");
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+      const f = e.dataTransfer.files[0];
+      if (f) handleFile(f);
+    },
+    [handleFile],
+  );
 
-    if (activeTool === "text") {
-      const obj = new IText("Текст", {
-        left: x, top: y,
-        fontSize, fill: fontColor,
-        fontFamily: "Arial",
-        editable: true,
-      });
-      obj.set("text", isRu ? "Текст" : "Text");
-      fabricRef.current.add(obj);
-      fabricRef.current.setActiveObject(obj);
-      (obj as any).enterEditing?.();
-    } else if (activeTool === "rect") {
-      const obj = new Rect({
-        left: x, top: y, width: 100, height: 60,
-        fill: "transparent", stroke: drawColor, strokeWidth: 2,
-      });
-      fabricRef.current.add(obj);
-    } else if (activeTool === "circle") {
-      const obj = new FabricCircle({
-        left: x, top: y, radius: 40,
-        fill: "transparent", stroke: drawColor, strokeWidth: 2,
-      });
-      fabricRef.current.add(obj);
-    } else if (activeTool === "line") {
-      const obj = new Line([x, y, x + 100, y], {
-        stroke: drawColor, strokeWidth: 2,
-      });
-      fabricRef.current.add(obj);
-    } else if (activeTool === "highlight") {
-      const obj = new Rect({
-        left: x, top: y, width: 150, height: 24,
-        fill: "rgba(255,230,0,0.35)", stroke: "transparent", strokeWidth: 0,
-      });
-      fabricRef.current.add(obj);
-    }
-    fabricRef.current.renderAll();
-  }, [activeTool, fontSize, fontColor, drawColor, isRu]);
+  const switchPage = useCallback(
+    (p: number) => {
+      if (p === currentPage) return;
+      saveCurrent();
+      setCurrentPage(p);
+    },
+    [currentPage, saveCurrent],
+  );
+
+  const handleCanvasClick = useCallback(
+    async (e: React.MouseEvent<HTMLElement>) => {
+      if (!fabricRef.current || !pdfCanvasRef.current) return;
+      if (activeTool === 'select' || activeTool === 'draw' || activeTool === 'eraser') return;
+
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const { IText, Rect, Circle: FabricCircle, Line } = await import('fabric');
+
+      if (activeTool === 'text') {
+        const obj = new IText('Текст', {
+          left: x,
+          top: y,
+          fontSize,
+          fill: fontColor,
+          fontFamily: 'Arial',
+          editable: true,
+        });
+        obj.set('text', isRu ? 'Текст' : 'Text');
+        fabricRef.current.add(obj);
+        fabricRef.current.setActiveObject(obj);
+        (obj as any).enterEditing?.();
+      } else if (activeTool === 'rect') {
+        const obj = new Rect({
+          left: x,
+          top: y,
+          width: 100,
+          height: 60,
+          fill: 'transparent',
+          stroke: drawColor,
+          strokeWidth: 2,
+        });
+        fabricRef.current.add(obj);
+      } else if (activeTool === 'circle') {
+        const obj = new FabricCircle({
+          left: x,
+          top: y,
+          radius: 40,
+          fill: 'transparent',
+          stroke: drawColor,
+          strokeWidth: 2,
+        });
+        fabricRef.current.add(obj);
+      } else if (activeTool === 'line') {
+        const obj = new Line([x, y, x + 100, y], {
+          stroke: drawColor,
+          strokeWidth: 2,
+        });
+        fabricRef.current.add(obj);
+      } else if (activeTool === 'highlight') {
+        const obj = new Rect({
+          left: x,
+          top: y,
+          width: 150,
+          height: 24,
+          fill: 'rgba(255,230,0,0.35)',
+          stroke: 'transparent',
+          strokeWidth: 0,
+        });
+        fabricRef.current.add(obj);
+      }
+      fabricRef.current.renderAll();
+    },
+    [activeTool, fontSize, fontColor, drawColor, isRu],
+  );
 
   const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const img = e.target.files?.[0];
     if (!img || !fabricRef.current) return;
-    const { FabricImage } = await import("fabric");
+    const { FabricImage } = await import('fabric');
     const url = URL.createObjectURL(img);
     try {
       const fi = await FabricImage.fromURL(url);
@@ -425,7 +497,7 @@ export default function EditPdfPage() {
     } finally {
       URL.revokeObjectURL(url);
     }
-    e.target.value = "";
+    e.target.value = '';
   }, []);
 
   const handleUndo = useCallback(() => {
@@ -433,11 +505,14 @@ export default function EditPdfPage() {
     if (hist.idx <= 0 || !fabricRef.current) return;
     hist.idx -= 1;
     suppressHistoryRef.current = true;
-    fabricRef.current.loadFromJSON(JSON.parse(hist.stack[hist.idx])).then(() => {
-      fabricRef.current.renderAll();
-    }).finally(() => {
-      suppressHistoryRef.current = false;
-    });
+    fabricRef.current
+      .loadFromJSON(JSON.parse(hist.stack[hist.idx]))
+      .then(() => {
+        fabricRef.current.renderAll();
+      })
+      .finally(() => {
+        suppressHistoryRef.current = false;
+      });
   }, [getPageHistory]);
 
   const handleRedo = useCallback(() => {
@@ -445,34 +520,37 @@ export default function EditPdfPage() {
     if (hist.idx >= hist.stack.length - 1 || !fabricRef.current) return;
     hist.idx += 1;
     suppressHistoryRef.current = true;
-    fabricRef.current.loadFromJSON(JSON.parse(hist.stack[hist.idx])).then(() => {
-      fabricRef.current.renderAll();
-    }).finally(() => {
-      suppressHistoryRef.current = false;
-    });
+    fabricRef.current
+      .loadFromJSON(JSON.parse(hist.stack[hist.idx]))
+      .then(() => {
+        fabricRef.current.renderAll();
+      })
+      .finally(() => {
+        suppressHistoryRef.current = false;
+      });
   }, [getPageHistory]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA") return;
+      if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA') return;
 
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
         e.preventDefault();
         handleUndo();
         return;
       }
 
       if (
-        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") ||
-        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "z")
+        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z')
       ) {
         e.preventDefault();
         handleRedo();
         return;
       }
 
-      if ((e.key === "Delete" || e.key === "Backspace") && fabricRef.current) {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && fabricRef.current) {
         const activeObjects = fabricRef.current.getActiveObjects?.() || [];
         if (activeObjects.length > 0) {
           e.preventDefault();
@@ -483,23 +561,28 @@ export default function EditPdfPage() {
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleRedo, handleUndo]);
 
   const openSignModal = useCallback(async () => {
     setSignModalOpen(true);
     setTimeout(async () => {
       if (!signCanvasRef.current) return;
-      const { Canvas: FabricCanvas, PencilBrush } = await import("fabric");
+      const { Canvas: FabricCanvas, PencilBrush } = await import('fabric');
       if (signFabricRef.current) signFabricRef.current.dispose();
-      const cw = Math.max(240, Math.min(480, signCanvasRef.current.parentElement?.clientWidth || 480));
+      const cw = Math.max(
+        240,
+        Math.min(480, signCanvasRef.current.parentElement?.clientWidth || 480),
+      );
       const sc = new FabricCanvas(signCanvasRef.current, {
-        isDrawingMode: true, backgroundColor: "",
-        width: cw, height: 180,
+        isDrawingMode: true,
+        backgroundColor: '',
+        width: cw,
+        height: 180,
       });
       const pb = new PencilBrush(sc);
-      pb.color = "#1a1a1a";
+      pb.color = '#1a1a1a';
       pb.width = 3;
       sc.freeDrawingBrush = pb;
       signFabricRef.current = sc;
@@ -508,8 +591,8 @@ export default function EditPdfPage() {
 
   const confirmSign = useCallback(async () => {
     if (!signFabricRef.current || !fabricRef.current) return;
-    const dataUrl = signFabricRef.current.toDataURL({ format: "png", quality: 0.9 });
-    const { FabricImage } = await import("fabric");
+    const dataUrl = signFabricRef.current.toDataURL({ format: 'png', quality: 0.9 });
+    const { FabricImage } = await import('fabric');
     const fi = await FabricImage.fromURL(dataUrl);
     fi.scaleToWidth(200);
     fi.set({ left: 50, top: 50 });
@@ -522,16 +605,16 @@ export default function EditPdfPage() {
     if (!pageOrigBytesRef.current) {
       setError(
         isRu
-          ? "Не удалось подготовить исходный PDF. Перезагрузите файл и попробуйте снова."
-          : "Failed to prepare source PDF. Please re-upload and try again."
+          ? 'Не удалось подготовить исходный PDF. Перезагрузите файл и попробуйте снова.'
+          : 'Failed to prepare source PDF. Please re-upload and try again.',
       );
       return;
     }
     if (!pdfjsDoc || pageCount < 1) {
       setError(
         isRu
-          ? "PDF еще загружается. Попробуйте снова через секунду."
-          : "PDF is still loading. Try again in a moment."
+          ? 'PDF еще загружается. Попробуйте снова через секунду.'
+          : 'PDF is still loading. Try again in a moment.',
       );
       return;
     }
@@ -544,9 +627,12 @@ export default function EditPdfPage() {
       const pages = pdfDoc.getPages();
 
       for (let i = 0; i < pageCount; i++) {
-        const state = i + 1 === currentPage
-          ? (fabricRef.current ? JSON.stringify(fabricRef.current.toJSON()) : null)
-          : pageStatesRef.current.get(i + 1);
+        const state =
+          i + 1 === currentPage
+            ? fabricRef.current
+              ? JSON.stringify(fabricRef.current.toJSON())
+              : null
+            : pageStatesRef.current.get(i + 1);
 
         if (!state) continue;
         const parsed = JSON.parse(state);
@@ -556,15 +642,19 @@ export default function EditPdfPage() {
         const displayW = Math.round(dim.width * DISPLAY_SCALE);
         const displayH = Math.round(dim.height * DISPLAY_SCALE);
 
-        const { Canvas: FabricCanvas } = await import("fabric");
-        const tmpEl = document.createElement("canvas");
+        const { Canvas: FabricCanvas } = await import('fabric');
+        const tmpEl = document.createElement('canvas');
         tmpEl.width = displayW;
         tmpEl.height = displayH;
-        const tmpFc = new FabricCanvas(tmpEl, { backgroundColor: "", width: displayW, height: displayH });
+        const tmpFc = new FabricCanvas(tmpEl, {
+          backgroundColor: '',
+          width: displayW,
+          height: displayH,
+        });
         await tmpFc.loadFromJSON(parsed);
         tmpFc.renderAll();
 
-        const pngDataUrl = tmpFc.toDataURL({ format: "png", multiplier: 1 });
+        const pngDataUrl = tmpFc.toDataURL({ format: 'png', multiplier: 1 });
         tmpFc.dispose();
 
         const imgBytes = dataUrlToBytes(pngDataUrl);
@@ -575,43 +665,43 @@ export default function EditPdfPage() {
       }
 
       const saved = await pdfDoc.save();
-      const blob = new Blob([saved], { type: "application/pdf" });
+      const blob = new Blob([saved], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
+      const a = document.createElement('a');
       a.href = url;
-      a.download = (file?.name?.replace(/\.pdf$/i, "") || "document") + "-edited.pdf";
+      a.download = (file?.name?.replace(/\.pdf$/i, '') || 'document') + '-edited.pdf';
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err: any) {
-      setError(err?.message || "Save failed");
+      setError(err?.message || 'Save failed');
     } finally {
       setIsSaving(false);
     }
   }, [pageCount, currentPage, pageDims, file, pdfjsDoc, saveCurrent, isRu]);
 
   const toolButtons: { id: ToolType; icon: any; label: string }[] = [
-    { id: "select", icon: MousePointer2, label: t.tools.select },
-    { id: "text", icon: Type, label: t.tools.text },
-    { id: "draw", icon: Pencil, label: t.tools.draw },
-    { id: "image", icon: ImageIcon, label: t.tools.image },
-    { id: "sign", icon: PenLine, label: t.tools.sign },
-    { id: "rect", icon: Square, label: t.tools.rect },
-    { id: "circle", icon: Circle, label: t.tools.circle },
-    { id: "line", icon: Minus, label: t.tools.line },
-    { id: "highlight", icon: Highlighter, label: t.tools.highlight },
-    { id: "eraser", icon: Eraser, label: t.tools.eraser },
+    { id: 'select', icon: MousePointer2, label: t.tools.select },
+    { id: 'text', icon: Type, label: t.tools.text },
+    { id: 'draw', icon: Pencil, label: t.tools.draw },
+    { id: 'image', icon: ImageIcon, label: t.tools.image },
+    { id: 'sign', icon: PenLine, label: t.tools.sign },
+    { id: 'rect', icon: Square, label: t.tools.rect },
+    { id: 'circle', icon: Circle, label: t.tools.circle },
+    { id: 'line', icon: Minus, label: t.tools.line },
+    { id: 'highlight', icon: Highlighter, label: t.tools.highlight },
+    { id: 'eraser', icon: Eraser, label: t.tools.eraser },
   ];
 
-  const COLORS: DrawColor[] = ["#1a1a1a", "#e53e3e", "#3182ce", "#38a169", "#d69e2e"];
+  const COLORS: DrawColor[] = ['#1a1a1a', '#e53e3e', '#3182ce', '#38a169', '#d69e2e'];
 
-  if (loadingState === "idle" || loadingState === "loading") {
+  if (loadingState === 'idle' || loadingState === 'loading') {
     return (
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         <div className="flex items-center gap-3 mb-6">
           <Link href="/">
             <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white gap-1">
               <ArrowLeft className="size-4" />
-              {isRu ? "Все инструменты" : "All tools"}
+              {isRu ? 'Все инструменты' : 'All tools'}
             </Button>
           </Link>
         </div>
@@ -622,18 +712,23 @@ export default function EditPdfPage() {
               <h1 className="text-3xl font-bold text-white mb-2">{t.title}</h1>
               <p className="text-slate-400">
                 {isRu
-                  ? "Добавляйте текст, рисунки, подписи и фигуры прямо в браузере. Файл не отправляется на сервер."
-                  : "Add text, drawings, signatures and shapes directly in the browser. File never leaves your device."}
+                  ? 'Добавляйте текст, рисунки, подписи и фигуры прямо в браузере. Файл не отправляется на сервер.'
+                  : 'Add text, drawings, signatures and shapes directly in the browser. File never leaves your device.'}
               </p>
             </div>
 
-            {loadingState === "loading" ? (
+            {loadingState === 'loading' ? (
               <div
                 className="rounded-2xl p-12 text-center"
-                style={{ background: "rgba(15,23,42,0.7)", border: "1px solid rgba(255,255,255,0.1)" }}
+                style={{
+                  background: 'rgba(15,23,42,0.7)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                }}
               >
                 <Loader2 className="size-10 text-blue-400 mx-auto mb-4 animate-spin" />
-                <p className="text-white font-medium mb-2">{isRu ? "Загрузка PDF…" : "Loading PDF…"}</p>
+                <p className="text-white font-medium mb-2">
+                  {isRu ? 'Загрузка PDF…' : 'Loading PDF…'}
+                </p>
                 <div className="w-full max-w-xs mx-auto rounded-full h-2 bg-slate-700 overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300"
@@ -645,13 +740,16 @@ export default function EditPdfPage() {
             ) : (
               <div
                 className={cn(
-                  "rounded-2xl border-2 border-dashed transition-colors duration-200 cursor-pointer",
+                  'rounded-2xl border-2 border-dashed transition-colors duration-200 cursor-pointer',
                   isDragging
-                    ? "border-blue-500 bg-blue-500/10"
-                    : "border-white/15 hover:border-white/30"
+                    ? 'border-blue-500 bg-blue-500/10'
+                    : 'border-white/15 hover:border-white/30',
                 )}
-                style={{ background: isDragging ? undefined : "rgba(15,23,42,0.7)" }}
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                style={{ background: isDragging ? undefined : 'rgba(15,23,42,0.7)' }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
                 onDragLeave={() => setIsDragging(false)}
                 onDrop={handleDrop}
                 onClick={openPdfPicker}
@@ -660,7 +758,7 @@ export default function EditPdfPage() {
                 <div className="p-16 text-center">
                   <div
                     className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl"
-                    style={{ background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)" }}
+                    style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' }}
                   >
                     <Upload className="size-8 text-white" />
                   </div>
@@ -690,7 +788,10 @@ export default function EditPdfPage() {
           <div>
             <div
               className="rounded-2xl p-5"
-              style={{ background: "rgba(15,23,42,0.7)", border: "1px solid rgba(255,255,255,0.08)" }}
+              style={{
+                background: 'rgba(15,23,42,0.7)',
+                border: '1px solid rgba(255,255,255,0.08)',
+              }}
             >
               <h3 className="text-white font-semibold mb-4">{t.howToUse}</h3>
               <ol className="space-y-3">
@@ -698,7 +799,7 @@ export default function EditPdfPage() {
                   <li key={i} className="flex items-start gap-3">
                     <span
                       className="flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-                      style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
+                      style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
                     >
                       {i + 1}
                     </span>
@@ -707,13 +808,15 @@ export default function EditPdfPage() {
                 ))}
               </ol>
 
-              <div className="mt-6 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-                <p className="text-slate-500 text-xs mb-3">{isRu ? "Похожие инструменты" : "Related tools"}</p>
+              <div className="mt-6 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                <p className="text-slate-500 text-xs mb-3">
+                  {isRu ? 'Похожие инструменты' : 'Related tools'}
+                </p>
                 <div className="flex flex-col gap-2">
                   {[
-                    { slug: "sign-pdf", label: isRu ? "Подписать PDF" : "Sign PDF" },
-                    { slug: "watermark-pdf", label: isRu ? "Водяной знак" : "Watermark PDF" },
-                    { slug: "protect-pdf", label: isRu ? "Защитить PDF" : "Protect PDF" },
+                    { slug: 'sign-pdf', label: isRu ? 'Подписать PDF' : 'Sign PDF' },
+                    { slug: 'watermark-pdf', label: isRu ? 'Водяной знак' : 'Watermark PDF' },
+                    { slug: 'protect-pdf', label: isRu ? 'Защитить PDF' : 'Protect PDF' },
                   ].map(({ slug, label }) => (
                     <Link key={slug} href={`/tools/${slug}`}>
                       <div className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm group">
@@ -741,11 +844,19 @@ export default function EditPdfPage() {
         {/* Left sidebar: thumbnails (desktop) */}
         <div
           className="hidden md:flex w-44 flex-shrink-0 flex-col overflow-y-auto"
-          style={{ background: "rgba(2,6,23,0.9)", borderRight: "1px solid rgba(255,255,255,0.08)" }}
+          style={{
+            background: 'rgba(2,6,23,0.9)',
+            borderRight: '1px solid rgba(255,255,255,0.08)',
+          }}
         >
-          <div className="p-2 text-xs font-medium text-slate-400 sticky top-0 z-10 py-3 px-3"
-            style={{ background: "rgba(2,6,23,0.95)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-            {pageCount} {isRu ? "страниц" : "pages"}
+          <div
+            className="p-2 text-xs font-medium text-slate-400 sticky top-0 z-10 py-3 px-3"
+            style={{
+              background: 'rgba(2,6,23,0.95)',
+              borderBottom: '1px solid rgba(255,255,255,0.06)',
+            }}
+          >
+            {pageCount} {isRu ? 'страниц' : 'pages'}
           </div>
           <div className="flex flex-col gap-2 p-2">
             {thumbnails.map((src, i) => (
@@ -754,10 +865,10 @@ export default function EditPdfPage() {
                 onClick={() => switchPage(i + 1)}
                 data-testid={`thumb-page-${i + 1}`}
                 className={cn(
-                  "rounded-lg overflow-hidden border-2 transition-all duration-150",
+                  'rounded-lg overflow-hidden border-2 transition-all duration-150',
                   currentPage === i + 1
-                    ? "border-blue-500 shadow-lg shadow-blue-500/20"
-                    : "border-transparent hover:border-white/20"
+                    ? 'border-blue-500 shadow-lg shadow-blue-500/20'
+                    : 'border-transparent hover:border-white/20',
                 )}
               >
                 <img src={src} alt={`Page ${i + 1}`} className="w-full block" />
@@ -772,7 +883,10 @@ export default function EditPdfPage() {
           {/* Toolbar */}
           <div
             className="flex items-center gap-1 px-3 py-2 flex-wrap"
-            style={{ background: "rgba(2,6,23,0.95)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}
+            style={{
+              background: 'rgba(2,6,23,0.95)',
+              borderBottom: '1px solid rgba(255,255,255,0.08)',
+            }}
           >
             {/* Tools */}
             {toolButtons.map(({ id, icon: Icon, label }) => (
@@ -780,28 +894,35 @@ export default function EditPdfPage() {
                 <TooltipTrigger asChild>
                   <button
                     onClick={() => {
-                      if (id === "image") {
-                        document.getElementById("img-upload-input")?.click();
+                      if (id === 'image') {
+                        document.getElementById('img-upload-input')?.click();
                         return;
                       }
-                      if (id === "sign") { openSignModal(); return; }
+                      if (id === 'sign') {
+                        openSignModal();
+                        return;
+                      }
                       setActiveTool(id);
                     }}
                     data-testid={`tool-${id}`}
                     className={cn(
-                      "flex size-9 items-center justify-center rounded-lg transition-all",
+                      'flex size-9 items-center justify-center rounded-lg transition-all',
                       activeTool === id
-                        ? "text-white"
-                        : "text-slate-400 hover:text-white hover:bg-white/10"
+                        ? 'text-white'
+                        : 'text-slate-400 hover:text-white hover:bg-white/10',
                     )}
-                    style={activeTool === id ? { background: "linear-gradient(135deg, #6366f1, #8b5cf6)" } : undefined}
+                    style={
+                      activeTool === id
+                        ? { background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }
+                        : undefined
+                    }
                   >
                     <Icon className="size-4" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
                   <p>{label}</p>
-                  {id === "eraser" && activeTool === "eraser" && (
+                  {id === 'eraser' && activeTool === 'eraser' && (
                     <p className="text-xs text-slate-400">{t.eraseHint}</p>
                   )}
                 </TooltipContent>
@@ -815,11 +936,16 @@ export default function EditPdfPage() {
               {COLORS.map((c) => (
                 <button
                   key={c}
-                  onClick={() => { setDrawColor(c); setFontColor(c); }}
-                  data-testid={`color-${c.replace("#", "")}`}
+                  onClick={() => {
+                    setDrawColor(c);
+                    setFontColor(c);
+                  }}
+                  data-testid={`color-${c.replace('#', '')}`}
                   className={cn(
-                    "size-5 rounded-full border-2 transition-all",
-                    (drawColor === c || fontColor === c) ? "border-white scale-110" : "border-transparent"
+                    'size-5 rounded-full border-2 transition-all',
+                    drawColor === c || fontColor === c
+                      ? 'border-white scale-110'
+                      : 'border-transparent',
                   )}
                   style={{ backgroundColor: c }}
                 />
@@ -839,7 +965,9 @@ export default function EditPdfPage() {
                   <Undo2 className="size-4" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="bottom"><p>{t.undo} (Ctrl+Z)</p></TooltipContent>
+              <TooltipContent side="bottom">
+                <p>{t.undo} (Ctrl+Z)</p>
+              </TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -851,7 +979,9 @@ export default function EditPdfPage() {
                   <Redo2 className="size-4" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="bottom"><p>{t.redo}</p></TooltipContent>
+              <TooltipContent side="bottom">
+                <p>{t.redo}</p>
+              </TooltipContent>
             </Tooltip>
 
             <div className="w-px h-6 mx-1 bg-white/10" />
@@ -865,7 +995,9 @@ export default function EditPdfPage() {
               >
                 <ZoomOut className="size-4" />
               </button>
-              <span className="text-slate-300 text-xs w-12 text-center font-mono">{Math.round(zoom * 100)}%</span>
+              <span className="text-slate-300 text-xs w-12 text-center font-mono">
+                {Math.round(zoom * 100)}%
+              </span>
               <button
                 onClick={() => updateZoom((z) => Math.min(3, +(z + 0.25).toFixed(2)))}
                 data-testid="button-zoom-in"
@@ -903,7 +1035,9 @@ export default function EditPdfPage() {
               >
                 <ChevronLeft className="size-4" />
               </button>
-              <span className="text-xs">{t.page} {currentPage} / {pageCount}</span>
+              <span className="text-xs">
+                {t.page} {currentPage} / {pageCount}
+              </span>
               <button
                 onClick={() => switchPage(Math.min(pageCount, currentPage + 1))}
                 disabled={currentPage >= pageCount}
@@ -921,10 +1055,14 @@ export default function EditPdfPage() {
               disabled={isSaving}
               size="sm"
               className="gap-2"
-              style={{ background: "linear-gradient(135deg, #3b82f6, #7c3aed)" }}
+              style={{ background: 'linear-gradient(135deg, #3b82f6, #7c3aed)' }}
               data-testid="button-save-pdf"
             >
-              {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+              {isSaving ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Download className="size-4" />
+              )}
               {isSaving ? t.saving : t.save}
             </Button>
           </div>
@@ -936,21 +1074,32 @@ export default function EditPdfPage() {
           )}
 
           {/* Canvas area */}
-          <div className="flex-1 overflow-auto" style={{ background: "#1a1f2e" }}>
+          <div className="flex-1 overflow-auto" style={{ background: '#1a1f2e' }}>
             <div className="flex items-start justify-center min-h-full p-6">
               <div
                 className="relative shadow-2xl"
-                style={{ width: canvasW, height: canvasH, cursor: activeTool === "text" || activeTool === "rect" || activeTool === "circle" || activeTool === "line" || activeTool === "highlight" ? "crosshair" : undefined }}
+                style={{
+                  width: canvasW,
+                  height: canvasH,
+                  cursor:
+                    activeTool === 'text' ||
+                    activeTool === 'rect' ||
+                    activeTool === 'circle' ||
+                    activeTool === 'line' ||
+                    activeTool === 'highlight'
+                      ? 'crosshair'
+                      : undefined,
+                }}
                 onClick={handleCanvasClick}
               >
                 <canvas
                   ref={pdfCanvasRef}
-                  style={{ display: "block", position: "absolute", top: 0, left: 0 }}
+                  style={{ display: 'block', position: 'absolute', top: 0, left: 0 }}
                 />
                 <canvas
                   ref={fabricElRef}
                   id="fabric-canvas"
-                  style={{ position: "absolute", top: 0, left: 0 }}
+                  style={{ position: 'absolute', top: 0, left: 0 }}
                 />
               </div>
             </div>
@@ -968,11 +1117,18 @@ export default function EditPdfPage() {
           />
           <div
             className="absolute left-0 top-0 bottom-0 w-[80vw] max-w-[80vw] flex flex-col overflow-y-auto"
-            style={{ background: "rgba(2,6,23,0.98)", borderRight: "1px solid rgba(255,255,255,0.08)" }}
+            style={{
+              background: 'rgba(2,6,23,0.98)',
+              borderRight: '1px solid rgba(255,255,255,0.08)',
+            }}
           >
-            <div className="flex items-center justify-between py-3 px-3 text-xs font-medium text-slate-400"
-              style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-              <span>{pageCount} {isRu ? "страниц" : "pages"}</span>
+            <div
+              className="flex items-center justify-between py-3 px-3 text-xs font-medium text-slate-400"
+              style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+            >
+              <span>
+                {pageCount} {isRu ? 'страниц' : 'pages'}
+              </span>
               <button
                 onClick={() => setMobilePagesOpen(false)}
                 aria-label={t.close}
@@ -986,13 +1142,16 @@ export default function EditPdfPage() {
               {thumbnails.map((src, i) => (
                 <button
                   key={i}
-                  onClick={() => { switchPage(i + 1); setMobilePagesOpen(false); }}
+                  onClick={() => {
+                    switchPage(i + 1);
+                    setMobilePagesOpen(false);
+                  }}
                   data-testid={`thumb-page-mobile-${i + 1}`}
                   className={cn(
-                    "rounded-lg overflow-hidden border-2 transition-all duration-150",
+                    'rounded-lg overflow-hidden border-2 transition-all duration-150',
                     currentPage === i + 1
-                      ? "border-blue-500 shadow-lg shadow-blue-500/20"
-                      : "border-transparent hover:border-white/20"
+                      ? 'border-blue-500 shadow-lg shadow-blue-500/20'
+                      : 'border-transparent hover:border-white/20',
                   )}
                 >
                   <img src={src} alt={`Page ${i + 1}`} className="w-full block" />
@@ -1017,7 +1176,7 @@ export default function EditPdfPage() {
       <Dialog open={signModalOpen} onOpenChange={setSignModalOpen}>
         <DialogContent
           className="max-w-lg"
-          style={{ background: "rgba(15,23,42,0.98)", border: "1px solid rgba(255,255,255,0.12)" }}
+          style={{ background: 'rgba(15,23,42,0.98)', border: '1px solid rgba(255,255,255,0.12)' }}
         >
           <DialogHeader>
             <DialogTitle className="text-white">{t.signTitle}</DialogTitle>
@@ -1025,13 +1184,13 @@ export default function EditPdfPage() {
           <div className="mt-3">
             <div
               className="rounded-xl overflow-hidden border"
-              style={{ borderColor: "rgba(255,255,255,0.15)" }}
+              style={{ borderColor: 'rgba(255,255,255,0.15)' }}
             >
               <canvas
                 ref={signCanvasRef}
                 id="sign-canvas"
                 className="block"
-                style={{ touchAction: "none", background: "transparent" }}
+                style={{ touchAction: 'none', background: 'transparent' }}
               />
             </div>
             <div className="flex gap-3 mt-4">
@@ -1046,7 +1205,7 @@ export default function EditPdfPage() {
               <Button
                 onClick={confirmSign}
                 className="flex-1"
-                style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
+                style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
                 data-testid="button-sign-confirm"
               >
                 {t.signConfirm}

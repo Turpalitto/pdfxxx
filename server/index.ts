@@ -1,12 +1,12 @@
-import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import { serveStatic } from "./static";
-import { createServer } from "http";
+import express, { type Request, Response, NextFunction } from 'express';
+import { registerRoutes } from './routes';
+import { serveStatic } from './static';
+import { createServer } from 'http';
 
 const app = express();
 const httpServer = createServer(app);
 
-declare module "http" {
+declare module 'http' {
   interface IncomingMessage {
     rawBody: unknown;
   }
@@ -22,43 +22,41 @@ app.use(
 
 app.use(express.urlencoded({ extended: false }));
 
-const isProduction = process.env.NODE_ENV === "production";
+const isProduction = process.env.NODE_ENV === 'production';
 
 app.use((_req, res, next) => {
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "DENY");
-  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   if (isProduction) {
-    res.setHeader(
-      "Strict-Transport-Security",
-      "max-age=31536000; includeSubDomains",
-    );
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     // PDF processing runs client-side (pdfjs/tesseract use wasm + workers + blob URLs).
+    // Tesseract.js fetches core worker + wasm + language data from CDNs at runtime.
     res.setHeader(
-      "Content-Security-Policy",
+      'Content-Security-Policy',
       [
         "default-src 'self'",
         "script-src 'self' 'wasm-unsafe-eval'",
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: blob:",
         "font-src 'self' data:",
-        "connect-src 'self' blob: data:",
-        "worker-src 'self' blob:",
+        "connect-src 'self' blob: data: https://unpkg.com https://cdn.jsdelivr.net https://tessdata.projectnaptha.com",
+        "worker-src 'self' blob: https://unpkg.com https://cdn.jsdelivr.net",
         "object-src 'none'",
         "base-uri 'self'",
         "frame-ancestors 'none'",
-      ].join("; "),
+      ].join('; '),
     );
   }
   next();
 });
 
-export function log(message: string, source = "express") {
-  const formattedTime = new Date().toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
+export function log(message: string, source = 'express') {
+  const formattedTime = new Date().toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
     hour12: true,
   });
 
@@ -76,9 +74,9 @@ app.use((req, res, next) => {
     return originalResJson.apply(res, [bodyJson, ...args]);
   };
 
-  res.on("finish", () => {
+  res.on('finish', () => {
     const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
+    if (path.startsWith('/api')) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
@@ -96,26 +94,26 @@ app.use((req, res, next) => {
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const rawMessage = err.message || "Internal Server Error";
+    const rawMessage = err.message || 'Internal Server Error';
 
-    console.error("Internal Server Error:", err);
+    console.error('Internal Server Error:', err);
 
     if (res.headersSent) {
       return next(err);
     }
 
     // Don't leak internal error details to clients in production.
-    const message = isProduction && status >= 500 ? "Internal Server Error" : rawMessage;
+    const message = isProduction && status >= 500 ? 'Internal Server Error' : rawMessage;
     return res.status(status).json({ message });
   });
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
-  if (process.env.NODE_ENV === "production") {
+  if (process.env.NODE_ENV === 'production') {
     serveStatic(app);
   } else {
-    const { setupVite } = await import("./vite");
+    const { setupVite } = await import('./vite');
     await setupVite(httpServer, app);
   }
 
@@ -123,15 +121,12 @@ app.use((req, res, next) => {
   // Other ports are firewalled. Default to 5000 if not specified.
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || "5000", 10);
-  const listenOptions: Record<string, unknown> = { port, host: "0.0.0.0" };
+  const port = parseInt(process.env.PORT || '5000', 10);
+  const listenOptions: Record<string, unknown> = { port, host: '0.0.0.0' };
   // SO_REUSEPORT поддерживается на Linux (Replit/CI); на macOS/Windows
   // Node fdlisten падает с ENOTSUP, поэтому включаем только на linux.
-  if (process.platform === "linux") listenOptions.reusePort = true;
-  httpServer.listen(
-    listenOptions,
-    () => {
-      log(`serving on port ${port}`);
-    },
-  );
+  if (process.platform === 'linux') listenOptions.reusePort = true;
+  httpServer.listen(listenOptions, () => {
+    log(`serving on port ${port}`);
+  });
 })();

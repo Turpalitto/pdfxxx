@@ -8,7 +8,7 @@
 // поэтому корректность результата гарантирована: воркер это оптимизация UX,
 // а не единственный путь.
 
-import type { WorkerOp, WorkerRequest, WorkerResponse } from "./pdf-worker-types";
+import type { WorkerOp, WorkerRequest, WorkerResponse } from './pdf-worker-types';
 
 export interface WorkerRuntimeCapabilities {
   Worker?: unknown;
@@ -19,10 +19,10 @@ export interface WorkerRuntimeCapabilities {
 /** Воркер пригоден, только если есть и Worker, и OffscreenCanvas (для рендера). */
 export function canUsePdfWorker(capabilities: WorkerRuntimeCapabilities): boolean {
   return (
-    typeof capabilities.Worker !== "undefined" &&
-    typeof capabilities.OffscreenCanvas !== "undefined" &&
+    typeof capabilities.Worker !== 'undefined' &&
+    typeof capabilities.OffscreenCanvas !== 'undefined' &&
     // module-worker через import.meta.url нужен для бандла воркера
-    typeof capabilities.URL !== "undefined"
+    typeof capabilities.URL !== 'undefined'
   );
 }
 
@@ -33,8 +33,8 @@ export function isWorkerSupported(): boolean {
 /** Ошибка отмены — отличаем от настоящих сбоев, чтобы не уходить в fallback. */
 export class WorkerAbortError extends Error {
   constructor() {
-    super("aborted");
-    this.name = "WorkerAbortError";
+    super('aborted');
+    this.name = 'WorkerAbortError';
   }
 }
 
@@ -55,24 +55,24 @@ function rejectPending(reason: unknown) {
 
 function getWorker(): Worker {
   if (!worker) {
-    worker = new Worker(new URL("./pdf-worker.ts", import.meta.url), {
-      type: "module",
+    worker = new Worker(new URL('./pdf-worker.ts', import.meta.url), {
+      type: 'module',
     });
     worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
       const msg = e.data;
       const p = pending.get(msg.id);
       if (!p) return;
-      if (msg.type === "progress") {
+      if (msg.type === 'progress') {
         p.onProgress?.(msg.pct);
         return;
       }
       pending.delete(msg.id);
-      if (msg.type === "done") p.resolve(msg.result);
+      if (msg.type === 'done') p.resolve(msg.result);
       else p.reject(new Error(msg.message));
     };
     worker.onerror = (e) => {
       // Фатальный сбой воркера — реджектим все ожидающие и пересоздаём.
-      const err = new Error(e.message || "PDF worker crashed");
+      const err = new Error(e.message || 'PDF worker crashed');
       rejectPending(err);
       worker?.terminate();
       worker = null;
@@ -93,7 +93,7 @@ function runInWorker(
   file: File,
   args: unknown[],
   onProgress?: (pct: number) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<unknown> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
@@ -109,7 +109,7 @@ function runInWorker(
       terminateWorker();
       rejectPending(new WorkerAbortError());
     };
-    const cleanup = () => signal?.removeEventListener("abort", onAbort);
+    const cleanup = () => signal?.removeEventListener('abort', onAbort);
     pending.set(id, {
       resolve: (value) => {
         cleanup();
@@ -121,7 +121,7 @@ function runInWorker(
       },
       onProgress,
     });
-    signal?.addEventListener("abort", onAbort, { once: true });
+    signal?.addEventListener('abort', onAbort, { once: true });
 
     const req: WorkerRequest = { id, op, file, args };
     try {
@@ -151,7 +151,7 @@ export interface RunPdfTaskOptions {
 export async function runPdfTask<T>(
   op: WorkerOp,
   fallback: () => Promise<T>,
-  opts: RunPdfTaskOptions
+  opts: RunPdfTaskOptions,
 ): Promise<T> {
   const { file, args = [], onProgress, signal } = opts;
 

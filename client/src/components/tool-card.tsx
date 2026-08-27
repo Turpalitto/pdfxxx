@@ -1,7 +1,7 @@
-import { memo } from "react";
-import { Link } from "wouter";
-import { motion } from "framer-motion";
-import { ArrowUpRight } from "lucide-react";
+import { memo } from 'react';
+import { Link } from 'wouter';
+import { motion } from 'framer-motion';
+import { ArrowUpRight } from 'lucide-react';
 import {
   type Tool,
   categoryColors,
@@ -9,10 +9,10 @@ import {
   getToolMaturity,
   getToolMaturityLabel,
   isToolLaunchReady,
-} from "@/lib/tools";
-import { getToolTranslation } from "@/lib/tool-translations";
-import { useLang } from "@/lib/lang-context";
-import { preloadToolRoute } from "@/lib/route-preload";
+} from '@/lib/tools';
+import { getToolTranslation } from '@/lib/tool-translations';
+import { useLang } from '@/lib/lang-context';
+import { preloadToolRoute } from '@/lib/route-preload';
 
 interface ToolCardProps {
   tool: Tool;
@@ -54,7 +54,7 @@ function ToolCardComponent({ tool }: ToolCardProps) {
             {tool.pro && (
               <div
                 className="absolute -right-1.5 -top-1.5 rounded-md px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-white"
-                style={{ background: "linear-gradient(135deg, #8d78ad, #bd7897)" }}
+                style={{ background: 'linear-gradient(135deg, #8d78ad, #bd7897)' }}
               >
                 PRO
               </div>
@@ -62,7 +62,7 @@ function ToolCardComponent({ tool }: ToolCardProps) {
             {!isReady && (
               <div
                 className="absolute -bottom-1.5 -right-1.5 rounded-md px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-[#23312d]"
-                style={{ background: "linear-gradient(135deg, #c58d5a, #bca65f)" }}
+                style={{ background: 'linear-gradient(135deg, #c58d5a, #bca65f)' }}
               >
                 SOON
               </div>
@@ -77,13 +77,15 @@ function ToolCardComponent({ tool }: ToolCardProps) {
           <h3 className="mb-2 text-lg font-semibold leading-snug text-foreground transition-colors group-hover:text-primary line-clamp-2">
             {name}
           </h3>
-          <p className="line-clamp-3 text-sm leading-6 text-muted-foreground break-words">{description}</p>
+          <p className="line-clamp-3 text-sm leading-6 text-muted-foreground break-words">
+            {description}
+          </p>
         </div>
 
         <div className="relative z-[1] mt-auto flex items-center justify-between gap-3 text-xs text-muted-foreground min-w-0">
           <span className="line-clamp-1 truncate">{getCategoryLabel(tool.category, lang)}</span>
           <span className="rounded-full border border-border bg-white/45 px-2.5 py-1 flex-shrink-0">
-            {tool.pro ? "Pro" : isReady ? getToolMaturityLabel(maturity, lang) : "Soon"}
+            {tool.pro ? 'Pro' : isReady ? getToolMaturityLabel(maturity, lang) : 'Soon'}
           </span>
         </div>
       </motion.div>

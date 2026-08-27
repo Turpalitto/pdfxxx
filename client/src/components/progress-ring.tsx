@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 
 interface ProgressRingProps {
   progress: number;
@@ -20,7 +20,7 @@ export function ProgressRing({
   const offset = circumference - (progress / 100) * circumference;
 
   return (
-    <div className={cn("flex flex-col items-center gap-2", className)}>
+    <div className={cn('flex flex-col items-center gap-2', className)}>
       <div className="relative">
         <svg
           width={size}

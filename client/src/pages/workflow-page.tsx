@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocation } from "wouter";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation } from 'wouter';
 import {
   Plus,
   Play,
@@ -16,13 +16,13 @@ import {
   Save,
   FolderOpen,
   Trash2,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { FileUpload } from "@/components/file-upload";
-import { useLang } from "@/lib/lang-context";
-import { useSeo } from "@/hooks/use-seo";
-import { cn } from "@/lib/utils";
-import { downloadBlob, formatBytes } from "@/lib/pdf-utils";
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { FileUpload } from '@/components/file-upload';
+import { useLang } from '@/lib/lang-context';
+import { useSeo } from '@/hooks/use-seo';
+import { cn } from '@/lib/utils';
+import { downloadBlob, formatBytes } from '@/lib/pdf-utils';
 import {
   WORKFLOW_STEPS,
   WORKFLOW_PRESETS,
@@ -35,26 +35,26 @@ import {
   type StepOption,
   type StepStatus,
   type WorkflowRunResult,
-} from "@/lib/workflow-engine";
+} from '@/lib/workflow-engine';
 import {
   deleteSavedWorkflowChain,
   loadSavedWorkflowChains,
   saveWorkflowChain,
   savedItemsToWorkflowItems,
   type SavedWorkflowChain,
-} from "@/lib/workflow-storage";
+} from '@/lib/workflow-storage';
 
 export default function WorkflowPage() {
   const { lang } = useLang();
   const [location, navigate] = useLocation();
-  const ru = lang === "ru";
+  const ru = lang === 'ru';
 
   useSeo({
-    title: ru ? "PDF Workflow — цепочки инструментов | PDFX" : "PDF Workflow — chain tools | PDFX",
+    title: ru ? 'PDF Workflow — цепочки инструментов | PDFX' : 'PDF Workflow — chain tools | PDFX',
     description: ru
-      ? "Свяжите несколько PDF-операций в один проход: объединение, сжатие, водяной знак и больше — полностью в браузере."
-      : "Chain several PDF operations into a single pass: merge, compress, watermark and more — fully in your browser.",
-    path: "/workflow",
+      ? 'Свяжите несколько PDF-операций в один проход: объединение, сжатие, водяной знак и больше — полностью в браузере.'
+      : 'Chain several PDF operations into a single pass: merge, compress, watermark and more — fully in your browser.',
+    path: '/workflow',
   });
 
   const [files, setFiles] = useState<File[]>([]);
@@ -67,7 +67,7 @@ export default function WorkflowPage() {
   const [savedChains, setSavedChains] = useState<SavedWorkflowChain[]>(() =>
     loadSavedWorkflowChains(),
   );
-  const [chainName, setChainName] = useState("");
+  const [chainName, setChainName] = useState('');
   const uidRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const appliedPresetRef = useRef<string | null>(null);
@@ -142,8 +142,8 @@ export default function WorkflowPage() {
   );
 
   useEffect(() => {
-    const query = typeof window === "undefined" ? "" : window.location.search;
-    const presetId = new URLSearchParams(query).get("preset");
+    const query = typeof window === 'undefined' ? '' : window.location.search;
+    const presetId = new URLSearchParams(query).get('preset');
 
     if (!presetId || appliedPresetRef.current === presetId) {
       return;
@@ -157,7 +157,7 @@ export default function WorkflowPage() {
 
     appliedPresetRef.current = presetId;
     applyPreset(preset.stepIds);
-    navigate("/workflow", { replace: true });
+    navigate('/workflow', { replace: true });
   }, [applyPreset, location, navigate]);
 
   const clearAll = useCallback(() => {
@@ -168,13 +168,13 @@ export default function WorkflowPage() {
   const handleSaveChain = useCallback(() => {
     if (items.length === 0 || running) return;
 
-    const fallbackName = ru ? "Моя цепочка" : "My workflow";
+    const fallbackName = ru ? 'Моя цепочка' : 'My workflow';
     const next = saveWorkflowChain({
       name: chainName || fallbackName,
       items,
     });
     setSavedChains(next);
-    setChainName("");
+    setChainName('');
   }, [chainName, items, ru, running]);
 
   const handleLoadChain = useCallback(
@@ -198,11 +198,16 @@ export default function WorkflowPage() {
     setRunning(true);
     setError(null);
     setResult(null);
-    setStatuses(Object.fromEntries(items.map((_, i) => [i, "pending" as StepStatus])));
+    setStatuses(Object.fromEntries(items.map((_, i) => [i, 'pending' as StepStatus])));
     try {
-      const runResult = await runWorkflow(files, items, (info) => {
-        setStatuses((prev) => ({ ...prev, [info.index]: info.status }));
-      }, { signal: controller.signal });
+      const runResult = await runWorkflow(
+        files,
+        items,
+        (info) => {
+          setStatuses((prev) => ({ ...prev, [info.index]: info.status }));
+        },
+        { signal: controller.signal },
+      );
       setResult(runResult);
     } catch (e) {
       if (e instanceof WorkflowAbortError || controller.signal.aborted) {
@@ -226,7 +231,7 @@ export default function WorkflowPage() {
 
   const handleDownload = useCallback(() => {
     if (!result) return;
-    downloadBlob(result.bytes, "workflow.pdf");
+    downloadBlob(result.bytes, 'workflow.pdf');
   }, [result]);
 
   const canRun = files.length > 0 && items.length > 0 && !running;
@@ -241,14 +246,14 @@ export default function WorkflowPage() {
       <div className="mb-8">
         <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
           <WorkflowIcon className="h-3.5 w-3.5" />
-          {ru ? "Цепочки" : "Workflow"}
+          {ru ? 'Цепочки' : 'Workflow'}
         </div>
         <h1 className="paper-title text-2xl font-bold text-foreground sm:text-3xl">
-          {ru ? "Соберите цепочку из инструментов" : "Build a chain of tools"}
+          {ru ? 'Соберите цепочку из инструментов' : 'Build a chain of tools'}
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
           {ru
-            ? "Свяжите несколько операций в один проход — например объединить, сжать и поставить водяной знак. Результат каждого шага идёт на вход следующему. Всё в браузере, без загрузки на сервер."
+            ? 'Свяжите несколько операций в один проход — например объединить, сжать и поставить водяной знак. Результат каждого шага идёт на вход следующему. Всё в браузере, без загрузки на сервер.'
             : "Chain several operations into one pass — for example merge, compress and watermark. Each step's output feeds the next. Everything runs in your browser, no upload."}
         </p>
       </div>
@@ -259,7 +264,7 @@ export default function WorkflowPage() {
           {/* Upload */}
           <section className="pdfx-panel rounded-2xl p-5 sm:p-6">
             <h2 className="mb-3 text-sm font-semibold text-foreground">
-              {ru ? "1. Загрузите PDF" : "1. Upload PDF"}
+              {ru ? '1. Загрузите PDF' : '1. Upload PDF'}
             </h2>
             <FileUpload
               accept=".pdf"
@@ -278,12 +283,10 @@ export default function WorkflowPage() {
                 resetRun();
               }}
               onValidationError={setValidationError}
-              label={ru ? "Перетащите PDF сюда" : "Drop your PDF here"}
-              description={ru ? "Один или несколько PDF" : "One or more PDF files"}
+              label={ru ? 'Перетащите PDF сюда' : 'Drop your PDF here'}
+              description={ru ? 'Один или несколько PDF' : 'One or more PDF files'}
             />
-            {validationError && (
-              <p className="mt-2 text-xs text-rose-500">{validationError}</p>
-            )}
+            {validationError && <p className="mt-2 text-xs text-rose-500">{validationError}</p>}
             {files.length > 1 && (
               <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Merge className="h-3.5 w-3.5" />
@@ -298,14 +301,14 @@ export default function WorkflowPage() {
           <section className="pdfx-panel rounded-2xl p-5 sm:p-6">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-foreground">
-                {ru ? "2. Ваша цепочка" : "2. Your pipeline"}
+                {ru ? '2. Ваша цепочка' : '2. Your pipeline'}
               </h2>
               {items.length > 0 && (
                 <button
                   onClick={clearAll}
                   className="text-xs text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  {ru ? "Очистить" : "Clear"}
+                  {ru ? 'Очистить' : 'Clear'}
                 </button>
               )}
             </div>
@@ -313,8 +316,8 @@ export default function WorkflowPage() {
             {items.length === 0 ? (
               <p className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
                 {ru
-                  ? "Пока пусто. Добавьте шаги справа или выберите готовый сценарий."
-                  : "Nothing yet. Add steps from the right or pick a ready-made preset."}
+                  ? 'Пока пусто. Добавьте шаги справа или выберите готовый сценарий.'
+                  : 'Nothing yet. Add steps from the right or pick a ready-made preset.'}
               </p>
             ) : (
               <ol className="flex flex-col gap-2.5" data-testid="workflow-pipeline">
@@ -325,7 +328,7 @@ export default function WorkflowPage() {
                     </span>
                     <Merge className="h-4 w-4 text-muted-foreground" />
                     <span className="font-medium text-muted-foreground">
-                      {ru ? "Объединить файлы" : "Merge files"}
+                      {ru ? 'Объединить файлы' : 'Merge files'}
                     </span>
                   </li>
                 )}
@@ -338,18 +341,18 @@ export default function WorkflowPage() {
                     <li
                       key={item.uid}
                       className={cn(
-                        "rounded-xl border bg-card px-3 py-3 transition-colors",
-                        status === "running" && "border-primary/60",
-                        status === "done" && "border-emerald-500/40",
-                        status === "error" && "border-rose-500/50",
-                        !status && "border-border",
+                        'rounded-xl border bg-card px-3 py-3 transition-colors',
+                        status === 'running' && 'border-primary/60',
+                        status === 'done' && 'border-emerald-500/40',
+                        status === 'error' && 'border-rose-500/50',
+                        !status && 'border-border',
                       )}
                     >
                       <div className="flex items-center gap-3">
                         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-xs font-semibold text-muted-foreground">
                           {index + 1}
                         </span>
-                        <StepIcon className={cn("h-4 w-4 shrink-0", def.accent)} />
+                        <StepIcon className={cn('h-4 w-4 shrink-0', def.accent)} />
                         <span className="flex-1 text-sm font-medium text-foreground">
                           {pickCopy(def.label, lang)}
                         </span>
@@ -361,7 +364,7 @@ export default function WorkflowPage() {
                             className="h-7 w-7"
                             onClick={() => moveStep(index, -1)}
                             disabled={index === 0 || running}
-                            aria-label={ru ? "Выше" : "Move up"}
+                            aria-label={ru ? 'Выше' : 'Move up'}
                           >
                             <ArrowUp className="h-3.5 w-3.5" />
                           </Button>
@@ -371,7 +374,7 @@ export default function WorkflowPage() {
                             className="h-7 w-7"
                             onClick={() => moveStep(index, 1)}
                             disabled={index === items.length - 1 || running}
-                            aria-label={ru ? "Ниже" : "Move down"}
+                            aria-label={ru ? 'Ниже' : 'Move down'}
                           >
                             <ArrowDown className="h-3.5 w-3.5" />
                           </Button>
@@ -381,7 +384,7 @@ export default function WorkflowPage() {
                             className="h-7 w-7 text-muted-foreground hover:text-rose-500"
                             onClick={() => removeStep(item.uid)}
                             disabled={running}
-                            aria-label={ru ? "Удалить" : "Remove"}
+                            aria-label={ru ? 'Удалить' : 'Remove'}
                           >
                             <X className="h-3.5 w-3.5" />
                           </Button>
@@ -421,12 +424,12 @@ export default function WorkflowPage() {
                   {running ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      {ru ? "Обработка…" : "Processing…"}
+                      {ru ? 'Обработка…' : 'Processing…'}
                     </>
                   ) : (
                     <>
                       <Play className="h-4 w-4" />
-                      {ru ? "Запустить цепочку" : "Run workflow"}
+                      {ru ? 'Запустить цепочку' : 'Run workflow'}
                     </>
                   )}
                 </Button>
@@ -439,13 +442,13 @@ export default function WorkflowPage() {
                     data-testid="workflow-cancel"
                   >
                     <X className="h-4 w-4" />
-                    {ru ? "Отмена" : "Cancel"}
+                    {ru ? 'Отмена' : 'Cancel'}
                   </Button>
                 )}
               </div>
               {files.length === 0 && items.length > 0 && (
                 <p className="text-center text-xs text-muted-foreground">
-                  {ru ? "Загрузите PDF, чтобы запустить." : "Upload a PDF to run."}
+                  {ru ? 'Загрузите PDF, чтобы запустить.' : 'Upload a PDF to run.'}
                 </p>
               )}
             </div>
@@ -461,21 +464,21 @@ export default function WorkflowPage() {
               <div className="mt-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4">
                 <div className="flex items-center gap-2 text-sm font-semibold text-emerald-600">
                   <CheckCircle2 className="h-4 w-4" />
-                  {ru ? "Готово" : "Done"}
+                  {ru ? 'Готово' : 'Done'}
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {formatBytes(result.inputBytes)} → {formatBytes(result.outputBytes)}
                   {savedPct > 0 && (
                     <span className="text-emerald-600">
-                      {" "}
-                      ({ru ? "−" : "−"}
+                      {' '}
+                      ({ru ? '−' : '−'}
                       {savedPct}%)
                     </span>
                   )}
                 </p>
                 <Button className="mt-3 w-full gap-2" onClick={handleDownload}>
                   <Download className="h-4 w-4" />
-                  {ru ? "Скачать PDF" : "Download PDF"}
+                  {ru ? 'Скачать PDF' : 'Download PDF'}
                 </Button>
               </div>
             )}
@@ -487,10 +490,10 @@ export default function WorkflowPage() {
           {/* Presets */}
           <section className="pdfx-panel rounded-2xl p-5">
             <h2 className="mb-1 text-sm font-semibold text-foreground">
-              {ru ? "Готовые сценарии" : "Ready-made presets"}
+              {ru ? 'Готовые сценарии' : 'Ready-made presets'}
             </h2>
             <p className="mb-3 text-xs text-muted-foreground">
-              {ru ? "Один клик — собрать цепочку." : "One click to build a chain."}
+              {ru ? 'Один клик — собрать цепочку.' : 'One click to build a chain.'}
             </p>
             <div className="flex flex-col gap-2">
               {WORKFLOW_PRESETS.map((preset) => (
@@ -515,18 +518,18 @@ export default function WorkflowPage() {
           <section className="pdfx-panel rounded-2xl p-5">
             <h2 className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-foreground">
               <Save className="h-3.5 w-3.5 text-muted-foreground" />
-              {ru ? "Сохранённые цепочки" : "Saved chains"}
+              {ru ? 'Сохранённые цепочки' : 'Saved chains'}
             </h2>
             <p className="mb-3 text-xs text-muted-foreground">
               {ru
-                ? "Сохраняются только шаги и настройки. PDF и имена файлов не записываются."
-                : "Only steps and options are saved. PDFs and file names are never stored."}
+                ? 'Сохраняются только шаги и настройки. PDF и имена файлов не записываются.'
+                : 'Only steps and options are saved. PDFs and file names are never stored.'}
             </p>
             <div className="flex flex-col gap-2">
               <input
                 className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary disabled:opacity-50"
                 value={chainName}
-                placeholder={ru ? "Название цепочки" : "Chain name"}
+                placeholder={ru ? 'Название цепочки' : 'Chain name'}
                 disabled={running}
                 data-testid="workflow-save-name"
                 onChange={(event) => setChainName(event.target.value)}
@@ -539,13 +542,13 @@ export default function WorkflowPage() {
                 data-testid="workflow-save-chain"
               >
                 <Save className="h-4 w-4" />
-                {ru ? "Сохранить цепочку" : "Save chain"}
+                {ru ? 'Сохранить цепочку' : 'Save chain'}
               </Button>
             </div>
 
             {savedChains.length === 0 ? (
               <p className="mt-3 rounded-xl border border-dashed border-border px-3 py-3 text-center text-xs text-muted-foreground">
-                {ru ? "Пока нет сохранённых цепочек." : "No saved chains yet."}
+                {ru ? 'Пока нет сохранённых цепочек.' : 'No saved chains yet.'}
               </p>
             ) : (
               <div className="mt-3 flex flex-col gap-2" data-testid="workflow-saved-chains">
@@ -557,11 +560,9 @@ export default function WorkflowPage() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-foreground">
-                          {chain.name}
-                        </p>
+                        <p className="truncate text-sm font-medium text-foreground">{chain.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {chain.items.length} {ru ? "шаг(а)" : "step(s)"}
+                          {chain.items.length} {ru ? 'шаг(а)' : 'step(s)'}
                         </p>
                       </div>
                       <Button
@@ -570,7 +571,7 @@ export default function WorkflowPage() {
                         className="h-7 w-7 shrink-0 text-muted-foreground hover:text-rose-500"
                         onClick={() => handleDeleteChain(chain.id)}
                         disabled={running}
-                        aria-label={ru ? "Удалить цепочку" : "Delete chain"}
+                        aria-label={ru ? 'Удалить цепочку' : 'Delete chain'}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -584,7 +585,7 @@ export default function WorkflowPage() {
                       data-testid="workflow-load-chain"
                     >
                       <FolderOpen className="h-3.5 w-3.5" />
-                      {ru ? "Загрузить в конструктор" : "Load into builder"}
+                      {ru ? 'Загрузить в конструктор' : 'Load into builder'}
                     </Button>
                   </div>
                 ))}
@@ -596,7 +597,7 @@ export default function WorkflowPage() {
           <section className="pdfx-panel rounded-2xl p-5">
             <h2 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-foreground">
               <ArrowDownToLine className="h-3.5 w-3.5 text-muted-foreground" />
-              {ru ? "Добавить шаг" : "Add a step"}
+              {ru ? 'Добавить шаг' : 'Add a step'}
             </h2>
             <div className="grid grid-cols-2 gap-2">
               {WORKFLOW_STEPS.map((def) => {
@@ -610,7 +611,7 @@ export default function WorkflowPage() {
                     data-testid={`workflow-add-${def.id}`}
                     className="group flex items-center gap-2 rounded-xl border border-border bg-card px-2.5 py-2 text-left transition-colors hover:border-primary/40 hover:bg-accent/40 disabled:opacity-50"
                   >
-                    <StepIcon className={cn("h-4 w-4 shrink-0", def.accent)} />
+                    <StepIcon className={cn('h-4 w-4 shrink-0', def.accent)} />
                     <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
                       {pickCopy(def.label, lang)}
                     </span>
@@ -627,17 +628,17 @@ export default function WorkflowPage() {
 }
 
 function StatusBadge({ status, ru }: { status: StepStatus | undefined; ru: boolean }) {
-  if (!status || status === "pending") return null;
-  if (status === "running") {
+  if (!status || status === 'pending') return null;
+  if (status === 'running') {
     return <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />;
   }
-  if (status === "done") {
+  if (status === 'done') {
     return <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />;
   }
   return (
     <span className="flex items-center gap-1 text-xs text-rose-500">
       <AlertCircle className="h-3.5 w-3.5" />
-      {ru ? "Ошибка" : "Error"}
+      {ru ? 'Ошибка' : 'Error'}
     </span>
   );
 }
@@ -651,19 +652,19 @@ function OptionControl({
 }: {
   option: StepOption;
   value: string | number | undefined;
-  lang: "ru" | "en" | string;
+  lang: 'ru' | 'en' | string;
   disabled: boolean;
   onChange: (value: string | number) => void;
 }) {
-  const ru = lang === "ru";
+  const ru = lang === 'ru';
   const labelText = ru ? option.label.ru : option.label.en;
   const inputClass =
-    "w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm text-foreground outline-none transition-colors focus:border-primary disabled:opacity-50";
+    'w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm text-foreground outline-none transition-colors focus:border-primary disabled:opacity-50';
 
   return (
     <label className="flex flex-col gap-1">
       <span className="text-xs font-medium text-muted-foreground">{labelText}</span>
-      {option.kind === "select" && (
+      {option.kind === 'select' && (
         <select
           className={inputClass}
           value={String(value ?? option.default)}
@@ -677,17 +678,19 @@ function OptionControl({
           ))}
         </select>
       )}
-      {(option.kind === "text" || option.kind === "password") && (
+      {(option.kind === 'text' || option.kind === 'password') && (
         <input
-          type={option.kind === "password" ? "password" : "text"}
+          type={option.kind === 'password' ? 'password' : 'text'}
           className={inputClass}
           value={String(value ?? option.default)}
-          placeholder={option.placeholder ? (ru ? option.placeholder.ru : option.placeholder.en) : undefined}
+          placeholder={
+            option.placeholder ? (ru ? option.placeholder.ru : option.placeholder.en) : undefined
+          }
           disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
         />
       )}
-      {option.kind === "range" && (
+      {option.kind === 'range' && (
         <span className="flex items-center gap-2">
           <input
             type="range"

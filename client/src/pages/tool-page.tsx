@@ -1,34 +1,33 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { useRoute, Link } from "wouter";
-import { motion, AnimatePresence } from "framer-motion";
-import { useLang } from "@/lib/lang-context";
-import { LANGUAGES } from "@/lib/i18n";
-import { useSeo } from "@/hooks/use-seo";
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useRoute, Link } from 'wouter';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useLang } from '@/lib/lang-context';
+import { LANGUAGES } from '@/lib/i18n';
+import { useSeo } from '@/hooks/use-seo';
+import { ArrowLeft, Download, CheckCircle, AlertCircle, RefreshCw, Lock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
-  ArrowLeft,
-  Download,
-  CheckCircle,
-  AlertCircle,
-  RefreshCw,
-  Lock,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
-import { FileUpload } from "@/components/file-upload";
-import { ProgressRing } from "@/components/progress-ring";
-import { ToolCard } from "@/components/tool-card";
-import { getToolBySlug, tools, categoryColors } from "@/lib/tools";
-import { getToolTranslation } from "@/lib/tool-translations";
-import { DEFAULT_MAX_FILE_SIZE_MB } from "@/lib/upload-limits";
-import { getToolRegistryEntry } from "@/tools/registry";
-import type { ToolOutputDefinition } from "@/tools/types";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
+import { FileUpload } from '@/components/file-upload';
+import { ProgressRing } from '@/components/progress-ring';
+import { ToolCard } from '@/components/tool-card';
+import { getToolBySlug, tools, categoryColors } from '@/lib/tools';
+import { getToolTranslation } from '@/lib/tool-translations';
+import { DEFAULT_MAX_FILE_SIZE_MB } from '@/lib/upload-limits';
+import { getToolRegistryEntry } from '@/tools/registry';
+import type { ToolOutputDefinition } from '@/tools/types';
 import {
   runToolWorkerTask,
   runToolMainThreadTask,
@@ -38,10 +37,14 @@ import {
   createToolNamedPartsResult,
   createToolNumberedPartsResult,
   createToolImageArchiveResult,
-} from "@/tools/shared/process";
-import { validateToolOutput, createToolResultReport, type ToolResultReport } from "@/tools/shared/output";
-import { createToolDownloadPlan } from "@/tools/shared/download";
-import { WorkerAbortError } from "@/workers/worker-client";
+} from '@/tools/shared/process';
+import {
+  validateToolOutput,
+  createToolResultReport,
+  type ToolResultReport,
+} from '@/tools/shared/output';
+import { createToolDownloadPlan } from '@/tools/shared/download';
+import { WorkerAbortError } from '@/workers/worker-client';
 import {
   mergePdfs,
   splitPdf,
@@ -106,38 +109,38 @@ import {
   downloadBlob,
   downloadText,
   downloadHtml,
-} from "@/lib/pdf-utils";
+} from '@/lib/pdf-utils';
 
-type ProcessingState = "idle" | "processing" | "done" | "error";
-type SplitModeState = "range" | "every-n" | "all";
-type PageNumberFormat = "number" | "x-of-y";
+type ProcessingState = 'idle' | 'processing' | 'done' | 'error';
+type SplitModeState = 'range' | 'every-n' | 'all';
+type PageNumberFormat = 'number' | 'x-of-y';
 
 const FALLBACK_OUTPUT: ToolOutputDefinition = {
-  kind: "pdf",
-  extension: "pdf",
-  mimeType: "application/pdf",
+  kind: 'pdf',
+  extension: 'pdf',
+  mimeType: 'application/pdf',
 };
 
-const PAGE_SIZE_OPTIONS = ["a4", "a3", "a5", "letter", "legal", "tabloid"] as const;
-const OCR_LANG_OPTIONS = ["eng", "rus", "spa", "fra", "deu", "por", "ita", "nld"] as const;
+const PAGE_SIZE_OPTIONS = ['a4', 'a3', 'a5', 'letter', 'legal', 'tabloid'] as const;
+const OCR_LANG_OPTIONS = ['eng', 'rus', 'spa', 'fra', 'deu', 'por', 'ita', 'nld'] as const;
 const BATES_POSITIONS = [
-  "bottom-right",
-  "bottom-center",
-  "bottom-left",
-  "top-right",
-  "top-center",
-  "top-left",
+  'bottom-right',
+  'bottom-center',
+  'bottom-left',
+  'top-right',
+  'top-center',
+  'top-left',
 ] as const;
 
 export default function ToolPage() {
-  const [, params] = useRoute("/tools/:slug");
-  const slug = params?.slug || "";
+  const [, params] = useRoute('/tools/:slug');
+  const slug = params?.slug || '';
   const tool = getToolBySlug(slug);
   const { t, lang } = useLang();
   const { toast } = useToast();
   const toolTr = tool ? getToolTranslation(tool.slug, lang) : null;
-  const _toolName = toolTr?.name ?? tool?.name ?? "";
-  const _toolDesc = toolTr?.description ?? tool?.description ?? "";
+  const _toolName = toolTr?.name ?? tool?.name ?? '';
+  const _toolDesc = toolTr?.description ?? tool?.description ?? '';
   const maxSizeMb = tool?.maxFilesMb ?? DEFAULT_MAX_FILE_SIZE_MB;
 
   const entry = useMemo(() => getToolRegistryEntry(slug), [slug]);
@@ -145,20 +148,20 @@ export default function ToolPage() {
 
   useSeo({
     title: tool
-      ? `${_toolName} — PDFX | ${lang === "ru" ? "Бесплатно онлайн" : "Free Online"}`
-      : "PDFX — PDF Tools",
-    description: _toolDesc || "Free online PDF tools — merge, compress, convert, split.",
-    path: slug ? `/tools/${slug}` : "/",
+      ? `${_toolName} — PDFX | ${lang === 'ru' ? 'Бесплатно онлайн' : 'Free Online'}`
+      : 'PDFX — PDF Tools',
+    description: _toolDesc || 'Free online PDF tools — merge, compress, convert, split.',
+    path: slug ? `/tools/${slug}` : '/',
     schemaOrg: tool
       ? {
-          "@context": "https://schema.org",
-          "@type": "SoftwareApplication",
+          '@context': 'https://schema.org',
+          '@type': 'SoftwareApplication',
           name: `PDFX — ${_toolName}`,
           url: `https://pdfx.tools/tools/${slug}`,
           description: _toolDesc,
-          applicationCategory: "UtilitiesApplication",
-          operatingSystem: "Web Browser",
-          offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+          applicationCategory: 'UtilitiesApplication',
+          operatingSystem: 'Web Browser',
+          offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
           inLanguage: LANGUAGES.map((l) => l.code),
         }
       : undefined,
@@ -166,7 +169,7 @@ export default function ToolPage() {
 
   const [files, setFiles] = useState<File[]>([]);
   const [fileB, setFileB] = useState<File | null>(null);
-  const [state, setState] = useState<ProcessingState>("idle");
+  const [state, setState] = useState<ProcessingState>('idle');
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [resultBytes, setResultBytes] = useState<Uint8Array | null>(null);
@@ -177,52 +180,53 @@ export default function ToolPage() {
   const [audioSpoken, setAudioSpoken] = useState<{ chars: number; lang: string } | null>(null);
 
   // --- Controls ---
-  const [splitMode, setSplitMode] = useState<SplitModeState>("range");
-  const [splitStart, setSplitStart] = useState("1");
-  const [splitEnd, setSplitEnd] = useState("");
-  const [splitEveryN, setSplitEveryN] = useState("2");
-  const [splitMaxMb, setSplitMaxMb] = useState("10");
-  const [rotation, setRotation] = useState<"90" | "180" | "270">("90");
-  const [pagesToDelete, setPagesToDelete] = useState("");
-  const [pagesToExtract, setPagesToExtract] = useState("");
-  const [compressionLevel, setCompressionLevel] = useState<"low" | "medium" | "high">("medium");
-  const [watermarkText, setWatermarkText] = useState("CONFIDENTIAL");
+  const [splitMode, setSplitMode] = useState<SplitModeState>('range');
+  const [splitStart, setSplitStart] = useState('1');
+  const [splitEnd, setSplitEnd] = useState('');
+  const [splitEveryN, setSplitEveryN] = useState('2');
+  const [splitMaxMb, setSplitMaxMb] = useState('10');
+  const [rotation, setRotation] = useState<'90' | '180' | '270'>('90');
+  const [pagesToDelete, setPagesToDelete] = useState('');
+  const [pagesToExtract, setPagesToExtract] = useState('');
+  const [compressionLevel] = useState<'low' | 'medium' | 'high'>('medium');
+  const [watermarkText, setWatermarkText] = useState('CONFIDENTIAL');
   const [watermarkOpacity, setWatermarkOpacity] = useState([0.3]);
   const [watermarkPosition, setWatermarkPosition] = useState<
-    "center" | "tile" | "top-left" | "top-right" | "bottom-left" | "bottom-right"
-  >("center");
-  const [pageNumPosition, setPageNumPosition] =
-    useState<"bottom-center" | "bottom-right" | "bottom-left" | "top-center">("bottom-center");
-  const [pageNumFormat, setPageNumFormat] = useState<PageNumberFormat>("number");
-  const [pageNumStart, setPageNumStart] = useState("1");
-  const [headerText, setHeaderText] = useState("");
-  const [footerText, setFooterText] = useState("");
-  const [freeTextContent, setFreeTextContent] = useState("");
-  const [signatureText, setSignatureText] = useState("");
-  const [redactSearchText, setRedactSearchText] = useState("");
-  const [imageScale, setImageScale] = useState<"1" | "2" | "3">("2");
+    'center' | 'tile' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
+  >('center');
+  const [pageNumPosition, setPageNumPosition] = useState<
+    'bottom-center' | 'bottom-right' | 'bottom-left' | 'top-center'
+  >('bottom-center');
+  const [pageNumFormat, setPageNumFormat] = useState<PageNumberFormat>('number');
+  const [pageNumStart, setPageNumStart] = useState('1');
+  const [headerText] = useState('');
+  const [footerText] = useState('');
+  const [freeTextContent, setFreeTextContent] = useState('');
+  const [signatureText, setSignatureText] = useState('');
+  const [redactSearchText, setRedactSearchText] = useState('');
+  const [imageScale, setImageScale] = useState<'1' | '2' | '3'>('2');
   const [autoCrop, setAutoCrop] = useState(false);
-  const [cropTop, setCropTop] = useState("0");
-  const [cropRight, setCropRight] = useState("0");
-  const [cropBottom, setCropBottom] = useState("0");
-  const [cropLeft, setCropLeft] = useState("0");
-  const [targetPageSize, setTargetPageSize] = useState<string>("a4");
+  const [cropTop, setCropTop] = useState('0');
+  const [cropRight, setCropRight] = useState('0');
+  const [cropBottom, setCropBottom] = useState('0');
+  const [cropLeft, setCropLeft] = useState('0');
+  const [targetPageSize, setTargetPageSize] = useState<string>('a4');
   const [scannerIntensity, setScannerIntensity] = useState([50]);
-  const [nUpCount, setUpCount] = useState<"2" | "4">("2");
+  const [nUpCount, setUpCount] = useState<'2' | '4'>('2');
   const [redactEmails, setRedactEmails] = useState(true);
   const [redactPhones, setRedactPhones] = useState(false);
   const [redactSsn, setRedactSsn] = useState(false);
-  const [redactRegex, setRedactRegex] = useState("");
-  const [ocrLanguage, setOcrLanguage] = useState<string>("eng");
-  const [batesPrefix, setBatesPrefix] = useState("");
-  const [batesStart, setBatesStart] = useState("1");
-  const [batesDigits, setBatesDigits] = useState("6");
-  const [batesPosition, setBatesPosition] = useState<string>("bottom-right");
-  const [bgColor, setBgColor] = useState("#fff7cc");
+  const [redactRegex, setRedactRegex] = useState('');
+  const [ocrLanguage, setOcrLanguage] = useState<string>('eng');
+  const [batesPrefix, setBatesPrefix] = useState('');
+  const [batesStart, setBatesStart] = useState('1');
+  const [batesDigits, setBatesDigits] = useState('6');
+  const [batesPosition, setBatesPosition] = useState<string>('bottom-right');
+  const [bgColor, setBgColor] = useState('#fff7cc');
   const [bgOpacity, setBgOpacity] = useState([60]);
-  const [blankPositions, setBlankPositions] = useState("");
+  const [blankPositions, setBlankPositions] = useState('');
   const [overlayOpacity, setOverlayOpacity] = useState([100]);
-  const [formValuesJson, setFormValuesJson] = useState("{}");
+  const [formValuesJson, setFormValuesJson] = useState('{}');
   const [metadataFields, setMetadataFields] = useState<Record<string, string> | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
@@ -242,18 +246,13 @@ export default function ToolPage() {
     timersRef.current = [];
   }, []);
 
-  const simulateProgress = useCallback(
-    (start: number, end: number) => {
-      const steps = 8;
-      const step = (end - start) / steps;
-      for (let i = 1; i <= steps; i++) {
-        timersRef.current.push(
-          setTimeout(() => setProgress(start + Math.round(step * i)), i * 200)
-        );
-      }
-    },
-    []
-  );
+  const simulateProgress = useCallback((start: number, end: number) => {
+    const steps = 8;
+    const step = (end - start) / steps;
+    for (let i = 1; i <= steps; i++) {
+      timersRef.current.push(setTimeout(() => setProgress(start + Math.round(step * i)), i * 200));
+    }
+  }, []);
 
   const handleFiles = useCallback(
     (newFiles: File[]) => {
@@ -262,7 +261,7 @@ export default function ToolPage() {
       } else {
         setFiles(newFiles);
       }
-      setState("idle");
+      setState('idle');
       setResultBytes(null);
       setResultText(null);
       setResultHtml(null);
@@ -270,7 +269,7 @@ export default function ToolPage() {
       setAudioSpoken(null);
       setMetadataFields(null);
     },
-    [tool]
+    [tool],
   );
 
   const removeFile = useCallback((index: number) => {
@@ -283,7 +282,7 @@ export default function ToolPage() {
     clearTimers();
     setFiles([]);
     setFileB(null);
-    setState("idle");
+    setState('idle');
     setProgress(0);
     setError(null);
     setResultBytes(null);
@@ -300,7 +299,7 @@ export default function ToolPage() {
     cancelledRef.current = true;
     abortRef.current?.abort();
     clearTimers();
-    setState("idle");
+    setState('idle');
     setProgress(0);
   }, [clearTimers]);
 
@@ -309,7 +308,7 @@ export default function ToolPage() {
       if (cancelledRef.current) return;
       clearTimers();
 
-      if (output.kind !== "audio") {
+      if (output.kind !== 'audio') {
         const validation = validateToolOutput(bytes, output);
         if (!validation.ok) {
           throw new Error(validation.reason || t.tool.errorOccurred);
@@ -322,9 +321,9 @@ export default function ToolPage() {
       if (files[0] && bytes) {
         setReport(createToolResultReport(files[0].size, bytes.length, output));
       }
-      setState("done");
+      setState('done');
     },
-    [clearTimers, files, output, t.tool.errorOccurred]
+    [clearTimers, files, output, t.tool.errorOccurred],
   );
 
   const finishWithText = useCallback(
@@ -333,7 +332,7 @@ export default function ToolPage() {
       setProgress(100);
       setResultBytes(text.bytes);
       setResultSize(text.bytes.length);
-      if (text.target === "html") {
+      if (text.target === 'html') {
         setResultHtml(text.content);
         setResultText(null);
       } else {
@@ -343,9 +342,9 @@ export default function ToolPage() {
       if (files[0]) {
         setReport(createToolResultReport(files[0].size, text.bytes.length, output));
       }
-      setState("done");
+      setState('done');
     },
-    [files, output]
+    [files, output],
   );
 
   const process = useCallback(async () => {
@@ -353,38 +352,38 @@ export default function ToolPage() {
       setError(t.tool.notFound);
       return;
     }
-    if (files.length === 0 && slug !== "text-to-pdf") {
+    if (files.length === 0 && slug !== 'text-to-pdf') {
       setError(t.tool.selectFile);
       return;
     }
 
-    const needSecond = slug === "compare-pdf" || slug === "pdf-diff" || slug === "overlay-pdf";
+    const needSecond = slug === 'compare-pdf' || slug === 'pdf-diff' || slug === 'overlay-pdf';
     if (needSecond && !fileB) {
       setError(t.tool.needSecondFile);
-      setState("error");
+      setState('error');
       return;
     }
-    if ((slug === "form-fill" || slug === "extract-forms") && !files[0]) {
+    if ((slug === 'form-fill' || slug === 'extract-forms') && !files[0]) {
       setError(t.tool.selectFile);
-      setState("error");
+      setState('error');
       return;
     }
 
-    if (slug === "protect-pdf") {
-      setState("error");
+    if (slug === 'protect-pdf') {
+      setState('error');
       setError(
-        lang === "ru"
-          ? "PDF-шифрование в браузере не поддерживается. Используйте Adobe Acrobat, LibreOffice или 7-Zip."
-          : "Browser-side PDF encryption is not supported. Use Adobe Acrobat, LibreOffice, or 7-Zip."
+        lang === 'ru'
+          ? 'PDF-шифрование в браузере не поддерживается. Используйте Adobe Acrobat, LibreOffice или 7-Zip.'
+          : 'Browser-side PDF encryption is not supported. Use Adobe Acrobat, LibreOffice, or 7-Zip.',
       );
       return;
     }
 
-    if (slug === "form-fill") {
+    if (slug === 'form-fill') {
       try {
         JSON.parse(formValuesJson);
       } catch {
-        setState("error");
+        setState('error');
         setError(t.tool.invalidJson);
         return;
       }
@@ -393,14 +392,14 @@ export default function ToolPage() {
     cancelledRef.current = false;
     abortRef.current = new AbortController();
     const signal = abortRef.current.signal;
-    setState("processing");
+    setState('processing');
     setProgress(5);
     setError(null);
 
     const useRealProgress =
-      entry.execution.progress === "callback" &&
-      (entry.execution.workerOp != null || slug === "ocr-pdf");
-    if (!useRealProgress && slug !== "pdf-metadata") {
+      entry.execution.progress === 'callback' &&
+      (entry.execution.workerOp != null || slug === 'ocr-pdf');
+    if (!useRealProgress && slug !== 'pdf-metadata') {
       simulateProgress(10, 85);
     }
 
@@ -408,211 +407,226 @@ export default function ToolPage() {
       let result: Uint8Array | null = null;
 
       switch (slug) {
-        case "merge-pdf":
+        case 'merge-pdf':
           result = await mergePdfs(files);
           break;
 
-        case "split-pdf": {
-          const baseName = files[0].name.replace(/\.[^.]+$/, "");
-          if (splitMode === "range") {
+        case 'split-pdf': {
+          const baseName = files[0].name.replace(/\.[^.]+$/, '');
+          if (splitMode === 'range') {
             const pageCount = await getPdfPageCount(files[0]);
             const start = Math.max(1, parseInt(splitStart) || 1);
             const endInput = parseInt(splitEnd);
             const end = Number.isNaN(endInput) ? pageCount : Math.min(endInput, pageCount);
             if (start > end) {
               throw new Error(
-                lang === "ru"
-                  ? "Начальная страница должна быть меньше или равна конечной."
-                  : "Start page must be less than or equal to end page."
+                lang === 'ru'
+                  ? 'Начальная страница должна быть меньше или равна конечной.'
+                  : 'Start page must be less than or equal to end page.',
               );
             }
             const results = await splitPdf(files[0], [{ start, end }]);
             result = await createToolNumberedPartsResult(entry, results, baseName, {
-              singlePartMode: "bytes",
+              singlePartMode: 'bytes',
             });
-          } else if (splitMode === "every-n") {
+          } else if (splitMode === 'every-n') {
             const everyN = Math.max(1, parseInt(splitEveryN) || 2);
             const parts = await splitPdfEveryN(files[0], everyN);
             result = await createToolNumberedPartsResult(entry, parts, baseName, {
-              singlePartMode: "zip",
+              singlePartMode: 'zip',
             });
           } else {
             const parts = await splitPdfAllPages(files[0]);
             result = await createToolNumberedPartsResult(entry, parts, baseName, {
-              singlePartMode: "zip",
+              singlePartMode: 'zip',
             });
           }
           break;
         }
 
-        case "rotate-pdf":
+        case 'rotate-pdf':
           result = await rotatePdf(files[0], parseInt(rotation) as 90 | 180 | 270);
           break;
 
-        case "delete-pages": {
+        case 'delete-pages': {
           const pageCount = await getPdfPageCount(files[0]);
           const indices = parsePageSelection(pagesToDelete, pageCount, { allowDuplicates: false });
           result = await deletePages(files[0], indices);
           break;
         }
 
-        case "extract-pages": {
+        case 'extract-pages': {
           const pageCount = await getPdfPageCount(files[0]);
           const indices = parsePageSelection(pagesToExtract, pageCount, { allowDuplicates: false });
           result = await extractPages(files[0], indices);
           break;
         }
 
-        case "reorder-pages": {
+        case 'reorder-pages': {
           const pageCount = await getPdfPageCount(files[0]);
           const indices = parsePageSelection(pagesToExtract, pageCount, { allowDuplicates: true });
           if (indices.length !== pageCount) {
             throw new Error(
-              lang === "ru"
+              lang === 'ru'
                 ? `Укажите все ${pageCount} страниц в новом порядке.`
-                : `List all ${pageCount} pages in the new order.`
+                : `List all ${pageCount} pages in the new order.`,
             );
           }
-          result = await reorderPages(files[0], indices.map((n) => n - 1));
+          result = await reorderPages(
+            files[0],
+            indices.map((n) => n - 1),
+          );
           break;
         }
 
-        case "compress-pdf":
+        case 'compress-pdf':
           result = await compressPdf(files[0], compressionLevel);
           break;
 
-        case "watermark-pdf":
+        case 'watermark-pdf':
           result = await addWatermark(
             files[0],
             watermarkText,
             watermarkOpacity[0],
             45,
-            watermarkPosition
+            watermarkPosition,
           );
           break;
 
-        case "pdf-page-numbers":
+        case 'pdf-page-numbers':
           result = await addPageNumbers(
             files[0],
             pageNumPosition,
             Math.max(1, parseInt(pageNumStart) || 1),
-            pageNumFormat
+            pageNumFormat,
           );
           break;
 
-        case "images-to-pdf":
-        case "photo-to-pdf":
+        case 'images-to-pdf':
+        case 'photo-to-pdf':
           result = await imagesToPdf(files);
           break;
 
-        case "text-to-pdf": {
+        case 'text-to-pdf': {
           const text = files.length > 0 ? await files[0].text() : freeTextContent;
           result = await textToPdf(text);
           break;
         }
 
-        case "pdf-header-footer":
+        case 'pdf-header-footer':
           result = await addHeaderFooter(files[0], headerText, footerText);
           break;
 
-        case "repair-pdf":
+        case 'repair-pdf':
           result = await repairPdf(files[0]);
           break;
 
-        case "flatten-pdf":
+        case 'flatten-pdf':
           result = await flattenPdf(files[0]);
           break;
 
-        case "unlock-pdf":
+        case 'unlock-pdf':
           result = await unlockPdf(files[0]);
           break;
 
-        case "sign-pdf":
+        case 'sign-pdf':
           result = await signPdf(files[0], signatureText);
           break;
 
-        case "word-to-pdf":
+        case 'word-to-pdf':
           result = await wordToPdf(files[0]);
           break;
 
-        case "excel-to-pdf":
+        case 'excel-to-pdf':
           result = await runToolMainThreadTask(entry, () => excelToPdf(files[0]));
           break;
 
-        case "pdf-to-word":
+        case 'pdf-to-word':
           result = await runToolMainThreadTask(entry, () => pdfToWord(files[0]));
           break;
 
-        case "pdf-to-excel":
+        case 'pdf-to-excel':
           result = await runToolMainThreadTask(entry, () => pdfToExcel(files[0]));
           break;
 
-        case "pdf-to-text": {
+        case 'pdf-to-text': {
           const text = await pdfToText(files[0]);
           finishWithText(createToolTextResult(entry, text));
           return;
         }
 
-        case "pdf-to-html": {
+        case 'pdf-to-html': {
           const html = await pdfToHtml(files[0]);
           finishWithText(createToolTextResult(entry, html));
           return;
         }
 
-        case "pdf-to-markdown": {
+        case 'pdf-to-markdown': {
           const md = await pdfToMarkdown(files[0]);
           finishWithText(createToolTextResult(entry, md));
           return;
         }
 
-        case "pdf-bookmarks": {
+        case 'pdf-bookmarks': {
           const text = await pdfBookmarks(files[0]);
           finishWithText(createToolTextResult(entry, text));
           return;
         }
 
-        case "extract-forms": {
+        case 'extract-forms': {
           const fields = await runToolMainThreadTask(entry, () => extractFormFields(files[0]));
           finishWithText(createToolTextResult(entry, JSON.stringify(fields, null, 2)));
           return;
         }
 
-        case "pdf-to-jpg":
-        case "pdf-to-png": {
-          const fmt = slug === "pdf-to-jpg" ? "jpg" : "png";
+        case 'pdf-to-jpg':
+        case 'pdf-to-png': {
+          const fmt = slug === 'pdf-to-jpg' ? 'jpg' : 'png';
           const scale = parseInt(imageScale) || 2;
-          const baseName = files[0].name.replace(/\.[^.]+$/, "");
+          const baseName = files[0].name.replace(/\.[^.]+$/, '');
           const fallback = async () => await pdfToImages(files[0], fmt, scale);
           const images = entry.execution.workerOp
-            ? await runToolWorkerTask(entry, fallback, { file: files[0], args: [fmt, scale], signal })
+            ? await runToolWorkerTask(entry, fallback, {
+                file: files[0],
+                args: [fmt, scale],
+                signal,
+              })
             : await fallback();
           result = await createToolImageArchiveResult(entry, images, fmt, baseName);
           break;
         }
 
-        case "extract-images": {
+        case 'extract-images': {
           const images = await runToolMainThreadTask(entry, () => extractImages(files[0]));
-          result = await createToolNamedPartsResult(entry, images, { singlePartMode: "zip" });
+          result = await createToolNamedPartsResult(entry, images, { singlePartMode: 'zip' });
           break;
         }
 
-        case "remove-images":
+        case 'remove-images':
           result = await runToolMainThreadTask(entry, () => removeImages(files[0]));
           break;
 
-        case "grayscale-pdf": {
+        case 'grayscale-pdf': {
           const fallback = () => grayscalePdf(files[0], setProgress);
-          result = await runOrFallback(entry, fallback, { file: files[0], onProgress: setProgress, signal });
+          result = await runOrFallback(entry, fallback, {
+            file: files[0],
+            onProgress: setProgress,
+            signal,
+          });
           break;
         }
 
-        case "invert-colors": {
+        case 'invert-colors': {
           const fallback = () => invertColors(files[0], setProgress);
-          result = await runOrFallback(entry, fallback, { file: files[0], onProgress: setProgress, signal });
+          result = await runOrFallback(entry, fallback, {
+            file: files[0],
+            onProgress: setProgress,
+            signal,
+          });
           break;
         }
 
-        case "scanner-effect": {
+        case 'scanner-effect': {
           const intensity = scannerIntensity[0] / 100;
           const fallback = () => scannerEffect(files[0], intensity, setProgress);
           result = await runOrFallback(entry, fallback, {
@@ -624,13 +638,17 @@ export default function ToolPage() {
           break;
         }
 
-        case "remove-blank-pages": {
+        case 'remove-blank-pages': {
           const fallback = () => removeBlankPages(files[0], undefined, setProgress);
-          result = await runOrFallback(entry, fallback, { file: files[0], onProgress: setProgress, signal });
+          result = await runOrFallback(entry, fallback, {
+            file: files[0],
+            onProgress: setProgress,
+            signal,
+          });
           break;
         }
 
-        case "n-up-pdf": {
+        case 'n-up-pdf': {
           const n = (parseInt(nUpCount) || 2) as 2 | 4;
           const fallback = () => nUpPdf(files[0], n, setProgress);
           result = await runOrFallback(entry, fallback, {
@@ -642,19 +660,27 @@ export default function ToolPage() {
           break;
         }
 
-        case "to-single-page": {
+        case 'to-single-page': {
           const fallback = () => toSinglePage(files[0], setProgress);
-          result = await runOrFallback(entry, fallback, { file: files[0], onProgress: setProgress, signal });
+          result = await runOrFallback(entry, fallback, {
+            file: files[0],
+            onProgress: setProgress,
+            signal,
+          });
           break;
         }
 
-        case "booklet-imposition": {
+        case 'booklet-imposition': {
           const fallback = () => bookletImposition(files[0], setProgress);
-          result = await runOrFallback(entry, fallback, { file: files[0], onProgress: setProgress, signal });
+          result = await runOrFallback(entry, fallback, {
+            file: files[0],
+            onProgress: setProgress,
+            signal,
+          });
           break;
         }
 
-        case "compare-pdf": {
+        case 'compare-pdf': {
           const second = fileB as File;
           const fallback = () => comparePdf(files[0], second, setProgress);
           result = await runOrFallback(entry, fallback, {
@@ -666,7 +692,7 @@ export default function ToolPage() {
           break;
         }
 
-        case "pdf-diff": {
+        case 'pdf-diff': {
           const second = fileB as File;
           const fallback = () => pdfDiff(files[0], second, setProgress);
           result = await runOrFallback(entry, fallback, {
@@ -678,20 +704,18 @@ export default function ToolPage() {
           break;
         }
 
-        case "overlay-pdf": {
+        case 'overlay-pdf': {
           const second = fileB as File;
           const opacity = overlayOpacity[0] / 100;
           result = await overlayPdf(files[0], second, opacity, setProgress);
           break;
         }
 
-        case "redact-pdf": {
+        case 'redact-pdf': {
           const text = redactSearchText.trim();
           if (!text) {
             throw new Error(
-              lang === "ru"
-                ? "Введите текст для затирания."
-                : "Enter the text to redact."
+              lang === 'ru' ? 'Введите текст для затирания.' : 'Enter the text to redact.',
             );
           }
           const fallback = () => redactPdf(files[0], text, setProgress);
@@ -704,15 +728,15 @@ export default function ToolPage() {
           break;
         }
 
-        case "auto-redact": {
+        case 'auto-redact': {
           const raw = redactRegex.trim();
           let customRegex: string | undefined;
           if (raw) {
             try {
-              new RegExp(raw, "gi");
+              new RegExp(raw, 'gi');
               customRegex = raw;
             } catch {
-              throw new Error("Invalid regular expression.");
+              throw new Error('Invalid regular expression.');
             }
           }
           const options = {
@@ -731,19 +755,23 @@ export default function ToolPage() {
           break;
         }
 
-        case "ocr-pdf":
+        case 'ocr-pdf':
           result = await runToolMainThreadTask(entry, () =>
-            ocrPdf(files[0], ocrLanguage, setProgress)
+            ocrPdf(files[0], ocrLanguage, setProgress),
           );
           break;
 
-        case "pdf-to-pptx": {
+        case 'pdf-to-pptx': {
           const fallback = () => pdfToPptx(files[0], setProgress);
-          result = await runOrFallback(entry, fallback, { file: files[0], onProgress: setProgress, signal });
+          result = await runOrFallback(entry, fallback, {
+            file: files[0],
+            onProgress: setProgress,
+            signal,
+          });
           break;
         }
 
-        case "crop-pdf": {
+        case 'crop-pdf': {
           const num = (v: string) => Math.max(0, parseFloat(v) || 0);
           result = await cropPdf(files[0], {
             top: num(cropTop),
@@ -755,58 +783,68 @@ export default function ToolPage() {
           break;
         }
 
-        case "resize-pages":
+        case 'resize-pages':
           result = await resizePages(files[0], targetPageSize);
           break;
 
-        case "add-blank-pages":
-          result = await addBlankPages(files[0], blankPositions.trim() || "end");
+        case 'add-blank-pages':
+          result = await addBlankPages(files[0], blankPositions.trim() || 'end');
           break;
 
-        case "bates-numbering":
-          result = await batesNumbering(files[0], {
-            prefix: batesPrefix,
-            start: Math.max(0, parseInt(batesStart) || 1),
-            digits: Math.min(12, Math.max(1, parseInt(batesDigits) || 6)),
-            position: batesPosition as "bottom-right" | "bottom-center" | "bottom-left" | "top-right" | "top-center" | "top-left",
-          }, setProgress);
+        case 'bates-numbering':
+          result = await batesNumbering(
+            files[0],
+            {
+              prefix: batesPrefix,
+              start: Math.max(0, parseInt(batesStart) || 1),
+              digits: Math.min(12, Math.max(1, parseInt(batesDigits) || 6)),
+              position: batesPosition as
+                | 'bottom-right'
+                | 'bottom-center'
+                | 'bottom-left'
+                | 'top-right'
+                | 'top-center'
+                | 'top-left',
+            },
+            setProgress,
+          );
           break;
 
-        case "add-background":
+        case 'add-background':
           result = await addBackground(files[0], bgColor, bgOpacity[0] / 100);
           break;
 
-        case "sanitize-pdf":
+        case 'sanitize-pdf':
           result = await sanitizePdf(files[0]);
           break;
 
-        case "pdf-to-pdfa":
+        case 'pdf-to-pdfa':
           result = await convertToPdfA(files[0]);
           break;
 
-        case "split-by-size": {
+        case 'split-by-size': {
           const maxMb = parseFloat(splitMaxMb) || 10;
           const parts = await splitBySize(files[0], maxMb, setProgress);
-          const baseName = files[0].name.replace(/\.[^.]+$/, "");
+          const baseName = files[0].name.replace(/\.[^.]+$/, '');
           result = await createToolNumberedPartsResult(entry, parts, baseName, {
-            singlePartMode: "zip",
+            singlePartMode: 'zip',
           });
           break;
         }
 
-        case "split-by-chapters": {
+        case 'split-by-chapters': {
           const parts = await splitByChapters(files[0], setProgress);
-          result = await createToolNamedPartsResult(entry, parts, { singlePartMode: "zip" });
+          result = await createToolNamedPartsResult(entry, parts, { singlePartMode: 'zip' });
           break;
         }
 
-        case "form-fill": {
+        case 'form-fill': {
           const values = JSON.parse(formValuesJson) as Record<string, string | boolean>;
           result = await fillPdfForm(files[0], values);
           break;
         }
 
-        case "pdf-metadata": {
+        case 'pdf-metadata': {
           const metaResult = await runToolMetadataEditTask(
             entry,
             metadataFields !== null,
@@ -817,16 +855,16 @@ export default function ToolPage() {
             },
             async () => {
               const clean = Object.fromEntries(
-                Object.entries(metadataFields ?? {}).filter(([, v]) => v !== "")
+                Object.entries(metadataFields ?? {}).filter(([, v]) => v !== ''),
               );
               return setPdfMetadata(files[0], clean);
-            }
+            },
           );
-          if (metaResult.status === "loaded") {
+          if (metaResult.status === 'loaded') {
             if (!cancelledRef.current) {
               clearTimers();
               setProgress(0);
-              setState("idle");
+              setState('idle');
               toast({ title: t.tool.metaLoaded });
             }
             return;
@@ -835,7 +873,7 @@ export default function ToolPage() {
           break;
         }
 
-        case "pdf-to-audio": {
+        case 'pdf-to-audio': {
           await runToolAudioSideEffectTask(entry, async () => {
             const spoken = await pdfToAudio(files[0], { langHint: ocrLanguage });
             if (!cancelledRef.current) {
@@ -845,7 +883,7 @@ export default function ToolPage() {
           if (cancelledRef.current) return;
           clearTimers();
           setProgress(100);
-          setState("done");
+          setState('done');
           return;
         }
 
@@ -857,27 +895,70 @@ export default function ToolPage() {
     } catch (err: unknown) {
       clearTimers();
       if (cancelledRef.current || err instanceof WorkerAbortError || signal.aborted) {
-        setState("idle");
+        setState('idle');
         setProgress(0);
         return;
       }
       setError(err instanceof Error ? err.message : t.tool.errorOccurred);
-      setState("error");
+      setState('error');
     }
   }, [
-    tool, entry, files, fileB, slug, lang, t,
-    splitMode, splitStart, splitEnd, splitEveryN, splitMaxMb, rotation,
-    pagesToDelete, pagesToExtract, compressionLevel,
-    watermarkText, watermarkOpacity, watermarkPosition,
-    pageNumPosition, pageNumFormat, pageNumStart,
-    headerText, footerText, freeTextContent, signatureText, redactSearchText,
-    imageScale, autoCrop, cropTop, cropRight, cropBottom, cropLeft,
-    targetPageSize, scannerIntensity, nUpCount,
-    redactEmails, redactPhones, redactSsn, redactRegex, ocrLanguage,
-    batesPrefix, batesStart, batesDigits, batesPosition,
-    bgColor, bgOpacity, blankPositions, overlayOpacity,
-    formValuesJson, metadataFields,
-    simulateProgress, clearTimers, finishWithBytes, finishWithText, toast,
+    tool,
+    entry,
+    files,
+    fileB,
+    slug,
+    lang,
+    t,
+    splitMode,
+    splitStart,
+    splitEnd,
+    splitEveryN,
+    splitMaxMb,
+    rotation,
+    pagesToDelete,
+    pagesToExtract,
+    compressionLevel,
+    watermarkText,
+    watermarkOpacity,
+    watermarkPosition,
+    pageNumPosition,
+    pageNumFormat,
+    pageNumStart,
+    headerText,
+    footerText,
+    freeTextContent,
+    signatureText,
+    redactSearchText,
+    imageScale,
+    autoCrop,
+    cropTop,
+    cropRight,
+    cropBottom,
+    cropLeft,
+    targetPageSize,
+    scannerIntensity,
+    nUpCount,
+    redactEmails,
+    redactPhones,
+    redactSsn,
+    redactRegex,
+    ocrLanguage,
+    batesPrefix,
+    batesStart,
+    batesDigits,
+    batesPosition,
+    bgColor,
+    bgOpacity,
+    blankPositions,
+    overlayOpacity,
+    formValuesJson,
+    metadataFields,
+    simulateProgress,
+    clearTimers,
+    finishWithBytes,
+    finishWithText,
+    toast,
   ]);
 
   const handleDownload = useCallback(() => {
@@ -888,14 +969,14 @@ export default function ToolPage() {
       resultBytes,
       resultText,
       resultHtml,
-      splitMode: splitMode === "every-n" ? "every-n" : splitMode === "all" ? "all" : "range",
+      splitMode: splitMode === 'every-n' ? 'every-n' : splitMode === 'all' ? 'all' : 'range',
     });
     if (!plan) return;
-    if (plan.kind === "text") {
+    if (plan.kind === 'text') {
       downloadText(plan.text, plan.filename);
       return;
     }
-    if (plan.kind === "html") {
+    if (plan.kind === 'html') {
       downloadHtml(plan.html, plan.filename);
       return;
     }
@@ -919,7 +1000,7 @@ export default function ToolPage() {
   const relatedTools = tools
     .filter((rel) => rel.category === tool.category && rel.slug !== slug)
     .slice(0, 4);
-  const isAudioTool = slug === "pdf-to-audio";
+  const isAudioTool = slug === 'pdf-to-audio';
   const steps = isAudioTool
     ? [t.tool.step1, t.tool.step2, t.tool.step3]
     : [t.tool.step1, t.tool.step2, t.tool.step3, t.tool.step4];
@@ -942,8 +1023,8 @@ export default function ToolPage() {
               <div
                 className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0"
                 style={{
-                  background: `linear-gradient(135deg, ${colors.gradient}, ${colors.gradient.replace("0.18", "0.05")})`,
-                  border: `1px solid ${colors.gradient.replace("0.18", "0.2")}`,
+                  background: `linear-gradient(135deg, ${colors.gradient}, ${colors.gradient.replace('0.18', '0.05')})`,
+                  border: `1px solid ${colors.gradient.replace('0.18', '0.2')}`,
                 }}
               >
                 {tool.emoji}
@@ -970,31 +1051,31 @@ export default function ToolPage() {
                 onFiles={handleFiles}
                 onError={(count) => {
                   toast({
-                    title: lang === "ru" ? "Файл отклонён" : "File rejected",
+                    title: lang === 'ru' ? 'Файл отклонён' : 'File rejected',
                     description:
-                      lang === "ru"
-                        ? `Отклонено: ${count}. Проверьте формат (${tool.accept || "любой"}) и размер (до ${maxSizeMb} МБ).`
-                        : `Rejected: ${count}. Check format (${tool.accept || "any"}) and size (up to ${maxSizeMb} MB).`,
-                    variant: "destructive",
+                      lang === 'ru'
+                        ? `Отклонено: ${count}. Проверьте формат (${tool.accept || 'любой'}) и размер (до ${maxSizeMb} МБ).`
+                        : `Rejected: ${count}. Check format (${tool.accept || 'any'}) and size (up to ${maxSizeMb} MB).`,
+                    variant: 'destructive',
                   });
                 }}
                 files={files}
                 onRemoveFile={removeFile}
-                label={tool.accept?.includes(".pdf") ? t.tool.dropPdf : t.tool.chooseFile}
+                label={tool.accept?.includes('.pdf') ? t.tool.dropPdf : t.tool.chooseFile}
                 description={`${tool.multiple ? t.tool.multipleFiles : t.tool.singleFile} • ${t.tool.maxSize} ${maxSizeMb}MB`}
               />
 
-              {(slug === "compare-pdf" || slug === "pdf-diff" || slug === "overlay-pdf") && (
+              {(slug === 'compare-pdf' || slug === 'pdf-diff' || slug === 'overlay-pdf') && (
                 <SecondFileInput
                   label={t.tool.secondFile}
                   testId={
-                    slug === "compare-pdf"
-                      ? "input-compare-file2"
-                      : slug === "pdf-diff"
-                        ? "input-diff-file2"
-                        : "input-overlay-file2"
+                    slug === 'compare-pdf'
+                      ? 'input-compare-file2'
+                      : slug === 'pdf-diff'
+                        ? 'input-diff-file2'
+                        : 'input-overlay-file2'
                   }
-                  accept={tool.accept || ".pdf"}
+                  accept={tool.accept || '.pdf'}
                   file={fileB}
                   onChange={setFileB}
                 />
@@ -1003,21 +1084,28 @@ export default function ToolPage() {
               {isAudioTool && (
                 <div
                   className="flex items-start gap-3 rounded-lg p-3 text-sm"
-                  style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.25)" }}
+                  style={{
+                    background: 'rgba(59,130,246,0.08)',
+                    border: '1px solid rgba(59,130,246,0.25)',
+                  }}
                 >
                   <span className="mt-0.5 text-blue-500">ℹ</span>
                   <span className="text-foreground/90">
-                    {t.tool.audioNotice}{" "}
-                    {lang === "ru" ? "Если это скан, сначала запустите " : "If this is a scan, run "}
+                    {t.tool.audioNotice}{' '}
+                    {lang === 'ru'
+                      ? 'Если это скан, сначала запустите '
+                      : 'If this is a scan, run '}
                     <Link href="/tools/ocr-pdf" className="underline font-medium">
                       OCR PDF
                     </Link>
-                    {lang === "ru" ? ", чтобы текст стал выделяемым." : " first to make the text selectable."}
+                    {lang === 'ru'
+                      ? ', чтобы текст стал выделяемым.'
+                      : ' first to make the text selectable.'}
                   </span>
                 </div>
               )}
 
-              {slug === "text-to-pdf" && files.length === 0 && (
+              {slug === 'text-to-pdf' && files.length === 0 && (
                 <div>
                   <Label className="text-sm font-medium mb-2 block">{t.tool.orPasteText}</Label>
                   <textarea
@@ -1030,7 +1118,7 @@ export default function ToolPage() {
                 </div>
               )}
 
-              {slug === "split-pdf" && (
+              {slug === 'split-pdf' && (
                 <Tabs value={splitMode} onValueChange={(v) => setSplitMode(v as SplitModeState)}>
                   <TabsList>
                     <TabsTrigger value="range">{t.tool.splitModeRange}</TabsTrigger>
@@ -1040,7 +1128,9 @@ export default function ToolPage() {
                   <TabsContent value="range" className="pt-3">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <Label className="text-sm font-medium mb-1.5 block">{t.tool.fromPage}</Label>
+                        <Label className="text-sm font-medium mb-1.5 block">
+                          {t.tool.fromPage}
+                        </Label>
                         <Input
                           type="number"
                           min="1"
@@ -1064,7 +1154,9 @@ export default function ToolPage() {
                   </TabsContent>
                   <TabsContent value="every-n" className="pt-3">
                     <div>
-                      <Label className="text-sm font-medium mb-1.5 block">{t.tool.everyNPages}</Label>
+                      <Label className="text-sm font-medium mb-1.5 block">
+                        {t.tool.everyNPages}
+                      </Label>
                       <Input
                         type="number"
                         min="1"
@@ -1078,9 +1170,11 @@ export default function ToolPage() {
                 </Tabs>
               )}
 
-              {slug === "split-by-size" && (
+              {slug === 'split-by-size' && (
                 <div>
-                  <Label className="text-sm font-medium mb-1.5 block">{t.tool.maxSizeMbLabel}</Label>
+                  <Label className="text-sm font-medium mb-1.5 block">
+                    {t.tool.maxSizeMbLabel}
+                  </Label>
                   <Input
                     type="number"
                     min="1"
@@ -1092,10 +1186,14 @@ export default function ToolPage() {
                 </div>
               )}
 
-              {slug === "rotate-pdf" && (
+              {slug === 'rotate-pdf' && (
                 <div>
                   <Label className="text-sm font-medium mb-1.5 block">{t.tool.rotationAngle}</Label>
-                  <Select value={rotation} onValueChange={(v) => setRotation(v as any)} data-testid="select-rotation">
+                  <Select
+                    value={rotation}
+                    onValueChange={(v) => setRotation(v as any)}
+                    data-testid="select-rotation"
+                  >
                     <SelectTrigger data-testid="select-rotation-trigger">
                       <SelectValue />
                     </SelectTrigger>
@@ -1108,7 +1206,7 @@ export default function ToolPage() {
                 </div>
               )}
 
-              {slug === "delete-pages" && (
+              {slug === 'delete-pages' && (
                 <div>
                   <Label className="text-sm font-medium mb-1.5 block">{t.tool.pagesDelete}</Label>
                   <Input
@@ -1120,38 +1218,43 @@ export default function ToolPage() {
                 </div>
               )}
 
-              {(slug === "extract-pages" || slug === "reorder-pages") && (
+              {(slug === 'extract-pages' || slug === 'reorder-pages') && (
                 <div>
                   <Label className="text-sm font-medium mb-1.5 block">
-                    {slug === "reorder-pages" ? t.tool.pagesReorder : t.tool.pagesExtract}
+                    {slug === 'reorder-pages' ? t.tool.pagesReorder : t.tool.pagesExtract}
                   </Label>
                   <Input
                     value={pagesToExtract}
                     onChange={(e) => setPagesToExtract(e.target.value)}
-                    placeholder={slug === "reorder-pages" ? "3, 1, 2" : "1, 2, 5-7"}
+                    placeholder={slug === 'reorder-pages' ? '3, 1, 2' : '1, 2, 5-7'}
                     data-testid="input-pages-extract"
                   />
                 </div>
               )}
 
-              {slug === "compress-pdf" && (
+              {slug === 'compress-pdf' && (
                 <div
                   className="flex items-start gap-3 rounded-lg p-3 text-sm"
-                  style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)" }}
+                  style={{
+                    background: 'rgba(16,185,129,0.08)',
+                    border: '1px solid rgba(16,185,129,0.2)',
+                  }}
                 >
                   <span className="mt-0.5 text-emerald-600 dark:text-emerald-400">✓</span>
                   <span className="text-foreground/85">
-                    {lang === "ru"
-                      ? "Оптимизирует структуру PDF. Если новый файл больше оригинала, возвращается оригинал."
-                      : "Optimises PDF structure with object streams. If the result is larger than the original, the original is returned unchanged."}
+                    {lang === 'ru'
+                      ? 'Оптимизирует структуру PDF. Если новый файл больше оригинала, возвращается оригинал.'
+                      : 'Optimises PDF structure with object streams. If the result is larger than the original, the original is returned unchanged.'}
                   </span>
                 </div>
               )}
 
-              {slug === "watermark-pdf" && (
+              {slug === 'watermark-pdf' && (
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-sm font-medium mb-1.5 block">{t.tool.watermarkText}</Label>
+                    <Label className="text-sm font-medium mb-1.5 block">
+                      {t.tool.watermarkText}
+                    </Label>
                     <Input
                       value={watermarkText}
                       onChange={(e) => setWatermarkText(e.target.value)}
@@ -1183,23 +1286,36 @@ export default function ToolPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="center">{lang === "ru" ? "По центру" : "Center"}</SelectItem>
+                        <SelectItem value="center">
+                          {lang === 'ru' ? 'По центру' : 'Center'}
+                        </SelectItem>
                         <SelectItem value="tile">{t.tool.posTile}</SelectItem>
-                        <SelectItem value="top-left">{lang === "ru" ? "Сверху слева" : "Top Left"}</SelectItem>
-                        <SelectItem value="top-right">{lang === "ru" ? "Сверху справа" : "Top Right"}</SelectItem>
-                        <SelectItem value="bottom-left">{lang === "ru" ? "Снизу слева" : "Bottom Left"}</SelectItem>
-                        <SelectItem value="bottom-right">{lang === "ru" ? "Снизу справа" : "Bottom Right"}</SelectItem>
+                        <SelectItem value="top-left">
+                          {lang === 'ru' ? 'Сверху слева' : 'Top Left'}
+                        </SelectItem>
+                        <SelectItem value="top-right">
+                          {lang === 'ru' ? 'Сверху справа' : 'Top Right'}
+                        </SelectItem>
+                        <SelectItem value="bottom-left">
+                          {lang === 'ru' ? 'Снизу слева' : 'Bottom Left'}
+                        </SelectItem>
+                        <SelectItem value="bottom-right">
+                          {lang === 'ru' ? 'Снизу справа' : 'Bottom Right'}
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
               )}
 
-              {slug === "pdf-page-numbers" && (
+              {slug === 'pdf-page-numbers' && (
                 <div className="space-y-3">
                   <div>
                     <Label className="text-sm font-medium mb-1.5 block">{t.tool.position}</Label>
-                    <Select value={pageNumPosition} onValueChange={(v) => setPageNumPosition(v as any)}>
+                    <Select
+                      value={pageNumPosition}
+                      onValueChange={(v) => setPageNumPosition(v as any)}
+                    >
                       <SelectTrigger data-testid="select-page-num-position">
                         <SelectValue />
                       </SelectTrigger>
@@ -1213,7 +1329,9 @@ export default function ToolPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-sm font-medium mb-1.5 block">{t.tool.numberFormat}</Label>
+                      <Label className="text-sm font-medium mb-1.5 block">
+                        {t.tool.numberFormat}
+                      </Label>
                       <Select
                         value={pageNumFormat}
                         onValueChange={(v) => setPageNumFormat(v as PageNumberFormat)}
@@ -1229,7 +1347,9 @@ export default function ToolPage() {
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-sm font-medium mb-1.5 block">{t.tool.startNumber}</Label>
+                      <Label className="text-sm font-medium mb-1.5 block">
+                        {t.tool.startNumber}
+                      </Label>
                       <Input
                         type="number"
                         min="1"
@@ -1242,21 +1362,24 @@ export default function ToolPage() {
                 </div>
               )}
 
-              {slug === "protect-pdf" && (
+              {slug === 'protect-pdf' && (
                 <div
                   className="flex items-start gap-3 rounded-lg p-3 text-sm"
-                  style={{ background: "rgba(249,115,22,0.08)", border: "1px solid rgba(249,115,22,0.25)" }}
+                  style={{
+                    background: 'rgba(249,115,22,0.08)',
+                    border: '1px solid rgba(249,115,22,0.25)',
+                  }}
                 >
                   <span className="mt-0.5 text-orange-500">⚠</span>
                   <span className="text-foreground/85">
-                    {lang === "ru"
-                      ? "PDF-шифрование в браузере не поддерживается. Используйте Adobe Acrobat, LibreOffice или 7-Zip."
-                      : "Browser-side PDF encryption is not supported. Use Adobe Acrobat, LibreOffice, or 7-Zip to add passwords."}
+                    {lang === 'ru'
+                      ? 'PDF-шифрование в браузере не поддерживается. Используйте Adobe Acrobat, LibreOffice или 7-Zip.'
+                      : 'Browser-side PDF encryption is not supported. Use Adobe Acrobat, LibreOffice, or 7-Zip to add passwords.'}
                   </span>
                 </div>
               )}
 
-              {slug === "sign-pdf" && (
+              {slug === 'sign-pdf' && (
                 <div>
                   <Label className="text-sm font-medium mb-1.5 block">{t.tool.signatureText}</Label>
                   <Input
@@ -1269,29 +1392,29 @@ export default function ToolPage() {
                 </div>
               )}
 
-              {slug === "redact-pdf" && (
+              {slug === 'redact-pdf' && (
                 <div>
                   <Label className="text-sm font-medium mb-1.5 block">
-                    {lang === "ru" ? "Текст для затирания" : "Text to redact"}
+                    {lang === 'ru' ? 'Текст для затирания' : 'Text to redact'}
                   </Label>
                   <Input
                     value={redactSearchText}
                     onChange={(e) => setRedactSearchText(e.target.value)}
-                    placeholder={lang === "ru" ? "например: SECRET-123" : "e.g. SECRET-123"}
+                    placeholder={lang === 'ru' ? 'например: SECRET-123' : 'e.g. SECRET-123'}
                     data-testid="input-redact-text"
                   />
                   <p className="text-xs text-muted-foreground mt-1.5">
-                    {lang === "ru"
-                      ? "Страницы с найденным текстом растеризируются — текст нельзя будет извлечь из PDF."
-                      : "Pages containing the text are rasterised — the text cannot be extracted from the output PDF."}
+                    {lang === 'ru'
+                      ? 'Страницы с найденным текстом растеризируются — текст нельзя будет извлечь из PDF.'
+                      : 'Pages containing the text are rasterised — the text cannot be extracted from the output PDF.'}
                   </p>
                 </div>
               )}
 
-              {slug === "auto-redact" && (
+              {slug === 'auto-redact' && (
                 <div className="space-y-2.5">
                   <Label className="text-sm font-medium">
-                    {lang === "ru" ? "Что искать и затирать" : "What to find and redact"}
+                    {lang === 'ru' ? 'Что искать и затирать' : 'What to find and redact'}
                   </Label>
                   <label className="flex items-center gap-2 text-sm cursor-pointer">
                     <Checkbox
@@ -1329,10 +1452,14 @@ export default function ToolPage() {
                 </div>
               )}
 
-              {(slug === "pdf-to-jpg" || slug === "pdf-to-png") && (
+              {(slug === 'pdf-to-jpg' || slug === 'pdf-to-png') && (
                 <div>
                   <Label className="text-sm font-medium mb-1.5 block">{t.tool.qualityScale}</Label>
-                  <Select value={imageScale} onValueChange={(v) => setImageScale(v as any)} data-testid="select-image-scale">
+                  <Select
+                    value={imageScale}
+                    onValueChange={(v) => setImageScale(v as any)}
+                    data-testid="select-image-scale"
+                  >
                     <SelectTrigger data-testid="select-image-scale-trigger">
                       <SelectValue />
                     </SelectTrigger>
@@ -1346,10 +1473,14 @@ export default function ToolPage() {
                 </div>
               )}
 
-              {slug === "ocr-pdf" && (
+              {slug === 'ocr-pdf' && (
                 <div>
                   <Label className="text-sm font-medium mb-1.5 block">{t.tool.ocrLanguage}</Label>
-                  <Select value={ocrLanguage} onValueChange={setOcrLanguage} data-testid="select-ocr-language">
+                  <Select
+                    value={ocrLanguage}
+                    onValueChange={setOcrLanguage}
+                    data-testid="select-ocr-language"
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -1362,14 +1493,14 @@ export default function ToolPage() {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1.5">
-                    {lang === "ru"
-                      ? "OCR работает на вашем устройстве и может занять несколько минут."
-                      : "OCR runs locally on your device and may take a few minutes."}
+                    {lang === 'ru'
+                      ? 'OCR работает на вашем устройстве и может занять несколько минут.'
+                      : 'OCR runs locally on your device and may take a few minutes.'}
                   </p>
                 </div>
               )}
 
-              {slug === "crop-pdf" && (
+              {slug === 'crop-pdf' && (
                 <div className="space-y-3">
                   <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
                     <Checkbox
@@ -1429,10 +1560,14 @@ export default function ToolPage() {
                 </div>
               )}
 
-              {slug === "resize-pages" && (
+              {slug === 'resize-pages' && (
                 <div>
                   <Label className="text-sm font-medium mb-1.5 block">{t.tool.targetSize}</Label>
-                  <Select value={targetPageSize} onValueChange={setTargetPageSize} data-testid="select-resize-size">
+                  <Select
+                    value={targetPageSize}
+                    onValueChange={setTargetPageSize}
+                    data-testid="select-resize-size"
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -1447,7 +1582,7 @@ export default function ToolPage() {
                 </div>
               )}
 
-              {slug === "scanner-effect" && (
+              {slug === 'scanner-effect' && (
                 <div>
                   <Label className="text-sm font-medium mb-2 block">
                     {t.tool.intensity}: {scannerIntensity[0]}%
@@ -1463,10 +1598,14 @@ export default function ToolPage() {
                 </div>
               )}
 
-              {slug === "n-up-pdf" && (
+              {slug === 'n-up-pdf' && (
                 <div>
                   <Label className="text-sm font-medium mb-1.5 block">{t.tool.pagesPerSheet}</Label>
-                  <Select value={nUpCount} onValueChange={(v) => setUpCount(v as any)} data-testid="select-nup-count">
+                  <Select
+                    value={nUpCount}
+                    onValueChange={(v) => setUpCount(v as any)}
+                    data-testid="select-nup-count"
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -1478,11 +1617,13 @@ export default function ToolPage() {
                 </div>
               )}
 
-              {slug === "bates-numbering" && (
+              {slug === 'bates-numbering' && (
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-sm font-medium mb-1.5 block">{t.tool.prefixLabel}</Label>
+                      <Label className="text-sm font-medium mb-1.5 block">
+                        {t.tool.prefixLabel}
+                      </Label>
                       <Input
                         value={batesPrefix}
                         onChange={(e) => setBatesPrefix(e.target.value)}
@@ -1491,7 +1632,9 @@ export default function ToolPage() {
                       />
                     </div>
                     <div>
-                      <Label className="text-sm font-medium mb-1.5 block">{t.tool.startNumber}</Label>
+                      <Label className="text-sm font-medium mb-1.5 block">
+                        {t.tool.startNumber}
+                      </Label>
                       <Input
                         type="number"
                         min="0"
@@ -1503,13 +1646,19 @@ export default function ToolPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-sm font-medium mb-1.5 block">{t.tool.digitsLabel}</Label>
-                      <Select value={batesDigits} onValueChange={setBatesDigits} data-testid="select-bates-digits">
+                      <Label className="text-sm font-medium mb-1.5 block">
+                        {t.tool.digitsLabel}
+                      </Label>
+                      <Select
+                        value={batesDigits}
+                        onValueChange={setBatesDigits}
+                        data-testid="select-bates-digits"
+                      >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {["3", "4", "5", "6", "7", "8"].map((d) => (
+                          {['3', '4', '5', '6', '7', '8'].map((d) => (
                             <SelectItem key={d} value={d}>
                               {d}
                             </SelectItem>
@@ -1519,7 +1668,11 @@ export default function ToolPage() {
                     </div>
                     <div>
                       <Label className="text-sm font-medium mb-1.5 block">{t.tool.position}</Label>
-                      <Select value={batesPosition} onValueChange={setBatesPosition} data-testid="select-bates-position">
+                      <Select
+                        value={batesPosition}
+                        onValueChange={setBatesPosition}
+                        data-testid="select-bates-position"
+                      >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
@@ -1536,10 +1689,12 @@ export default function ToolPage() {
                 </div>
               )}
 
-              {slug === "add-background" && (
+              {slug === 'add-background' && (
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-sm font-medium mb-1.5 block">{t.tool.backgroundColor}</Label>
+                    <Label className="text-sm font-medium mb-1.5 block">
+                      {t.tool.backgroundColor}
+                    </Label>
                     <input
                       type="color"
                       value={bgColor}
@@ -1564,19 +1719,21 @@ export default function ToolPage() {
                 </div>
               )}
 
-              {slug === "add-blank-pages" && (
+              {slug === 'add-blank-pages' && (
                 <div>
-                  <Label className="text-sm font-medium mb-1.5 block">{t.tool.blankPositions}</Label>
+                  <Label className="text-sm font-medium mb-1.5 block">
+                    {t.tool.blankPositions}
+                  </Label>
                   <Input
                     value={blankPositions}
                     onChange={(e) => setBlankPositions(e.target.value)}
-                    placeholder={lang === "ru" ? "например: 1, 3, end" : "e.g. 1, 3, end"}
+                    placeholder={lang === 'ru' ? 'например: 1, 3, end' : 'e.g. 1, 3, end'}
                     data-testid="input-blank-positions"
                   />
                 </div>
               )}
 
-              {slug === "overlay-pdf" && (
+              {slug === 'overlay-pdf' && (
                 <div>
                   <Label className="text-sm font-medium mb-2 block">
                     {t.tool.opacity}: {overlayOpacity[0]}%
@@ -1592,9 +1749,11 @@ export default function ToolPage() {
                 </div>
               )}
 
-              {slug === "form-fill" && (
+              {slug === 'form-fill' && (
                 <div>
-                  <Label className="text-sm font-medium mb-1.5 block">{t.tool.formValuesJson}</Label>
+                  <Label className="text-sm font-medium mb-1.5 block">
+                    {t.tool.formValuesJson}
+                  </Label>
                   <textarea
                     value={formValuesJson}
                     onChange={(e) => setFormValuesJson(e.target.value)}
@@ -1603,30 +1762,33 @@ export default function ToolPage() {
                     data-testid="textarea-form-values"
                   />
                   <p className="text-xs text-muted-foreground mt-1.5">
-                    {lang === "ru"
-                      ? "Заполните только те поля, имена которых совпадают с формой PDF."
-                      : "Only fields whose names match the PDF form are filled."}
+                    {lang === 'ru'
+                      ? 'Заполните только те поля, имена которых совпадают с формой PDF.'
+                      : 'Only fields whose names match the PDF form are filled.'}
                   </p>
                 </div>
               )}
 
-              {slug === "pdf-metadata" && metadataFields !== null && (
+              {slug === 'pdf-metadata' && metadataFields !== null && (
                 <div className="space-y-3">
-                  {(["title", "author", "subject", "keywords"] as const).map((field) => (
+                  {(['title', 'author', 'subject', 'keywords'] as const).map((field) => (
                     <div key={field}>
                       <Label className="text-sm font-medium mb-1.5 block">
-                        {field === "title"
+                        {field === 'title'
                           ? t.tool.metaTitle
-                          : field === "author"
+                          : field === 'author'
                             ? t.tool.metaAuthor
-                            : field === "subject"
+                            : field === 'subject'
                               ? t.tool.metaSubject
                               : t.tool.metaKeywords}
                       </Label>
                       <Input
-                        value={metadataFields[field] ?? ""}
+                        value={metadataFields[field] ?? ''}
                         onChange={(e) =>
-                          setMetadataFields((prev) => ({ ...(prev ?? {}), [field]: e.target.value }))
+                          setMetadataFields((prev) => ({
+                            ...(prev ?? {}),
+                            [field]: e.target.value,
+                          }))
                         }
                         data-testid={`input-meta-${field}`}
                       />
@@ -1637,7 +1799,7 @@ export default function ToolPage() {
 
               <div className="flex flex-wrap gap-3 pt-1">
                 <AnimatePresence mode="wait">
-                  {state === "processing" ? (
+                  {state === 'processing' ? (
                     <motion.div
                       key="processing"
                       initial={{ opacity: 0 }}
@@ -1647,7 +1809,9 @@ export default function ToolPage() {
                     >
                       <ProgressRing progress={progress} size={48} />
                       <div>
-                        <span className="text-sm text-muted-foreground block">{t.tool.processing}</span>
+                        <span className="text-sm text-muted-foreground block">
+                          {t.tool.processing}
+                        </span>
                         <Button
                           variant="outline"
                           size="sm"
@@ -1659,7 +1823,7 @@ export default function ToolPage() {
                         </Button>
                       </div>
                     </motion.div>
-                  ) : state === "done" ? (
+                  ) : state === 'done' ? (
                     <motion.div
                       key="done"
                       initial={{ opacity: 0, scale: 0.95 }}
@@ -1676,10 +1840,17 @@ export default function ToolPage() {
                             <Download className="w-4 h-4" />
                             {t.tool.download} {output.extension.toUpperCase()}
                             {resultSize && (
-                              <span className="text-xs opacity-70">({formatBytes(resultSize)})</span>
+                              <span className="text-xs opacity-70">
+                                ({formatBytes(resultSize)})
+                              </span>
                             )}
                           </Button>
-                          <Button variant="outline" onClick={reset} className="gap-2" data-testid="button-reset">
+                          <Button
+                            variant="outline"
+                            onClick={reset}
+                            className="gap-2"
+                            data-testid="button-reset"
+                          >
                             <RefreshCw className="w-4 h-4" />
                             {t.tool.processAnother}
                           </Button>
@@ -1693,7 +1864,7 @@ export default function ToolPage() {
                         <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
                           <CheckCircle className="w-4 h-4" />
                           <span>
-                            {lang === "ru"
+                            {lang === 'ru'
                               ? `Зачитано символов: ${audioSpoken.chars} (${audioSpoken.lang}).`
                               : `Read ${audioSpoken.chars} characters aloud (${audioSpoken.lang}).`}
                           </span>
@@ -1701,12 +1872,18 @@ export default function ToolPage() {
                       )}
                       {report && report.reductionPercent !== null && (
                         <p className="text-xs text-muted-foreground" data-testid="result-report">
-                          {formatBytes(report.inputBytes)} → {formatBytes(report.outputBytes)} (-{report.reductionPercent}%)
+                          {formatBytes(report.inputBytes)} → {formatBytes(report.outputBytes)} (-
+                          {report.reductionPercent}%)
                         </p>
                       )}
                     </motion.div>
-                  ) : state === "error" ? (
-                    <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-2">
+                  ) : state === 'error' ? (
+                    <motion.div
+                      key="error"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="flex flex-col gap-2"
+                    >
                       <div className="flex items-center gap-2 text-destructive text-sm">
                         <AlertCircle className="w-4 h-4" />
                         {error}
@@ -1719,14 +1896,16 @@ export default function ToolPage() {
                     <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                       <Button
                         onClick={process}
-                        disabled={slug === "protect-pdf" || (files.length === 0 && slug !== "text-to-pdf")}
+                        disabled={
+                          slug === 'protect-pdf' || (files.length === 0 && slug !== 'text-to-pdf')
+                        }
                         className="gap-2 shadow-lg shadow-primary/20"
                         data-testid="button-process"
                       >
                         <Icon className="w-4 h-4" />
-                        {slug === "pdf-metadata" && metadataFields !== null
+                        {slug === 'pdf-metadata' && metadataFields !== null
                           ? t.tool.saveMetadata
-                          : toolTr?.name ?? tool.name}
+                          : (toolTr?.name ?? tool.name)}
                       </Button>
                     </motion.div>
                   )}
@@ -1795,7 +1974,7 @@ export default function ToolPage() {
 interface ToolTextLike {
   bytes: Uint8Array;
   content: string;
-  target: "text" | "html";
+  target: 'text' | 'html';
 }
 
 type Entry = NonNullable<ReturnType<typeof getToolRegistryEntry>>;
@@ -1807,7 +1986,7 @@ type Entry = NonNullable<ReturnType<typeof getToolRegistryEntry>>;
 function runOrFallback<T>(
   entry: Entry,
   fallback: () => Promise<T>,
-  opts: { file: File; args?: unknown[]; onProgress?: (pct: number) => void; signal?: AbortSignal }
+  opts: { file: File; args?: unknown[]; onProgress?: (pct: number) => void; signal?: AbortSignal },
 ): Promise<T> {
   if (!entry.execution.workerOp) {
     return fallback();

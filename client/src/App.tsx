@@ -1,12 +1,11 @@
-import { Suspense, lazy, useEffect } from "react";
-import { Switch, Route } from "wouter";
-import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { ThemeProvider } from "@/lib/theme";
-import { LangProvider } from "@/lib/lang-context";
-import { Navbar } from "@/components/navbar";
-import { Footer } from "@/components/footer";
+import { Suspense, lazy, useEffect } from 'react';
+import { Switch, Route } from 'wouter';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { Toaster } from '@/components/ui/toaster';
+import { ThemeProvider } from '@/lib/theme';
+import { LangProvider } from '@/lib/lang-context';
+import { Navbar } from '@/components/navbar';
+import { Footer } from '@/components/footer';
 import {
   loadHomePage,
   loadContactPage,
@@ -18,7 +17,7 @@ import {
   loadToolPage,
   loadWorkflowPage,
   warmPrimaryRoutes,
-} from "@/lib/route-preload";
+} from '@/lib/route-preload';
 
 const Home = lazy(loadHomePage);
 const ToolPage = lazy(loadToolPage);
@@ -73,7 +72,7 @@ function Router() {
 
 function ThemedLayout() {
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (typeof window === 'undefined') {
       return;
     }
 
@@ -91,9 +90,12 @@ function ThemedLayout() {
     return () => window.clearTimeout(timeoutHandle);
   }, []);
 
-return (
+  return (
     <div className="pdfx-page min-h-screen flex flex-col text-foreground relative">
-      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:left-4 focus:top-4 focus:rounded-md focus:bg-white focus:px-3 focus:py-1.5 focus:text-sm focus:text-black focus:shadow-lg">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:left-4 focus:top-4 focus:rounded-md focus:bg-white focus:px-3 focus:py-1.5 focus:text-sm focus:text-black focus:shadow-lg"
+      >
         Skip to main content
       </a>
       <div className="relative z-10 flex flex-col min-h-screen">
@@ -109,15 +111,14 @@ return (
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <ThemeProvider>
-          <LangProvider>
-            <ThemedLayout />
-          </LangProvider>
-        </ThemeProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <TooltipProvider>
+      <ThemeProvider>
+        <LangProvider>
+          <ThemedLayout />
+        </LangProvider>
+      </ThemeProvider>
+      <Toaster />
+    </TooltipProvider>
   );
 }
 

@@ -1,31 +1,42 @@
-import { Link } from "wouter";
-import { Mail, Rocket, Users, ArrowLeft } from "lucide-react";
-import { useLang } from "@/lib/lang-context";
-import { useSeo } from "@/hooks/use-seo";
+import { Link } from 'wouter';
+import { Mail, Rocket, Users, ArrowLeft } from 'lucide-react';
+import { useLang } from '@/lib/lang-context';
+import { useSeo } from '@/hooks/use-seo';
 
 export default function ContactPage() {
   const { lang } = useLang();
-  const isRu = lang === "ru";
+  const isRu = lang === 'ru';
 
   useSeo({
-    title: isRu ? "Контакты — PDFX" : "Contact — PDFX",
+    title: isRu ? 'Контакты — PDFX' : 'Contact — PDFX',
     description: isRu
-      ? "Связь по запуску Pro, командному доступу, партнёрствам и вопросам по roadmap."
-      : "Contact PDFX about Pro launch, team access, partnerships, and roadmap questions.",
-    path: "/contact",
+      ? 'Связь по запуску Pro, командному доступу, партнёрствам и вопросам по roadmap.'
+      : 'Contact PDFX about Pro launch, team access, partnerships, and roadmap questions.',
+    path: '/contact',
   });
 
   const items = isRu
-    ? ["Запуск Pro и ранний доступ", "Командной тариф и пилоты", "Партнёрства и white-label запросы"]
-    : ["Pro launch and early access", "Team plan and pilot requests", "Partnerships and white-label discussions"];
+    ? [
+        'Запуск Pro и ранний доступ',
+        'Командной тариф и пилоты',
+        'Партнёрства и white-label запросы',
+      ]
+    : [
+        'Pro launch and early access',
+        'Team plan and pilot requests',
+        'Partnerships and white-label discussions',
+      ];
 
   return (
     <div className="min-h-screen">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12">
         <div className="mb-6">
-          <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
             <ArrowLeft className="h-4 w-4" />
-            {isRu ? "На главную" : "Back home"}
+            {isRu ? 'На главную' : 'Back home'}
           </Link>
         </div>
         <div className="pdfx-panel-strong rounded-3xl p-8 md:p-10">
@@ -34,9 +45,13 @@ export default function ContactPage() {
               <Mail className="size-6" />
             </div>
             <div>
-              <h1 className="paper-title text-3xl font-bold text-foreground">{isRu ? "Контакты" : "Contact"}</h1>
+              <h1 className="paper-title text-3xl font-bold text-foreground">
+                {isRu ? 'Контакты' : 'Contact'}
+              </h1>
               <p className="text-muted-foreground mt-1">
-                {isRu ? "Ответим по запуску продукта, roadmap и коммерческим вопросам." : "Reach out about launch, roadmap, and commercial questions."}
+                {isRu
+                  ? 'Ответим по запуску продукта, roadmap и коммерческим вопросам.'
+                  : 'Reach out about launch, roadmap, and commercial questions.'}
               </p>
             </div>
           </div>
@@ -44,20 +59,30 @@ export default function ContactPage() {
           <div className="grid md:grid-cols-3 gap-4 mb-8">
             <div className="rounded-2xl border border-border bg-white/40 dark:bg-white/5 p-4">
               <Rocket className="size-5 text-primary mb-2" />
-              <p className="text-sm text-muted-foreground">{isRu ? "Ранний доступ к платным функциям" : "Early access to paid features"}</p>
+              <p className="text-sm text-muted-foreground">
+                {isRu ? 'Ранний доступ к платным функциям' : 'Early access to paid features'}
+              </p>
             </div>
             <div className="rounded-2xl border border-border bg-white/40 dark:bg-white/5 p-4">
               <Users className="size-5 text-primary mb-2" />
-              <p className="text-sm text-muted-foreground">{isRu ? "Командные сценарии и пилоты" : "Team workflows and pilots"}</p>
+              <p className="text-sm text-muted-foreground">
+                {isRu ? 'Командные сценарии и пилоты' : 'Team workflows and pilots'}
+              </p>
             </div>
             <div className="rounded-2xl border border-border bg-white/40 dark:bg-white/5 p-4">
               <Mail className="size-5 text-primary mb-2" />
-              <p className="text-sm text-muted-foreground">{isRu ? "Ответ по email без пустых форм" : "Direct email, no placeholder forms"}</p>
+              <p className="text-sm text-muted-foreground">
+                {isRu ? 'Ответ по email без пустых форм' : 'Direct email, no placeholder forms'}
+              </p>
             </div>
           </div>
 
           <div className="rounded-2xl border border-border bg-white/40 dark:bg-white/5 p-6">
-            <p className="text-foreground mb-4">{isRu ? "Пишите на основной адрес. Подходит для:" : "Email our main inbox. Use it for:"}</p>
+            <p className="text-foreground mb-4">
+              {isRu
+                ? 'Пишите на основной адрес. Подходит для:'
+                : 'Email our main inbox. Use it for:'}
+            </p>
             <ul className="space-y-2 text-muted-foreground mb-6">
               {items.map((item) => (
                 <li key={item}>• {item}</li>
