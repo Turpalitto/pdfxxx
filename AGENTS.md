@@ -32,11 +32,13 @@ AGENTS.md                  ← этот файл (протокол и прави
 ```
 
 Если принято новое архитектурное решение — дополнительно:
+
 ```
 .ai/decisions.md           ← добавить новый ADR
 ```
 
 ### НЕ делать без явного подтверждения пользователя:
+
 - Удалять файлы или функции
 - Рефакторить существующую архитектуру
 - Менять цветовую палитру или дизайн-систему
@@ -47,15 +49,15 @@ AGENTS.md                  ← этот файл (протокол и прави
 
 ## 🏗️ Краткая справка по проекту
 
-| | |
-|---|---|
-| **Проект** | PDFX — браузерный PDF-инструментарий |
-| **URL** | pdfx.tools |
-| **Стек** | React 18 + TypeScript + Vite + Tailwind + shadcn/ui |
-| **Backend** | Express.js — только раздача статики, PDF НЕ обрабатывает |
-| **Порт** | 5000 (`npm run dev`) |
-| **Инструментов** | 43 PDF-инструмента |
-| **Языки UI** | EN + RU (активные), ещё 16 языков (не трогать) |
+|                  |                                                          |
+| ---------------- | -------------------------------------------------------- |
+| **Проект**       | PDFX — браузерный PDF-инструментарий                     |
+| **URL**          | pdfx.tools                                               |
+| **Стек**         | React 18 + TypeScript + Vite + Tailwind + shadcn/ui      |
+| **Backend**      | Express.js — только раздача статики, PDF НЕ обрабатывает |
+| **Порт**         | 5000 (`npm run dev`)                                     |
+| **Инструментов** | 43 PDF-инструмента                                       |
+| **Языки UI**     | EN + RU (активные), ещё 16 языков (не трогать)           |
 
 ---
 
@@ -110,12 +112,14 @@ AGENTS.md                  ← этот файл (протокол и прави
 ## 🔍 Ключевые паттерны
 
 ### pdfjs — всегда lazy load
+
 ```typescript
 const pdfjs = await loadPdfJs();
 const doc = await pdfjs.getDocument({ data: bytes }).promise;
 ```
 
 ### pdf-lib — embedPages vs copyPages
+
 ```
 embedPages() → PDFEmbeddedPage[] → используй с drawPage()   ✅
 copyPages()  → PDFPage[]        → используй с addPage()     ✅
@@ -123,6 +127,7 @@ copyPages()  → PDFPage[]        → используй с addPage()     ✅
 ```
 
 ### Координаты текста
+
 ```
 pdfjs-dist: Y сверху вниз (screen coords)
 pdf-lib:    Y снизу вверх (PDF coords)
@@ -131,4 +136,4 @@ pdf-lib:    Y снизу вверх (PDF coords)
 
 ---
 
-*Подробная документация: `.ai/project.md`, `.ai/architecture.md`, `.ai/decisions.md`*
+_Подробная документация: `.ai/project.md`, `.ai/architecture.md`, `.ai/decisions.md`_

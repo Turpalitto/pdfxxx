@@ -3,6 +3,7 @@
   Read this ENTIRE file before making any code changes.
   Last updated: 2026-05-30
 -->
+
 # AGENT.md — PDFX Project Guide
 
 > This file is written for AI agents (Gemini, Claude, GPT, Codex, etc.).  
@@ -114,6 +115,7 @@ Every tool is defined as a `Tool` object in `client/src/lib/tools.ts`:
 ```
 
 **To add a new tool:**
+
 1. Add entry to `tools.ts`
 2. Add case in `tool-page.tsx` → `handleProcess` switch
 3. Add utility function to `pdf-utils.ts` (if needed)
@@ -125,77 +127,85 @@ Every tool is defined as a `Tool` object in `client/src/lib/tools.ts`:
 ## 5. Complete Tool List (44 tools total)
 
 ### Convert FROM PDF
-| Slug | Output | Engine |
-|------|--------|--------|
-| `pdf-to-word` | docx | pdfjs + html |
-| `pdf-to-jpg` | zip of jpgs | pdfjs canvas |
-| `pdf-to-png` | zip of pngs | pdfjs canvas |
-| `pdf-to-text` | txt | pdfjs getTextContent |
-| `pdf-to-html` | html | pdfjs text layer |
-| `pdf-to-excel` | xlsx | pdfjs + SheetJS |
+
+| Slug           | Output      | Engine               |
+| -------------- | ----------- | -------------------- |
+| `pdf-to-word`  | docx        | pdfjs + html         |
+| `pdf-to-jpg`   | zip of jpgs | pdfjs canvas         |
+| `pdf-to-png`   | zip of pngs | pdfjs canvas         |
+| `pdf-to-text`  | txt         | pdfjs getTextContent |
+| `pdf-to-html`  | html        | pdfjs text layer     |
+| `pdf-to-excel` | xlsx        | pdfjs + SheetJS      |
 
 ### Convert TO PDF
-| Slug | Input | Engine |
-|------|-------|--------|
-| `word-to-pdf` | docx | mammoth + pdf-lib |
+
+| Slug            | Input   | Engine             |
+| --------------- | ------- | ------------------ |
+| `word-to-pdf`   | docx    | mammoth + pdf-lib  |
 | `images-to-pdf` | jpg/png | pdf-lib embedImage |
-| `excel-to-pdf` | xlsx | SheetJS + pdf-lib |
-| `text-to-pdf` | txt | pdf-lib |
-| `photo-to-pdf` | jpg/png | pdf-lib |
+| `excel-to-pdf`  | xlsx    | SheetJS + pdf-lib  |
+| `text-to-pdf`   | txt     | pdf-lib            |
+| `photo-to-pdf`  | jpg/png | pdf-lib            |
 
 ### Organize
-| Slug | What it does |
-|------|-------------|
-| `merge-pdf` | Merge multiple PDFs into one |
-| `split-pdf` | Split by range, every N pages, or all pages → ZIP |
-| `split-by-size` | Split into parts ≤ N MB → ZIP |
-| `rotate-pdf` | Rotate all pages 90/180/270° |
-| `delete-pages` | Delete specific pages (visual thumbnails) |
-| `reorder-pages` | Drag-and-drop page reordering (thumbnails) |
-| `extract-pages` | Extract page range as new PDF |
-| `crop-pdf` | Trim margins in mm (top/right/bottom/left) |
-| `n-up-pdf` | 2-up or 4-up pages per A4 sheet |
-| `compare-pdf` | Side-by-side visual comparison of two PDFs |
+
+| Slug                 | What it does                                           |
+| -------------------- | ------------------------------------------------------ |
+| `merge-pdf`          | Merge multiple PDFs into one                           |
+| `split-pdf`          | Split by range, every N pages, or all pages → ZIP      |
+| `split-by-size`      | Split into parts ≤ N MB → ZIP                          |
+| `rotate-pdf`         | Rotate all pages 90/180/270°                           |
+| `delete-pages`       | Delete specific pages (visual thumbnails)              |
+| `reorder-pages`      | Drag-and-drop page reordering (thumbnails)             |
+| `extract-pages`      | Extract page range as new PDF                          |
+| `crop-pdf`           | Trim margins in mm (top/right/bottom/left)             |
+| `n-up-pdf`           | 2-up or 4-up pages per A4 sheet                        |
+| `compare-pdf`        | Side-by-side visual comparison of two PDFs             |
 | `remove-blank-pages` | Auto-detect and remove blank pages (97%+ white pixels) |
-| `resize-pages` | Scale all pages to A4/A3/A5/Letter/Legal/Tabloid |
+| `resize-pages`       | Scale all pages to A4/A3/A5/Letter/Legal/Tabloid       |
 
 ### Security
-| Slug | What it does |
-|------|-------------|
-| `protect-pdf` | Password-encrypt with AES-256 |
-| `unlock-pdf` | Remove PDF password |
-| `sign-pdf` | Draw signature and embed as image |
-| `redact-pdf` | Manual text redaction (black boxes) |
+
+| Slug          | What it does                                    |
+| ------------- | ----------------------------------------------- |
+| `protect-pdf` | Password-encrypt with AES-256                   |
+| `unlock-pdf`  | Remove PDF password                             |
+| `sign-pdf`    | Draw signature and embed as image               |
+| `redact-pdf`  | Manual text redaction (black boxes)             |
 | `auto-redact` | Auto-redact emails/phones/SSN/IBAN/custom regex |
 
 ### Optimize / Utility
-| Slug | What it does |
-|------|-------------|
-| `compress-pdf` | Reduce file size (3 levels: low/medium/high) |
-| `repair-pdf` | Re-parse and re-save a damaged PDF |
-| `flatten-pdf` | Flatten AcroForm fields → static text |
-| `grayscale-pdf` | Convert color PDF to grayscale via canvas |
-| `overlay-pdf` | Overlay one PDF on top of another (opacity slider) |
-| `pdf-metadata` | View and edit Title/Author/Subject/Keywords |
-| `pdf-bookmarks` | View PDF outline/TOC, export as TXT |
+
+| Slug            | What it does                                       |
+| --------------- | -------------------------------------------------- |
+| `compress-pdf`  | Reduce file size (3 levels: low/medium/high)       |
+| `repair-pdf`    | Re-parse and re-save a damaged PDF                 |
+| `flatten-pdf`   | Flatten AcroForm fields → static text              |
+| `grayscale-pdf` | Convert color PDF to grayscale via canvas          |
+| `overlay-pdf`   | Overlay one PDF on top of another (opacity slider) |
+| `pdf-metadata`  | View and edit Title/Author/Subject/Keywords        |
+| `pdf-bookmarks` | View PDF outline/TOC, export as TXT                |
 
 ### OCR / Scan
-| Slug | What it does |
-|------|-------------|
+
+| Slug      | What it does                                    |
+| --------- | ----------------------------------------------- |
 | `ocr-pdf` | OCR scanned PDF → searchable PDF (Tesseract.js) |
 
 ### Edit (special page)
-| Slug | What it does |
-|------|-------------|
+
+| Slug       | What it does                                                                                                    |
+| ---------- | --------------------------------------------------------------------------------------------------------------- |
 | `edit-pdf` | Full canvas editor: text, draw, shapes, highlight, signatures, eraser, zoom, undo/redo, Find & Replace (Ctrl+F) |
 
 ### Enrich
-| Slug | What it does |
-|------|-------------|
-| `watermark-pdf` | Add text or image watermark |
-| `pdf-page-numbers` | Add page numbers (position, format, start from) |
-| `pdf-header-footer` | Custom header/footer text |
-| `extract-images` | Extract all pages as PNG/JPG → ZIP |
+
+| Slug                | What it does                                    |
+| ------------------- | ----------------------------------------------- |
+| `watermark-pdf`     | Add text or image watermark                     |
+| `pdf-page-numbers`  | Add page numbers (position, format, start from) |
+| `pdf-header-footer` | Custom header/footer text                       |
+| `extract-images`    | Extract all pages as PNG/JPG → ZIP              |
 
 ---
 
@@ -262,6 +272,7 @@ parsePageSelection(input, pageCount)      → number[]
 **Universal tool handler.** One page that handles all tools except `edit-pdf`.
 
 Key sections:
+
 - **State**: file list, progress, result bytes, per-tool options (watermark text, password, crop margins, resize preset, redact patterns, etc.)
 - **`handleProcess()`**: large `switch(slug)` calling the right pdf-utils function
 - **`handleDownload()`**: routes to correct download method (PDF, ZIP, TXT, etc.)
@@ -275,6 +286,7 @@ Key sections:
 **Fabric.js canvas editor.** Does NOT use `tool-page.tsx`.
 
 Features:
+
 - Tools: Select, Text, Draw, Highlight, Rectangle, Circle, Line, Eraser, Image, Signature
 - Zoom, Undo/Redo (history stack)
 - Page thumbnails sidebar
@@ -289,6 +301,7 @@ Tool registry + `categoryColors` palette. **Do not add new colors** — use exis
 ### `client/src/lib/tool-translations.ts`
 
 Structure:
+
 ```typescript
 const en: ToolTranslationMap = { "slug": { name: "...", description: "..." }, ... };
 const ru: ToolTranslationMap = { ... };
@@ -301,6 +314,7 @@ export const toolTranslations: Record<string, ToolTranslationMap> = { en, ru, es
 ### `client/src/lib/tool-experience.ts`
 
 Defines workflow suggestions in the sidebar per tool:
+
 ```typescript
 export const toolExperiences: Record<string, ToolExperience> = {
   "compress-pdf": {
@@ -347,6 +361,7 @@ User uploads file → FileUpload component → files[] state
 ```
 
 **Important:**
+
 - All PDF functions are **async** (lazy-load pdfjs/fabric with dynamic `import()`)
 - Progress callbacks: `setProgress(0..100)` passed to long operations
 - `pdfjs-dist` is loaded once and cached via `loadPdfJs()` helper in pdf-utils
@@ -359,27 +374,31 @@ User uploads file → FileUpload component → files[] state
 This project started as a basic PDF tool app and was upgraded by analyzing [Stirling-PDF](https://github.com/Stirling-Tools/Stirling-PDF) (a Java/server-based PDF suite) and porting feasible features to the browser.
 
 ### Round 1 — New Tools
-| Tool | Category | Key function |
-|------|----------|-------------|
-| `crop-pdf` | organize | `cropPdf()` — pdf-lib MediaBox manipulation |
-| `extract-images` | convert-from | `extractImages()` — pdfjs canvas → ZIP |
-| `pdf-metadata` | utility | `readPdfMetadata()`, `writePdfMetadata()` |
+
+| Tool             | Category     | Key function                                |
+| ---------------- | ------------ | ------------------------------------------- |
+| `crop-pdf`       | organize     | `cropPdf()` — pdf-lib MediaBox manipulation |
+| `extract-images` | convert-from | `extractImages()` — pdfjs canvas → ZIP      |
+| `pdf-metadata`   | utility      | `readPdfMetadata()`, `writePdfMetadata()`   |
 
 ### Round 2 — UX Upgrades
+
 - **Page thumbnails** on `delete-pages`, `extract-pages`, `reorder-pages` — visual page selection
 - **Compress metrics** — shows "Saved X KB (Y%)" after compression
 - **3 new workflow suggestions** in sidebar: "Extract content", "Anonymize document", "Prepare for print"
 
 ### Round 3 — More Tools
-| Tool | Category | Key function |
-|------|----------|-------------|
-| `compare-pdf` | organize | Side-by-side thumbnail comparison |
-| `remove-blank-pages` | organize | Canvas pixel analysis (97% white = blank) |
-| `resize-pages` | organize | `pdf-lib embedPages()` + scale to A4/A3/Letter etc. |
-| `grayscale-pdf` | utility | Canvas render + pixel grayscale + re-embed as JPEG |
-| `pdf-bookmarks` | utility | `pdfjs getOutline()` → TXT export |
+
+| Tool                 | Category | Key function                                        |
+| -------------------- | -------- | --------------------------------------------------- |
+| `compare-pdf`        | organize | Side-by-side thumbnail comparison                   |
+| `remove-blank-pages` | organize | Canvas pixel analysis (97% white = blank)           |
+| `resize-pages`       | organize | `pdf-lib embedPages()` + scale to A4/A3/Letter etc. |
+| `grayscale-pdf`      | utility  | Canvas render + pixel grayscale + re-embed as JPEG  |
+| `pdf-bookmarks`      | utility  | `pdfjs getOutline()` → TXT export                   |
 
 ### Round 4 — Find & Replace in Edit PDF
+
 - Ctrl+F opens floating search bar above canvas
 - Searches `pageTextLinesRef` (already parsed by `extractTextLines()`)
 - Yellow highlight rects for matches, orange for current
@@ -388,14 +407,15 @@ This project started as a basic PDF tool app and was upgraded by analyzing [Stir
 - Located in `edit-pdf-page.tsx` — functions: `findInPage`, `navigateFindMatch`, `replaceCurrentMatch`, `replaceAllMatches`, `clearFindHighlights`
 
 ### Round 5 — 6 More Tools (no backend)
-| Tool | Category | Key function |
-|------|----------|-------------|
-| `repair-pdf` | utility | `repairPdf()` — re-parse with ignoreEncryption + throwOnInvalidObject:false |
-| `flatten-pdf` | utility | `flattenPdf()` — `pdf-lib form.flatten()` |
-| `auto-redact` | security | `autoRedactPdf()` — regex patterns on text layer, black rect overlay |
-| `n-up-pdf` | organize | `nUpPdf()` — tiling 2 or 4 pages per A4 sheet |
-| `split-by-size` | organize | `splitBySize()` — binary search optimal chunk → ZIP |
-| `overlay-pdf` | utility | `overlayPdf()` — embed overlay PDF with opacity |
+
+| Tool            | Category | Key function                                                                |
+| --------------- | -------- | --------------------------------------------------------------------------- |
+| `repair-pdf`    | utility  | `repairPdf()` — re-parse with ignoreEncryption + throwOnInvalidObject:false |
+| `flatten-pdf`   | utility  | `flattenPdf()` — `pdf-lib form.flatten()`                                   |
+| `auto-redact`   | security | `autoRedactPdf()` — regex patterns on text layer, black rect overlay        |
+| `n-up-pdf`      | organize | `nUpPdf()` — tiling 2 or 4 pages per A4 sheet                               |
+| `split-by-size` | organize | `splitBySize()` — binary search optimal chunk → ZIP                         |
+| `overlay-pdf`   | utility  | `overlayPdf()` — embed overlay PDF with opacity                             |
 
 ---
 
@@ -434,6 +454,7 @@ This project started as a basic PDF tool app and was upgraded by analyzing [Stir
 ## 13. Known Patterns and Pitfalls
 
 ### pdfjs lazy loading
+
 ```typescript
 // In pdf-utils.ts — always use this pattern:
 const pdfjs = await loadPdfJs();
@@ -441,20 +462,24 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 ```
 
 ### pdf-lib embedPages vs copyPages
+
 - `embedPages(pages[])` → returns `PDFEmbeddedPage[]` — use with `page.drawPage(ep, opts)` ✅
 - `copyPages(src, [idx])` → returns `PDFPage[]` — use with `dst.addPage(page)` ✅
 - **Never mix**: `drawPage()` requires `PDFEmbeddedPage`, not `PDFPage`
 
 ### File chooser in Playwright tests
+
 - `compare-pdf` has a plain `<input type="file">` always visible → triggers Playwright file chooser modal on all pages
 - This is a Playwright artifact only, not a real user bug
 
 ### text-line coordinate system
+
 - `pdfjs-dist` viewport Y: top=0, bottom=height (screen coords)
-- `pdf-lib` Y: bottom=0, top=height (PDF coords)  
+- `pdf-lib` Y: bottom=0, top=height (PDF coords)
 - Convert: `pdfY = pageHeight - viewportY`
 
 ### Edit PDF canvas scale
+
 - `DISPLAY_SCALE = 1.5` — pdfjs renders at 1.5× for sharpness
 - Fabric canvas runs at CSS zoom × 1.5 base
 
@@ -467,4 +492,3 @@ const doc = await pdfjs.getDocument({ data: bytes }).promise;
 - Language rule: All UI text must have **Russian AND English** versions
 - Design: premium dark/warm aesthetic, no plain colors, glassmorphism accents
 - The `.codex-scratch/stirling-pdf/` directory contains a clone of Stirling-PDF used for reference
-
