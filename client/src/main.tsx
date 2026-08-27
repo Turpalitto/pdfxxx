@@ -8,7 +8,12 @@ import '@fontsource/noto-sans/cyrillic-400.css';
 import '@fontsource/noto-sans/cyrillic-600.css';
 import '@fontsource/noto-sans/cyrillic-700.css';
 import App from './App';
+import { initErrorReporting } from './lib/error-report';
+import { initAnalytics } from './lib/analytics';
 import './index.css';
+
+void initErrorReporting();
+initAnalytics();
 
 const rootElement = document.getElementById('root');
 

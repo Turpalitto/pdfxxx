@@ -9,6 +9,7 @@
 // а не единственный путь.
 
 import type { WorkerOp, WorkerRequest, WorkerResponse } from './pdf-worker-types';
+import { reportError } from '../lib/error-report';
 
 export interface WorkerRuntimeCapabilities {
   Worker?: unknown;
@@ -73,6 +74,7 @@ function getWorker(): Worker {
     worker.onerror = (e) => {
       // Фатальный сбой воркера — реджектим все ожидающие и пересоздаём.
       const err = new Error(e.message || 'PDF worker crashed');
+      reportError(err, { source: 'pdf-worker', filename: e.filename, lineno: e.lineno });
       rejectPending(err);
       worker?.terminate();
       worker = null;

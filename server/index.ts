@@ -1,5 +1,6 @@
 import express, { type Request, Response, NextFunction } from 'express';
 import { registerRoutes } from './routes';
+import { registerErrorReportRoutes } from './error-report';
 import { serveStatic } from './static';
 import { createServer } from 'http';
 
@@ -91,6 +92,7 @@ app.use((req, res, next) => {
 
 (async () => {
   await registerRoutes(httpServer, app);
+  registerErrorReportRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

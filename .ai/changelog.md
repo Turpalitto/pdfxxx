@@ -4,6 +4,29 @@
 
 ---
 
+## 2026-08-27 — Раунд «уровень мировой компании»: CI-e2e, пререндер, мониторинг, векторный save, share-links
+
+### Добавлено
+
+- CI: job `lint` и job `e2e` (chromium, 5 спеков) в .github/workflows/ci.yml.
+- Пререндер: `script/prerender.ts` — после build снимает 64 маршрута (6 статических + 58 /tools/*) через headless chromium в `dist/public/*.html`; скрипт `npm run build:full`; server/static.ts отдаёт prerender-HTML (`extensions: ['html'`]).
+- Мониторинг без новых deps: `client/src/lib/error-report.ts` (beacon на window error/unhandledrejection, включается `/api/error-report/status`) + `server/error-report.ts` (rate-limit 20/мин на IP, ring-buffer 200, токен-защищённый `/recent`); `client/src/lib/analytics.ts` (Plausible через VITE_* env); worker.onerror шлёт reportError.
+- Векторное сохранение в edit-pdf: `client/src/lib/edit-pdf-vector.ts` — fabric JSON → pdf-lib drawText/drawRectangle/drawEllipse/drawLine/drawSvgPath/drawImage (Noto embed для unicode, Helvetica для ASCII), растровый фолбэк только для неподдерживаемых объектов; 7 unit-тестов.
+- Workflow share-links: `encodeWorkflowShare`/`decodeWorkflowShare` (base64url, v:1, sanitize, лимит 32 шага) в workflow-storage + кнопка `button-share-chain` (clipboard + фолбэк execCommand) + загрузка из `#chain=` с note и очисткой hash; 2 unit + 2 e2e теста.
+- Golden-тесты конвертеров `pdf-converters-golden.test.ts`: генерируемый pdf-lib фикстурный PDF → pdfToWord (docx: Heading-стили + текст) и pdfToExcel (xlsx: значения таблиц) проверяются через JSZip/XLSX; pdfjs в node через legacy-билд (vi.mock) + стабы DOMMatrix/Path2D/ImageData; `loadPdfJs` теперь уважает предустановленный workerSrc.
+- Dockerfile (multi-stage node:20-alpine) + .dockerignore + CONTRIBUTING.md.
+
+### Изменено
+
+- PWA precache: 6.0 МБ → 1.67 МБ (globIgnores тяжёлых чанков/шрифтов/og-image; same-origin runtime-cache CacheFirst /assets|/fonts, 30 дней).
+- Удалён мёртвый `hooks/use-editor-save.ts` (страница использовала inline handleSave).
+
+### Проверка
+
+- tsc 0 · eslint 0 ошибок · vitest 135/135 · build OK · prerender 64/64 · e2e 61 passed / 3 skipped (PORT=5057).
+
+---
+
 ## 2026-08-26 — Второй круг чистки: линт, deps, SEO, prod-OCR
 
 ### Добавлено

@@ -20,7 +20,8 @@
     "format": "prettier --write .",
     "test:e2e": "playwright test",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "build:full": "npm run build && tsx script/prerender.ts"
   },
   "dependencies": {
     "@fontsource/noto-sans": "^5.2.10",

@@ -39,9 +39,22 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // PDF/UI чанки крупные (chunkSizeWarningLimit 1800kb) — поднимаем лимит precache
-        maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
+        // Прекэш — только оболочка и лёгкие чанки. Тяжёлые PDF/OCR-библиотеки
+        // (pdfjs/pdf-lib/fabric/tesseract/mammoth/xlsx/jszip) грузятся по
+        // требованию и кэшируются через runtimeCaching после первого использования.
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,wasm}'],
+        globIgnores: [
+          '**/assets/pdfjs-*.js',
+          '**/assets/pdf-*.js',
+          '**/assets/pdf-advanced-*.js',
+          '**/assets/office-*.js',
+          '**/assets/xlsx-*.js',
+          '**/assets/zip-utils-*.js',
+          '**/assets/pdf.worker-*.mjs',
+          '**/assets/pdf-worker-*.js',
+          '**/fonts/*.ttf',
+          '**/og-image.png',
+        ],
         // SPA: любые навигации отдаём из index.html
         navigateFallback: '/index.html',
         // Tesseract.js тянет core/lang-данные с CDN — кэшируем для офлайн-OCR
@@ -53,6 +66,18 @@ export default defineConfig({
               cacheName: 'pdfx-cdn-cache',
               expiration: {
                 maxEntries: 40,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith('/assets/') || url.pathname.startsWith('/fonts/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'pdfx-assets-cache',
+              expiration: {
+                maxEntries: 60,
                 maxAgeSeconds: 60 * 60 * 24 * 30,
               },
               cacheableResponse: { statuses: [0, 200] },

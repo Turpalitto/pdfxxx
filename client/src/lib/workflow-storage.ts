@@ -272,3 +272,58 @@ export function deleteSavedWorkflowChain(
 
   return next;
 }
+
+// ============================================================
+// Share links — encode a pipeline into a URL-safe payload.
+// ============================================================
+
+function toBase64Url(input: string): string {
+  const bytes = new TextEncoder().encode(input);
+  let binary = '';
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function fromBase64Url(input: string): string {
+  const normalized = input.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
+  const binary = atob(padded);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+/** Serializes pipeline steps into a compact base64url string for `#chain=`. */
+export function encodeWorkflowShare(items: WorkflowItem[]): string {
+  const payload = {
+    v: 1 as const,
+    steps: items.map((item) => ({
+      s: item.stepId,
+      o: item.options as Record<string, string | number>,
+    })),
+  };
+  return toBase64Url(JSON.stringify(payload));
+}
+
+/** Parses a `#chain=` payload back into steps; returns null when invalid. */
+export function decodeWorkflowShare(encoded: string): SavedWorkflowItem[] | null {
+  try {
+    const payload = JSON.parse(fromBase64Url(encoded)) as {
+      v?: number;
+      steps?: Array<{ s?: unknown; o?: unknown }>;
+    };
+    if (payload.v !== 1 || !Array.isArray(payload.steps) || payload.steps.length === 0) {
+      return null;
+    }
+    if (payload.steps.length > 32) {
+      return null;
+    }
+    const items = payload.steps
+      .map((step) => sanitizeItem({ stepId: step.s, options: step.o }))
+      .filter((item): item is SavedWorkflowItem => item !== null);
+    return items.length > 0 ? items : null;
+  } catch {
+    return null;
+  }
+}

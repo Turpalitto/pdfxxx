@@ -16,6 +16,8 @@ import {
   Save,
   FolderOpen,
   Trash2,
+  Share2,
+  Check,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FileUpload } from '@/components/file-upload';
@@ -37,7 +39,9 @@ import {
   type WorkflowRunResult,
 } from '@/lib/workflow-engine';
 import {
+  decodeWorkflowShare,
   deleteSavedWorkflowChain,
+  encodeWorkflowShare,
   loadSavedWorkflowChains,
   saveWorkflowChain,
   savedItemsToWorkflowItems,
@@ -68,6 +72,8 @@ export default function WorkflowPage() {
     loadSavedWorkflowChains(),
   );
   const [chainName, setChainName] = useState('');
+  const [shareCopied, setShareCopied] = useState(false);
+  const [sharedChainNote, setSharedChainNote] = useState<string | null>(null);
   const uidRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const appliedPresetRef = useRef<string | null>(null);
@@ -160,6 +166,28 @@ export default function WorkflowPage() {
     navigate('/workflow', { replace: true });
   }, [applyPreset, location, navigate]);
 
+  useEffect(() => {
+    const hash = typeof window === 'undefined' ? '' : window.location.hash;
+    if (!hash.startsWith('#chain=')) return;
+
+    const decoded = decodeWorkflowShare(hash.slice('#chain='.length));
+    window.history.replaceState(null, '', window.location.pathname);
+
+    if (!decoded) {
+      setSharedChainNote(ru ? 'Ссылка цепочки повреждена.' : 'Shared chain link is malformed.');
+      return;
+    }
+
+    setItems(savedItemsToWorkflowItems(decoded, nextUid));
+    resetRun();
+    setSharedChainNote(
+      ru
+        ? 'Цепочка загружена из ссылки — проверьте шаги и нажмите «Запустить».'
+        : 'Chain loaded from a link — review the steps and hit Run.',
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot hash bootstrap
+  }, []);
+
   const clearAll = useCallback(() => {
     setItems([]);
     resetRun();
@@ -190,6 +218,35 @@ export default function WorkflowPage() {
   const handleDeleteChain = useCallback((id: string) => {
     setSavedChains(deleteSavedWorkflowChain(id));
   }, []);
+
+  const handleShareChain = useCallback(async () => {
+    if (items.length === 0 || running) return;
+
+    const encoded = encodeWorkflowShare(items);
+    if (!encoded) return;
+    const url = `${window.location.origin}/workflow#chain=${encoded}`;
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const area = document.createElement('textarea');
+        area.value = url;
+        area.style.position = 'fixed';
+        area.style.opacity = '0';
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand('copy');
+        document.body.removeChild(area);
+      }
+      setShareCopied(true);
+      window.setTimeout(() => setShareCopied(false), 2000);
+    } catch {
+      setSharedChainNote(
+        ru ? 'Не удалось скопировать ссылку.' : 'Could not copy the link.',
+      );
+    }
+  }, [items, ru, running]);
 
   const handleRun = useCallback(async () => {
     if (files.length === 0 || items.length === 0 || running) return;
@@ -544,7 +601,36 @@ export default function WorkflowPage() {
                 <Save className="h-4 w-4" />
                 {ru ? 'Сохранить цепочку' : 'Save chain'}
               </Button>
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={handleShareChain}
+                disabled={items.length === 0 || running}
+                data-testid="button-share-chain"
+              >
+                {shareCopied ? (
+                  <Check className="h-4 w-4 text-emerald-500" />
+                ) : (
+                  <Share2 className="h-4 w-4" />
+                )}
+                {shareCopied
+                  ? ru
+                    ? 'Ссылка скопирована'
+                    : 'Link copied'
+                  : ru
+                    ? 'Скопировать ссылку'
+                    : 'Copy link'}
+              </Button>
             </div>
+
+            {sharedChainNote && (
+              <p
+                className="mt-3 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-foreground"
+                data-testid="workflow-shared-note"
+              >
+                {sharedChainNote}
+              </p>
+            )}
 
             {savedChains.length === 0 ? (
               <p className="mt-3 rounded-xl border border-dashed border-border px-3 py-3 text-center text-xs text-muted-foreground">

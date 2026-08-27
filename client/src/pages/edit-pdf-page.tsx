@@ -32,6 +32,7 @@ import { useLang } from '@/lib/lang-context';
 import { useSeo } from '@/hooks/use-seo';
 import { cn } from '@/lib/utils';
 import { DEFAULT_MAX_FILE_SIZE_MB, mbToBytes } from '@/lib/upload-limits';
+import { drawFabricStateVector } from '@/lib/edit-pdf-vector';
 
 type ToolType =
   | 'select'
@@ -639,6 +640,21 @@ export default function EditPdfPage() {
         if (!parsed.objects || parsed.objects.length === 0) continue;
 
         const dim = pageDims[i];
+        const page = pages[i];
+        const { width: pdfW, height: pdfH } = page.getSize();
+
+        // Vector path first: native pdf-lib ops keep text sharp and searchable.
+        const drawn = await drawFabricStateVector({
+          pdfDoc,
+          page,
+          state: parsed,
+          pageWidthPt: pdfW,
+          pageHeightPt: pdfH,
+          scale: DISPLAY_SCALE,
+        });
+        if (drawn) continue;
+
+        // Raster fallback for unsupported objects (groups, exotic paths).
         const displayW = Math.round(dim.width * DISPLAY_SCALE);
         const displayH = Math.round(dim.height * DISPLAY_SCALE);
 
@@ -659,8 +675,6 @@ export default function EditPdfPage() {
 
         const imgBytes = dataUrlToBytes(pngDataUrl);
         const pngImage = await pdfDoc.embedPng(imgBytes);
-        const page = pages[i];
-        const { width: pdfW, height: pdfH } = page.getSize();
         page.drawImage(pngImage, { x: 0, y: 0, width: pdfW, height: pdfH });
       }
 

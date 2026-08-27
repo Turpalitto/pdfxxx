@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   WORKFLOW_CHAINS_STORAGE_KEY,
+  decodeWorkflowShare,
   deleteSavedWorkflowChain,
+  encodeWorkflowShare,
   loadSavedWorkflowChains,
   saveWorkflowChain,
   savedItemsToWorkflowItems,
@@ -153,5 +155,35 @@ describe('workflow-storage', () => {
         storage,
       ),
     ).not.toThrow();
+  });
+
+  it('round-trips a share link and strips client-only fields', () => {
+    const encoded = encodeWorkflowShare([
+      { uid: 'u1', stepId: 'compress', options: { level: 'high', fileName: 'secret.pdf' } },
+      { uid: 'u2', stepId: 'watermark', options: { text: 'CONFIDENTIAL' } },
+    ]);
+
+    expect(encoded).not.toContain('secret.pdf');
+    expect(encoded).not.toContain('u1');
+    expect(encoded).toMatch(/^[A-Za-z0-9_-]+$/);
+
+    expect(decodeWorkflowShare(encoded)).toEqual([
+      { stepId: 'compress', options: { level: 'high' } },
+      { stepId: 'watermark', options: { text: 'CONFIDENTIAL', position: 'center' } },
+    ]);
+  });
+
+  it('rejects malformed or oversized share links', () => {
+    expect(decodeWorkflowShare('')).toBeNull();
+    expect(decodeWorkflowShare('not-base64!!!')).toBeNull();
+
+    const badJson = btoa(JSON.stringify({ v: 1, steps: 'nope' }));
+    expect(decodeWorkflowShare(badJson)).toBeNull();
+
+    const unknownStep = btoa(JSON.stringify({ v: 1, steps: [{ s: 'no-such-step' }] }));
+    expect(decodeWorkflowShare(unknownStep)).toBeNull();
+
+    const tooMany = btoa(JSON.stringify({ v: 1, steps: Array.from({ length: 33 }, () => ({ s: 'compress' })) }));
+    expect(decodeWorkflowShare(tooMany)).toBeNull();
   });
 });

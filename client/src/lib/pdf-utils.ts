@@ -59,10 +59,12 @@ let _pdfjsModule: any = null;
 export async function loadPdfJs(): Promise<any> {
   if (!_pdfjsModule) {
     const pdfjs = await import('pdfjs-dist');
-    pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-      'pdfjs-dist/build/pdf.worker.mjs',
-      import.meta.url,
-    ).href;
+    if (!pdfjs.GlobalWorkerOptions.workerSrc) {
+      pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+        'pdfjs-dist/build/pdf.worker.mjs',
+        import.meta.url,
+      ).href;
+    }
     _pdfjsModule = pdfjs;
   }
   return _pdfjsModule;
