@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect } from 'react';
-import { Switch, Route } from 'wouter';
+import { Switch, Route, useLocation } from 'wouter';
+import { MotionConfig } from 'framer-motion';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/toaster';
 import { ThemeProvider } from '@/lib/theme';
@@ -71,6 +72,11 @@ function Router() {
 }
 
 function ThemedLayout() {
+  const [location] = useLocation();
+  // Route transitions: re-key only on pathname (not query/hash) so category
+  // pill clicks do not replay the entrance animation on the whole page.
+  const routeKey = location.split(/[?#]/)[0];
+
   useEffect(() => {
     if (typeof window === 'undefined') {
       return;
@@ -101,7 +107,9 @@ function ThemedLayout() {
       <div className="relative z-10 flex flex-col min-h-screen">
         <Navbar />
         <main id="main-content" className="flex-1">
-          <Router />
+          <div key={routeKey} className="page-enter">
+            <Router />
+          </div>
         </main>
         <Footer />
       </div>
@@ -111,14 +119,16 @@ function ThemedLayout() {
 
 function App() {
   return (
-    <TooltipProvider>
-      <ThemeProvider>
-        <LangProvider>
-          <ThemedLayout />
-        </LangProvider>
-      </ThemeProvider>
-      <Toaster />
-    </TooltipProvider>
+    <MotionConfig reducedMotion="user">
+      <TooltipProvider>
+        <ThemeProvider>
+          <LangProvider>
+            <ThemedLayout />
+          </LangProvider>
+        </ThemeProvider>
+        <Toaster />
+      </TooltipProvider>
+    </MotionConfig>
   );
 }
 

@@ -45,7 +45,7 @@ export function useFindReplace({
       return [];
     });
     fabricRef.current.requestRenderAll?.();
-  }, []);
+  }, [fabricRef]);
 
   // Точные измерения текста через canvas measureText с реальным шрифтом строки.
   // character-ratio (idx/text.length) неточен для пропорциональных шрифтов —
@@ -64,7 +64,7 @@ export function useFindReplace({
     // Нормируем measureText к фактической ширине строки (шрифт может отличаться от PDF)
     const scale = fullW && isFinite(fullW) && fullW > 0 ? renderWidth / fullW : 1;
     return { ctx, scale };
-  }, []);
+  }, [textMeasureCanvasRef]);
 
   const measureMatchRect = useCallback(
     (line: TextLineMetric, segStart: number, segEnd: number) => {
@@ -141,7 +141,7 @@ export function useFindReplace({
       setFindHighlightObjs(objs);
       setFindCurrent(0);
     },
-    [clearFindHighlights, currentPage, measureMatchRect],
+    [clearFindHighlights, currentPage, measureMatchRect, fabricRef, pageTextLinesRef],
   );
 
   const navigateFindMatch = useCallback(
@@ -158,7 +158,7 @@ export function useFindReplace({
       fabricRef.current.requestRenderAll?.();
       setFindCurrent(next);
     },
-    [findCurrent, findHighlightObjs, findMatches.length],
+    [findCurrent, findHighlightObjs, findMatches.length, fabricRef],
   );
 
   const replaceCurrentMatch = useCallback(async () => {
@@ -237,6 +237,9 @@ export function useFindReplace({
     pushHistory,
     replaceText,
     getLineMeasure,
+    fabricRef,
+    pageTextLinesRef,
+    setHasUnsavedChanges,
   ]);
 
   const replaceAllMatches = useCallback(async () => {
@@ -286,7 +289,17 @@ export function useFindReplace({
     clearFindHighlights();
     setFindMatches([]);
     setFindCurrent(0);
-  }, [clearFindHighlights, currentPage, findMatches, pushHistory, replaceText, getLineMeasure]);
+  }, [
+    clearFindHighlights,
+    currentPage,
+    findMatches,
+    pushHistory,
+    replaceText,
+    getLineMeasure,
+    fabricRef,
+    pageTextLinesRef,
+    setHasUnsavedChanges,
+  ]);
 
   return {
     findOpen,

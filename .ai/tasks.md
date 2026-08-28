@@ -20,6 +20,10 @@
 
 ## 🔄 Текущие задачи (In Progress)
 
+- [x] **Мега-аудит по .ai/prompts/mega-audit.md (2026-08-27)** — 14 eslint warnings → 0 (refs/стабильные setState в deps; `actionTypes` const → type; unused imports); compare-pdf/pdf-diff/overlay-pdf SecondFileInput: sr-only input + label-кнопка вместо всегда-видимого нативного file input (testid сохранён для e2e). Аудит фаз 2–5: новых багов нет (слаги/переводы/registry/секреты/XSS/утечки/чанки чисто). Проверено: tsc 0, eslint 0/0, vitest 139/139, build OK, headless smoke 0 ошибок.
+
+- [x] **Performance/animation audit (2026-08-27)** — home.tsx: убраны `layout` props framer-motion (58 карточек), stagger капнут (последняя карточка ждала 1.74s → ≤0.36s), viewport margin 120px, поиск на `useDeferredValue`; App.tsx: `MotionConfig reducedMotion="user"` + page-enter route transition (по pathname, без query/hash); index.css: `.cv-auto` (content-visibility: auto) для оффскрин секций; index.html: preconnect к tesseract CDN. Проверено: tsc 0, vitest 139/139, build OK, headless smoke 58 карточек/поиск/tool-page, 0 ошибок консоли.
+
 - [x] **Ремедиация находок независимой экспертизы (2026-08-27)** — PWA-иконки 192/512+maskable (было 128); error-report: timing-safe токен, контекст ≤4KB, чистка stale IP (+4 клиентских unit-теста, 139/139); npm audit fix 10→2 + override image-size (риск принят, в бандле отсутствует); lang="en" пререндера признан не-багом. Проверено: tsc 0, vitest 139/139, build+prerender 64/64, e2e 61/3 skipped.
 
 - [x] **Раунд «уровень мировой компании» (2026-08-27)** — CI lint+e2e jobs; пререндер 64 страниц (`build:full`); error-мониторинг (клиент beacon + сервер ring с rate-limit) + Plausible через env; PWA precache 6.0→1.67 МБ; векторное сохранение edit-pdf (fabric→pdf-lib, 7 тестов); workflow share-links (#chain=, clipboard, 2 unit + 2 e2e); golden-тесты конвертеров (docx/xlsx структура, pdfjs legacy mock); Dockerfile + .dockerignore + CONTRIBUTING.md; a11y-проверка (skip-link/aria/landmarks уже на месте). Проверено: tsc 0, eslint 0, vitest 135/135, build+prerender 64/64, e2e 61/3 skipped.

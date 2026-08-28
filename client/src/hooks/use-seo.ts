@@ -46,7 +46,7 @@ export function useSeo({ title, description, path = '/', image, schemaOrg }: Seo
       }
       el.textContent = JSON.stringify(schemaOrg);
     }
-  }, [title, description, path]);
+  }, [title, description, path, ogImage, schemaOrg]);
 }
 
 function setMeta(attr: string, key: string, value: string) {

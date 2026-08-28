@@ -12,6 +12,12 @@
       content="PDFX helps you merge, split, compress, convert, redact and sign PDFs right in your browser. Your files never leave your device."
     />
     <meta name="robots" content="index, follow" />
+    <!-- OCR (tesseract.js) pulls core/lang data from CDNs on first use:
+         warm the connection early so the first OCR run skips DNS+TLS. -->
+    <link rel="preconnect" href="https://unpkg.com" crossorigin />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link rel="dns-prefetch" href="https://unpkg.com" />
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
     <link rel="canonical" href="https://pdfx.tools/" />
     <link rel="alternate" hreflang="en" href="https://pdfx.tools/?lang=en" />
     <link rel="alternate" hreflang="ru" href="https://pdfx.tools/?lang=ru" />

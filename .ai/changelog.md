@@ -4,6 +4,41 @@
 
 ---
 
+## 2026-08-27 — Мега-аудит по промпту .ai/prompts/mega-audit.md (фазы 1–8)
+
+### Исправлено (до аудита, из находок перф-раунда)
+
+- 14 ESLint warnings → 0: file-upload (`onValidationError` в deps), use-editor-history (`fabricRef` deps, `_historyVersion`), use-find-replace (6× refs/stable-setter deps), use-seo (`ogImage`/`schemaOrg` deps), use-toast (`actionTypes` const → type), golden-test (unused `rgb`).
+- compare-pdf/pdf-diff/overlay-pdf: `SecondFileInput` — нативный всегда-видимый file input (ловил случайные клики и открывал file chooser) заменён на sr-only input + кликабельный label-кнопка; testid сохранён для `setInputFiles`.
+
+### Аудит (фазы 2–5) — новые баги не найдены
+
+- Фаза 2: 58 slug — 0 дубликатов, все имеют EN+RU, shared registry синхронен (тест зелёный), дублей экспортов pdf-utils нет.
+- Фаза 3: console.log только server-logger (намеренно), 0 TODO/FIXME, lint 0/0.
+- Фаза 4: XSS-паттернов нет, хардкод-секретов нет, error-report харднинг на месте.
+- Фаза 5: слушатели парные (error-report — намеренные app-lifetime), все ObjectURL revoke, pdfjs `destroy?.()` присутствует, setInterval нет, чанки бандла ожидаемые.
+
+### Проверка
+
+- tsc 0 · eslint 0/0 · vitest 139/139 · build OK · headless smoke: главная 58 карточек + поиск, compare-pdf/pdf-diff рендер + inputs в DOM, workflow рендер, 0 ошибок консоли.
+
+---
+
+## 2026-08-27 — Performance/animation audit: «все элементы сразу»
+
+### Изменено
+
+- **home.tsx**: убраны framer-motion `layout` props с грида и всех 58 карточек (дорогие layout-измерения на каждый рендер, включая поиск); stagger-задержка капнута `Math.min(i, 12) * 0.03` (было `i * 0.03` — 58-я карточка ждала 1.74s); `viewport={{ margin: '120px' }}` — карточки анимируются до входа в экран; поиск переведён на `useDeferredValue` (ввод не блокируется фильтрацией).
+- **App.tsx**: `MotionConfig reducedMotion="user"` — framer-motion теперь уважает prefers-reduced-motion (CSS media query его не покрывала); SPA route transition: обёртка `key={pathname}.page-enter` (GPU fade+rise 240ms, не срабатывает на query/hash).
+- **index.css**: утилита `.cv-auto` (content-visibility: auto + contain-intrinsic-size) для оффскрин-секций главной (stats/features/tools/CTA); keyframes `pdfx-page-in`.
+- **index.html**: preconnect/dns-prefetch к unpkg.com и cdn.jsdelivr.net (tesseract.js CDN — первый OCR быстрее на DNS+TLS).
+
+### Проверка
+
+- tsc 0 · vitest 139/139 · build OK · headless smoke: 58 карточек видны сразу, поиск фильтрует, /tools/merge-pdf рендерится, 0 ошибок консоли.
+
+---
+
 ## 2026-08-27 — Ремедиация находок экспертизы
 
 ### Добавлено

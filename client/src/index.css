@@ -426,6 +426,33 @@
   }
 }
 
+/* Native lazy rendering: skip layout/paint of offscreen sections until they
+   approach the viewport.contain-intrinsic-size gives the browser a stable
+   estimate so the scrollbar does not jump. */
+@layer utilities {
+  .cv-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 640px;
+  }
+}
+
+/* SPA route transition: GPU-composited fade + rise, replayed per pathname.
+   Reduced-motion users get an instant swap via the global media query. */
+@keyframes pdfx-page-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.page-enter {
+  animation: pdfx-page-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 /**
  * Using the elevate system.
  * Automatic contrast adjustment.

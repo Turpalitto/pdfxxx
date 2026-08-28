@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, StandardFonts } from 'pdf-lib';
 
 // pdfjs-dist modern build needs full browser APIs (DOMMatrix, real worker
 // URL resolution, crypto hashing); run the converters on the legacy build

@@ -14,7 +14,7 @@ client/src/
 │
 ├── lib/                       # Ядро бизнес-логики
 │   ├── tools.ts               # ← РЕЕСТР ИНСТРУМЕНТОВ (source of truth)
-│   ├── pdf-utils.ts           # ← ВСЕ PDF-функции (~2324 строки)
+│   ├── pdf-utils.ts           # ← ВСЕ PDF-функции (~3158 строк)
 │   ├── tool-translations.ts   # Переводы инструментов (18 языков, ~664 строки)
 │   ├── tool-experience.ts     # Sidebar: workflow suggestions per tool
 │   ├── edit-pdf-copy.ts       # EN/RU SEO + primary UI copy for autonomous Edit PDF editor
@@ -36,8 +36,9 @@ client/src/
 │
 ├── pages/
 │   ├── home.tsx               # Главная: сетка инструментов + поиск
-│   ├── tool-page.tsx          # ← УНИВЕРСАЛЬНАЯ СТРАНИЦА (~1876 строк)
-│   ├── edit-pdf-page.tsx      # ← РЕДАКТОР Fabric.js (~3506 строк, автономный)
+│   ├── tool-page.tsx          # ← УНИВЕРСАЛЬНАЯ СТРАНИЦА (~2031 строк)
+│   ├── edit-pdf-page.tsx      # ← РЕДАКТОР Fabric.js (~1233 строки, автономный, логика в hooks/)
+│   ├── workflow-page.tsx      # Workflow-цепочки
 │   ├── pricing.tsx
 │   ├── contact.tsx
 │   ├── privacy.tsx
@@ -312,12 +313,10 @@ edit-pdf-page.tsx
 
 ## Технический долг (известный)
 
-| Проблема                     | Серьёзность | Описание                                                                                                                |
-| ---------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Main thread blocking         | Средняя     | PDF обрабатывается в main thread. Тяжёлые операции (OCR, grayscale больших файлов) подвешивают UI. Решение: Web Workers |
-| edit-pdf-page.tsx размер     | Средняя     | 3506 строк — нужна декомпозиция на хуки и подкомпоненты                                                                 |
-| tool-page.tsx размер         | Низкая      | 1876 строк — switch-case монолит, можно разбить на стратегии                                                            |
-| Drizzle/Passport мёртвый код | Низкая      | Backend зависимости подключены, но не используются для PDF                                                              |
-| Нет Web Workers              | Средняя     | Все PDF операции блокируют UI thread                                                                                    |
-| Нет unit tests для pdf-utils | Средняя     | Логика без покрытия тестами                                                                                             |
-| compare-pdf input[type=file] | Низкая      | Всегда видимый input триггерит Playwright file chooser                                                                  |
+| Проблема                          | Серьёзность | Описание                                                                                                                              |
+| --------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| edit-pdf-page.tsx декомпозиция    | Низкая      | Логика вынесена в hooks/ (use-editor-history, use-find-replace и др.), осталось ~1233 строки; дальнейшая декомпозиция малополезна       |
+| tool-page.tsx размер              | Низкая      | ~2031 строки — switch-case монолит поверх registry/worker-routing; можно разбить на стратегии                                          |
+| Drizzle/Passport мёртвый код      | Низкая      | Backend зависимости подключены, но не используются для PDF                                                                              |
+| pdfToPptx/ocrPdf вне воркера      | Средняя     | Инфраструктура WorkerOp готова (ADR-010), но pptxgenjs зависит от DOM, tesseract.js создаёт вложенные воркеры                           |
+| compare-pdf input[type=file]      | ✅ Решено   | SecondFileInput теперь sr-only input + label-кнопка (2026-08-27)                                                                       |

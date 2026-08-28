@@ -67,7 +67,7 @@ export function FileUpload({
       );
       onFiles(arr);
     },
-    [accept, maxSizeMb, onFiles, onError],
+    [accept, maxSizeMb, onFiles, onError, onValidationError],
   );
 
   const handleDrop = useCallback(

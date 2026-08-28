@@ -19,7 +19,7 @@ export function useEditorHistory(fabricRef: MutableRefObject<any>): UseEditorHis
   // вызовы игнорируются. Иначе резолв первого промиса снимает
   // suppressHistoryRef раньше, чем догрузится второй → порча истории (H9).
   const restoringRef = useRef(false);
-  const [historyVersion, setHistoryVersion] = useState(0);
+  const [_historyVersion, setHistoryVersion] = useState(0);
 
   const pushHistory = useCallback(() => {
     if (!fabricRef.current || suppressHistoryRef.current) return;
@@ -33,7 +33,7 @@ export function useEditorHistory(fabricRef: MutableRefObject<any>): UseEditorHis
     historyRef.current = newHist;
     historyIndexRef.current = newHist.length - 1;
     setHistoryVersion((prev) => prev + 1);
-  }, []);
+  }, [fabricRef]);
 
   const handleUndo = useCallback(() => {
     if (restoringRef.current) return;
@@ -56,7 +56,7 @@ export function useEditorHistory(fabricRef: MutableRefObject<any>): UseEditorHis
         restoringRef.current = false;
         setHistoryVersion((prev) => prev + 1);
       });
-  }, []);
+  }, [fabricRef]);
 
   const handleRedo = useCallback(() => {
     if (restoringRef.current) return;
@@ -80,7 +80,7 @@ export function useEditorHistory(fabricRef: MutableRefObject<any>): UseEditorHis
         restoringRef.current = false;
         setHistoryVersion((prev) => prev + 1);
       });
-  }, []);
+  }, [fabricRef]);
 
   const resetHistory = useCallback(() => {
     historyRef.current = [];

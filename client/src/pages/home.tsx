@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import { useSearch } from 'wouter';
 import { Link } from 'wouter';
 import { motion } from 'framer-motion';
@@ -17,6 +17,9 @@ export default function Home() {
   const activeCategory = searchParams.get('category') || 'all';
   const { t, lang } = useLang();
   const [query, setQuery] = useState('');
+  // Deferred query keeps typing responsive: the search re-render happens at
+  // lower priority while the input keeps up with every keystroke.
+  const deferredQuery = useDeferredValue(query);
 
   useSeo({
     title:
@@ -30,11 +33,13 @@ export default function Home() {
   const isRu = lang === 'ru';
 
   const searchResults = useMemo(() => {
-    if (!query.trim()) return null;
-    return searchToolRegistry(query, lang as LangCode)
+    if (!deferredQuery.trim()) return null;
+    return searchToolRegistry(deferredQuery, lang as LangCode)
       .map((result) => tools.find((tool) => tool.slug === result.entry.slug))
       .filter((tool): tool is (typeof tools)[number] => Boolean(tool));
-  }, [query, lang]);
+  }, [deferredQuery, lang]);
+
+  const isSearching = query !== deferredQuery;
 
   const filteredTools =
     activeCategory === 'all' ? tools : tools.filter((tool) => tool.category === activeCategory);
@@ -194,7 +199,7 @@ export default function Home() {
       </section>
 
       {/* ─── STATS ─── */}
-      <section className="container mx-auto px-4 py-12">
+      <section className="cv-auto container mx-auto px-4 py-12">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
           {stats.map((stat, i) => (
             <motion.div
@@ -220,7 +225,7 @@ export default function Home() {
       </section>
 
       {/* ─── FEATURES ─── */}
-      <section id="features" className="container mx-auto px-4 py-8">
+      <section id="features" className="cv-auto container mx-auto px-4 py-8">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {features.map((feat, i) => {
             const Icon = feat.icon;
@@ -256,7 +261,7 @@ export default function Home() {
       </section>
 
       {/* ─── TOOLS ─── */}
-      <section id="tools" className="container mx-auto px-4 py-12">
+      <section id="tools" className="cv-auto container mx-auto px-4 py-12">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -317,25 +322,23 @@ export default function Home() {
         </div>
 
         {/* Tool grid */}
-        <motion.div
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
-          layout
-        >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {visibleTools.map((tool, i) => (
             <motion.div
               key={tool.slug}
-              initial={{ opacity: 0, scale: 0.92 }}
+              initial={{ opacity: 0, scale: 0.96 }}
               whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.3, delay: i * 0.03 }}
-              layout
+              // Pre-trigger 120px before the card enters the viewport and cap
+              // the stagger so deep rows never wait seconds to appear.
+              viewport={{ once: true, margin: '120px' }}
+              transition={{ duration: 0.25, delay: Math.min(i, 12) * 0.03 }}
             >
               <ToolCard tool={tool} />
             </motion.div>
           ))}
-        </motion.div>
+        </div>
 
-        {visibleTools.length === 0 && (
+        {visibleTools.length === 0 && !isSearching && (
           <p className="text-center text-slate-500 mt-8">
             {isRu
               ? 'Ничего не найдено. Попробуйте другой запрос.'
@@ -345,7 +348,7 @@ export default function Home() {
       </section>
 
       {/* ─── CTA ─── */}
-      <section className="text-center px-4 py-20 relative">
+      <section className="cv-auto text-center px-4 py-20 relative">
         <div
           className="pointer-events-none absolute inset-x-0 bottom-0"
           style={{

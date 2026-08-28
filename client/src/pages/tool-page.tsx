@@ -2010,22 +2010,22 @@ function SecondFileInput({
   const inputId = `${testId}-control`;
   return (
     <div>
-      <Label htmlFor={inputId} className="text-sm font-medium mb-1.5 block">
-        {label}
+      {/* Visually hidden input + label-as-button: a stray page click no longer
+          hits a native file control, while setInputFiles/testid keeps working. */}
+      <Label
+        htmlFor={inputId}
+        className="flex min-h-11 cursor-pointer items-center justify-center rounded-lg border border-dashed px-3 text-center text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+      >
+        {file ? `${file.name} • ${formatBytes(file.size)}` : label}
       </Label>
-      <Input
+      <input
         id={inputId}
         type="file"
         accept={accept}
         onChange={(e) => onChange(e.target.files?.[0] ?? null)}
         data-testid={testId}
-        className="cursor-pointer"
+        className="sr-only"
       />
-      {file && (
-        <p className="text-xs text-muted-foreground mt-1.5">
-          {file.name} • {formatBytes(file.size)}
-        </p>
-      )}
     </div>
   );
 }
