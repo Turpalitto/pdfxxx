@@ -9,7 +9,7 @@
     "url": "https://github.com/Turpalitto/pdfxxx.git"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "dev": "cross-env NODE_ENV=development tsx server/index.ts",
