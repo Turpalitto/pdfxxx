@@ -1,6 +1,36 @@
-﻿# PDFX — Changelog
+# PDFX — Changelog
 
 > История изменений проекта. Обновляется после каждого значимого изменения.
+
+---
+
+## 2026-09-10 — Fidelity pdf-to-word/excel Phase D: восстановление B/C/C+ + новые фичи
+
+### Обнаружено
+
+Восстановление `pdf-utils.ts` после broken merge (2026-08-26) вернуло файл **до фаз B/C/C+**: в `pdfToWord` не было таблиц `w:tbl`, цвета текста, `w:rFonts`, spacing и сканов-PNG — хотя хелперы `fillColorToHex`/`detectTableRegions` в файле оставались (с тестами, но неподключённые). Golden-тесты проверяли только наличие текста и регресс не ловили. Пункт roadmap #2 фактически был на уровне Phase A.
+
+### Восстановлено (утерянное)
+
+- **Таблицы `w:tbl` в Word**: `detectTableRegions` + новый `tableRegionToXml` (общие колонки через `clusterColumns`/`assignToColumn`, `tblGrid`/`tcW` в twips, границы `tblBorders`, текст ячеек через styled runs).
+- **Цвет текста `w:color`**: `trackTextFillColors` читает fill color из pdfjs `getOperatorList()` (v5 передаёт готовую hex-строку в `setFillRGBColor`; поддержаны компонентные rgb/gray/cmyk и `setFillColor` с известным пространством; q/Q-стек корректно откатывает цвет; чёрный/белый → undefined). `attachColorsToItems` парсит цвета show-опов с textContent (прямое парное выравнивание + fallback по непустым подпоследовательностям).
+- **`w:rFonts`** из pdfjs fontFamily (`normalizeFontFamily` чистит subset-префиксы `ABCDEE+` и отбрасывает generic `sans-serif`/…), **`w:spacing`** before/after (заголовки/обычные), runs группируются по стилю (`itemsToStyledRuns`).
+
+### Добавлено (новое)
+
+- **Гиперссылки в Word**: Link-аннотации (`getAnnotations`, только http/https) → `<w:hyperlink r:id>` + внешние relationship'ы + underline/0563C1. Сопоставление строка↔rect — `linkForLine` (максимальное горизонтальное перекрытие при вертикальном).
+- **Числовые ячейки в Excel**: `excelCellToNumber` — целые/десятичные (точка и запятая), разряды через пробел/nbsp; ведущие нули, версии, `$8`, `Q1` остаются строками.
+- **Смарт-сканы c проверкой картинок**: страницы без текста (или разреженные при наличии растра) рендерятся в PNG (`renderPageToPngBytes` через `createRenderCanvas`, работает и в воркере) и вставляются inline-DrawingML в `word/media/`. Разреженные born-digital страницы **без** изображений остаются честным текстом (флаг `hasImages` из image-опов того же operatorList).
+- Общая эвристика ячеек `lineCells()` (Word-таблицы и Excel больше не дублируют gap-merge).
+
+### Производительность
+
+- `getOperatorList()` и `getAnnotations()` вызываются только для pdf-to-word (`extractPdfLayout(file, { colors, links })`); Excel/Markdown не платят за обогащение.
+
+### Тесты
+
+- vitest 139 → **164**: golden на `w:tbl`/цвет/гиперссылку/числовые ячейки (+ link-аннотация в fixture через pdf-lib PDFDict), unit на `trackTextFillColors` (включая hex-строки pdfjs v5 и q/Q), `attachColorsToItems`, `isScanPage`/`pageTextDensity`, `excelCellToNumber`, `normalizeFontFamily`, `lineCells`, `itemsToStyledRuns`, `linkForLine`, `lineToParagraphXml`, `tableRegionToXml`, fallback «текст не извлекается».
+- tsc 0 · eslint 0 · prettier · build OK · prod smoke OK. Визуальная проверка docx/xlsx в Word/LibreOffice — ручной шаг (в песочнице нет браузера/LibreOffice; браузерный путь покрыт architecture-fallback и будет прогнан в CI).
 
 ---
 
