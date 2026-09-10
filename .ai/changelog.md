@@ -4,6 +4,12 @@
 
 ---
 
+## 2026-09-10 — Hotfix: горяче-клавишный help-диалог снова доступен
+
+- `KeyboardHelpDialog` + `useKeyboardShortcuts` пережили broken merge как файлы, но потеряли проводку: диалог не открывался никак. Подключён в `ThemedLayout` (Shift+/ — toggle, Esc закрывает; рендер под LangProvider ради useLang).
+- Баг хука: `matchesShortcut` сравнивал `e.key === '/'`, но Shift+/ на US-раскладке даёт `?` — help был невозможно нажать. `'?'` теперь нормализуется к `'/'`; функция экспортирована для тестов.
+- Тесты: `use-keyboard-shortcuts.test.ts` (matchesShortcut: `?`/`/`/Shift/Ctrl/meta, getShortcutList: локализация и стрелки); e2e в smoke: диалог открывается по Shift+/ и закрывается по Esc. vitest 164 → **172**. tsc 0 · eslint 0.
+
 ## 2026-09-10 — Fidelity pdf-to-word/excel Phase D: восстановление B/C/C+ + новые фичи
 
 ### Обнаружено

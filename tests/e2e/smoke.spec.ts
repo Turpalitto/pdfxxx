@@ -110,4 +110,17 @@ test.describe('public pages', () => {
     await expect(page.getByText(/Download your result instantly/i)).toHaveCount(0);
     await expectNoHorizontalOverflow(page);
   });
+
+  test('keyboard shortcuts dialog toggles with Shift+/', async ({ page }) => {
+    await page.goto('/');
+
+    // Shift+/ produces "?" on US layouts — both must open the help dialog.
+    await page.keyboard.press('Shift+/');
+    const dialog = page.getByRole('heading', { name: /Keyboard Shortcuts|Горячие клавиши/i });
+    await expect(dialog).toBeVisible();
+    await expect(page.getByText('Ctrl+Z')).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+  });
 });

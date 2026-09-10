@@ -35,13 +35,21 @@ const SHORTCUTS: Record<ShortcutAction, ShortcutDef> = {
   deleteSelected: { key: 'Delete', label: { en: 'Delete selected', ru: 'Удалить выбранное' } },
 };
 
-function matchesShortcut(e: KeyboardEvent, def: ShortcutDef): boolean {
-  const keyMatch = e.key.toLowerCase() === def.key.toLowerCase();
+function matchesShortcut(
+  e: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'shiftKey' | 'altKey' | 'metaKey'>,
+  def: ShortcutDef,
+): boolean {
+  // Shift+('/') рендерится как '?' на большинстве раскладок — считаем их
+  // синонимами, иначе help-шорткат физически нельзя нажать на US-клавиатуре.
+  const eKey = e.key === '?' ? '/' : e.key.toLowerCase();
+  const keyMatch = eKey === def.key.toLowerCase();
   const ctrlMatch = def.ctrl ? e.ctrlKey || e.metaKey : !(e.ctrlKey || e.metaKey);
   const shiftMatch = def.shift ? e.shiftKey : !e.shiftKey;
   const altMatch = def.alt ? e.altKey : !e.altKey;
   return keyMatch && ctrlMatch && shiftMatch && altMatch;
 }
+
+export { matchesShortcut };
 
 export function useKeyboardShortcuts(
   handlers: Partial<Record<ShortcutAction, () => void>>,

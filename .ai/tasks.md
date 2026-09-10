@@ -271,7 +271,7 @@
 - [x] Предпросмотр результата до скачивания (уже реализован — previewDataUrl для PDF)
 - [x] История последних файлов (localStorage) — уже реализовано (useRecentFiles)
 - [x] Прогресс-бар для split-by-size (уже реализован — onProgress)
-- [ ] Keyboard shortcuts help popup
+- [x] Keyboard shortcuts help popup (Shift+/) — повторно подключён 2026-09-10: проводка в App.tsx потерялась при broken merge; заодно matchesShortcut теперь понимает `?` (Shift+/ на US-раскладке)
 
 ### Технические улучшения
 
