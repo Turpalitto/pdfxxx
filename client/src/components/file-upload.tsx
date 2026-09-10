@@ -1,9 +1,15 @@
-import { useCallback, useState, useRef } from 'react';
+import { useCallback, useState, useRef, useMemo } from 'react';
 import { Upload, File, X, CheckCircle, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { formatBytes } from '@/lib/pdf-utils';
 import { DEFAULT_MAX_FILE_SIZE_MB, mbToBytes } from '@/lib/upload-limits';
+import {
+  availableCloudProviders,
+  importFromDropbox,
+  importFromGoogleDrive,
+  type CloudProviderId,
+} from '@/lib/cloud-import';
 
 interface FileUploadProps {
   accept?: string;
@@ -33,7 +39,10 @@ export function FileUpload({
   description,
 }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
+  const [cloudImporting, setCloudImporting] = useState<CloudProviderId | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Провайдеры облачного импорта доступны только при заданных env-ключах.
+  const cloudProviders = useMemo(() => availableCloudProviders(), []);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -45,8 +54,10 @@ export function FileUpload({
     }
   }, []);
 
-  const processFiles = useCallback(
-    (newFiles: FileList | null) => {
+  // Общий путь приёма файлов: дроп, file input и облачный импорт валидируются
+  // одинаково (accept + size limit), ошибки уходят в onValidationError.
+  const acceptFiles = useCallback(
+    (newFiles: FileList | File[] | null) => {
       if (!newFiles) return;
       let rejected = 0;
       const arr = Array.from(newFiles).filter((f) => {
@@ -70,22 +81,39 @@ export function FileUpload({
     [accept, maxSizeMb, onFiles, onError, onValidationError],
   );
 
+  const handleCloudImport = useCallback(
+    async (provider: CloudProviderId) => {
+      setCloudImporting(provider);
+      onValidationError?.('');
+      try {
+        const files =
+          provider === 'google-drive' ? await importFromGoogleDrive() : await importFromDropbox();
+        if (files.length > 0) acceptFiles(files);
+      } catch (err) {
+        onValidationError?.(err instanceof Error ? err.message : 'Cloud import failed.');
+      } finally {
+        setCloudImporting(null);
+      }
+    },
+    [acceptFiles, onValidationError],
+  );
+
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
       setIsDragging(false);
-      processFiles(e.dataTransfer.files);
+      acceptFiles(e.dataTransfer.files);
     },
-    [processFiles],
+    [acceptFiles],
   );
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      processFiles(e.target.files);
+      acceptFiles(e.target.files);
       e.target.value = '';
     },
-    [processFiles],
+    [acceptFiles],
   );
 
   const hasFiles = files.length > 0;
@@ -149,6 +177,43 @@ export function FileUpload({
         >
           Choose File{multiple ? 's' : ''}
         </Button>
+
+        {/* Облачный импорт: только когда env-ключи сконфигурированы. Клики
+            не должны открывать file chooser дропзоны (stopPropagation). */}
+        {cloudProviders.length > 0 && (
+          <div className="flex flex-wrap justify-center gap-2" data-testid="cloud-import-buttons">
+            {cloudProviders.includes('google-drive') && (
+              <Button
+                variant="ghost"
+                size="sm"
+                type="button"
+                disabled={cloudImporting !== null}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void handleCloudImport('google-drive');
+                }}
+                data-testid="button-import-google-drive"
+              >
+                {cloudImporting === 'google-drive' ? 'Importing…' : 'Google Drive'}
+              </Button>
+            )}
+            {cloudProviders.includes('dropbox') && (
+              <Button
+                variant="ghost"
+                size="sm"
+                type="button"
+                disabled={cloudImporting !== null}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void handleCloudImport('dropbox');
+                }}
+                data-testid="button-import-dropbox"
+              >
+                {cloudImporting === 'dropbox' ? 'Importing…' : 'Dropbox'}
+              </Button>
+            )}
+          </div>
+        )}
 
         {isDragging && (
           <div className="absolute inset-0 rounded-md bg-primary/5 flex items-center justify-center">

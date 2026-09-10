@@ -3215,15 +3215,18 @@ export function reorderLinesByColumns(
   // Табличный просвет: ≥2 подряд пересекающих cut строки с плотным шагом
   // (≤ 2.5×кегль) — это строки таблицы с выровненными baselines. Такой cut
   // не режем, иначе ячейки разъедутся по колонкам и detectTableRegions
-  // (w:tbl / Excel) не соберёт строки. Разреженные spanning-строки (заголовок
-  // + первая строка тела) таблицей не считаются.
+  // (w:tbl / Excel) не соберёт строки. Строка засчитывается табличной только
+  // с ≥3 ячейками: merged-строка из ДВУХ ячеек — это выровненная двухколоночная
+  // статья, а не таблица (2-колоночную borderless-таблицу от 2-колоночного
+  // текста геометрией не отличить — осознанный компромисс в пользу текста,
+  // ADR-018). Разреженные spanning-строки таблицей не считаются.
   const rowPitch = medianSize * 2.5;
   const tableCuts = new Set<number>();
   cuts.forEach((cut, i) => {
     let run = 0;
     let prevY = Number.NaN;
     for (const line of lines) {
-      if (spansCut(line, cut)) {
+      if (spansCut(line, cut) && lineCells(line).length >= 3) {
         run = Number.isFinite(prevY) && Math.abs(line.y - prevY) <= rowPitch ? run + 1 : 1;
         prevY = line.y;
         if (run >= 2) {
@@ -3377,6 +3380,194 @@ async function extractPdfLayout(
 }
 
 // ============================================================
+// Phase F — списки (numPr) и колонтитулы
+// ============================================================
+
+/** Обнаруженный маркер списка в начале строки. */
+export interface DetectedListItem {
+  kind: 'bullet' | 'ordered';
+  /** длина маркера с хвостовым пробелом (символы), для среза из runs */
+  prefixLength: number;
+}
+
+// «•  text» и «-/-–/-—/* text» — буллеты только с пробелом после маркера,
+// иначе «-5» (число) и «слово-дефис» ложно срабатывали бы.
+const BULLET_MARKER_RE = /^[•●▪◦‣·]\s+/;
+const DASH_BULLET_MARKER_RE = /^[-–—*]\s+/;
+// «1. », «12) », «a. », «IV. » — нумерованные списки (пробел обязателен:
+// «1.5» и «2026.» не задачливают регекс — 3+ цифр или нет пробела).
+const ORDERED_MARKER_RE = /^(\d{1,3}|[a-zа-яё]|[IVXLC]{1,7})[.)]\s+/;
+
+/**
+ * Распознаёт маркер списка в начале строки текста.
+ * Отказы по дизайну: «2026.» (год), «-5» (нет пробела), «1.5» (дробь),
+ * «i. » — одиночная строчная латинская «i» слишком часто встречается
+ * в прозе («i.e.»), поэтому как alpha-маркер не считается.
+ */
+export function detectListItem(text: string): DetectedListItem | null {
+  if (!text) return null;
+  const bullet = text.match(BULLET_MARKER_RE) ?? text.match(DASH_BULLET_MARKER_RE);
+  if (bullet) return { kind: 'bullet', prefixLength: bullet[0].length };
+  const ordered = text.match(ORDERED_MARKER_RE);
+  if (ordered) {
+    if (ordered[1] === 'i') return null;
+    return { kind: 'ordered', prefixLength: ordered[0].length };
+  }
+  return null;
+}
+
+/**
+ * Срезает маркер (prefixLength символов) из начала runs, проходя через
+ * границы стилей: стили оставшихся runs сохраняются, опустевшие пропадают.
+ */
+export function stripRunsPrefix(runs: StyledRun[], prefixLength: number): StyledRun[] {
+  if (prefixLength <= 0) return runs;
+  const out: StyledRun[] = [];
+  let remaining = prefixLength;
+  for (const run of runs) {
+    if (remaining >= run.text.length) {
+      remaining -= run.text.length;
+      continue;
+    }
+    const text = remaining > 0 ? run.text.slice(remaining) : run.text;
+    remaining = 0;
+    if (text) out.push({ ...run, text });
+  }
+  return out;
+}
+
+export interface HeaderFooterOptions {
+  /** минимум страниц, при котором поиск вообще включается (по умолчанию 3) */
+  minPages?: number;
+  /** минимальная доля страниц с повтором строки (по умолчанию 0.6) */
+  minRatio?: number;
+}
+
+/** Верхний/нижний пояс страницы (доли высоты), где живут колонтитулы. */
+const HEADER_ZONE_RATIO = 0.12;
+const FOOTER_ZONE_RATIO = 0.86;
+
+function normalizeHeaderFooterText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+function isInHeaderFooterZone(line: { y: number }, pageHeight: number): boolean {
+  return line.y <= pageHeight * HEADER_ZONE_RATIO || line.y >= pageHeight * FOOTER_ZONE_RATIO;
+}
+
+/**
+ * Находит повторяющиеся строки-колонтитулы: одна и та же (после нормализации
+ * пробелов) строка в верхнем поясе (y ≤ 12%) или нижнем (y ≥ 86%) на
+ * достаточном числе страниц. Порог — max(3, ceil(pages × minRatio)): при
+ * 10 страницах строка должна встретиться минимум на 6. Возвращает множество
+ * нормализованных текстов.
+ */
+export function findRepeatingHeaderFooterLines(
+  pages: { height: number; lines: { y: number; text: string }[] }[],
+  opts: HeaderFooterOptions = {},
+): Set<string> {
+  const { minPages = 3, minRatio = 0.6 } = opts;
+  const found = new Set<string>();
+  if (pages.length < minPages) return found;
+
+  const threshold = Math.max(3, Math.ceil(pages.length * minRatio));
+  const seenOnPages = new Map<string, Set<number>>();
+  pages.forEach((page, pageIndex) => {
+    for (const line of page.lines) {
+      if (!isInHeaderFooterZone(line, page.height)) continue;
+      const normalized = normalizeHeaderFooterText(line.text);
+      if (!normalized) continue;
+      const pageSet = seenOnPages.get(normalized) ?? new Set<number>();
+      pageSet.add(pageIndex);
+      seenOnPages.set(normalized, pageSet);
+    }
+  });
+  for (const [text, pageSet] of seenOnPages) {
+    if (pageSet.size >= threshold) found.add(text);
+  }
+  return found;
+}
+
+/**
+ * Копит тело документа для buildDocx. Подряд идущие list-items группируются
+ * в w:numPr: буллеты всегда делят общий numId=1, а каждая непрерывная
+ * ordered-группа получает свой numId (2, 3, …) — нумерация рестартует с 1.
+ * Обычный параграф/заголовок/ссылка или addRaw (таблица/картинка) разрывают
+ * группу. finish() отдаёт накопленный XML.
+ */
+export class WordBodyBuilder {
+  private parts: string[] = [];
+  private orderedGroups = 0;
+  private listItems = 0;
+  private lastKind: 'bullet' | 'ordered' | 'other' = 'other';
+
+  /** Число непрерывных ordered-групп (= сколько numId 2..N+1 понадобится). */
+  get orderedGroupCount(): number {
+    return this.orderedGroups;
+  }
+
+  /** Сколько list-элементов добавлено (0 → numbering.xml не нужен). */
+  get listItemCount(): number {
+    return this.listItems;
+  }
+
+  /** Обычный параграф (включая заголовки и ссылки): разрывает ordered-группу. */
+  addParagraph(xml: string): void {
+    if (xml) this.parts.push(xml);
+    this.lastKind = 'other';
+  }
+
+  /** Таблицы/картинки: вставляются как есть и разрывают ordered-группу. */
+  addRaw(xml: string): void {
+    if (xml) this.parts.push(xml);
+    this.lastKind = 'other';
+  }
+
+  /**
+   * Параграф элемента списка (должен быть выводом lineToParagraphXml /
+   * paragraphXmlFromRuns — содержать <w:pPr>). Вставляет <w:numPr> сразу
+   * после <w:pStyle> (порядок элементов pPr по схеме OOXML) и возвращает
+   * назначенный numId.
+   */
+  addListItem(xml: string, kind: 'bullet' | 'ordered'): number {
+    if (!xml) return 0;
+    let numId: number;
+    if (kind === 'bullet') {
+      numId = 1;
+    } else {
+      if (this.lastKind !== 'ordered') this.orderedGroups += 1;
+      numId = 1 + this.orderedGroups;
+    }
+    const numPr = `<w:numPr><w:ilvl w:val="0"/><w:numId w:val="${numId}"/></w:numPr>`;
+    this.parts.push(xml.replace(/(<w:pPr>)(<w:pStyle[^>]*\/>)?/, `$1$2${numPr}`));
+    this.lastKind = kind;
+    this.listItems += 1;
+    return numId;
+  }
+
+  finish(): string {
+    return this.parts.join('');
+  }
+}
+
+/**
+ * numbering.xml для DOCX: abstractNum 0 — буллет «•» (indent 720/hanging 360),
+ * abstractNum 1 — decimal «%1.». num с id=1 ссылается на буллеты,
+ * id 2..orderedGroupCount+1 — своя копия decimal на каждую ordered-группу
+ * (рестарт нумерации с 1 для каждой группы).
+ */
+export function buildNumberingXml(orderedGroupCount: number): string {
+  const bulletAbstract = `<w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="•"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr></w:lvl></w:abstractNum>`;
+  const decimalAbstract = `<w:abstractNum w:abstractNumId="1"><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl></w:abstractNum>`;
+  const nums = ['<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>'];
+  for (let i = 0; i < orderedGroupCount; i++) {
+    nums.push(`<w:num w:numId="${i + 2}"><w:abstractNumId w:val="1"/></w:num>`);
+  }
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">${bulletAbstract}${decimalAbstract}${nums.join('')}</w:numbering>`;
+}
+
+// ============================================================
 // PDF → Office / Markdown
 // ============================================================
 
@@ -3389,8 +3580,14 @@ function escapeXml(text: string): string {
     .replace(/'/g, '&apos;');
 }
 
-const DOCX_CONTENT_TYPES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`;
+function docxContentTypes(numberingXml: string | null): string {
+  // Override для numbering.xml подключаем только когда списки реально есть.
+  const numberingOverride = numberingXml
+    ? '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>'
+    : '';
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>${numberingOverride}</Types>`;
+}
 
 const DOCX_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`;
@@ -3424,12 +3621,11 @@ function runsXml(runs: StyledRun[], opts: { link?: boolean } = {}): string {
     .join('');
 }
 
-/** Параграф строки с runs, стилями заголовков, spacing и опциональной ссылкой. */
-export function lineToParagraphXml(
-  line: PdfLayoutLine,
-  opts: { headingLevel: number; linkRelId?: string },
+/** Параграф из готовых runs (list-items срезают маркер до вызова). */
+export function paragraphXmlFromRuns(
+  runs: StyledRun[],
+  opts: { headingLevel: number; linkRelId?: string; alignment?: PdfLayoutLine['alignment'] },
 ): string {
-  const runs = itemsToStyledRuns(line.items, line.size);
   if (runs.length === 0) return '';
 
   const props: string[] = [];
@@ -3441,12 +3637,24 @@ export function lineToParagraphXml(
       ? '<w:spacing w:before="240" w:after="120"/>'
       : '<w:spacing w:after="120"/>',
   );
-  props.push(`<w:jc w:val="${line.alignment}"/>`);
+  props.push(`<w:jc w:val="${opts.alignment ?? 'left'}"/>`);
 
   const body = opts.linkRelId
     ? `<w:hyperlink r:id="${escapeXml(opts.linkRelId)}" w:history="1">${runsXml(runs, { link: true })}</w:hyperlink>`
     : runsXml(runs);
   return `<w:p><w:pPr>${props.join('')}</w:pPr>${body}</w:p>`;
+}
+
+/** Параграф строки с runs, стилями заголовков, spacing и опциональной ссылкой. */
+export function lineToParagraphXml(
+  line: PdfLayoutLine,
+  opts: { headingLevel: number; linkRelId?: string },
+): string {
+  return paragraphXmlFromRuns(itemsToStyledRuns(line.items, line.size), {
+    headingLevel: opts.headingLevel,
+    linkRelId: opts.linkRelId,
+    alignment: line.alignment,
+  });
 }
 
 /** Таблица Word (`w:tbl`) для региона с общими колонками. */
@@ -3532,6 +3740,7 @@ async function buildDocx(
   pageSize: [number, number],
   images: DocxImage[],
   links: { id: string; url: string }[],
+  numberingXml: string | null = null,
 ): Promise<Uint8Array> {
   const sectPr = `<w:sectPr><w:pgSz w:w="${Math.round(pageSize[0] * 20)}" w:h="${Math.round(pageSize[1] * 20)}"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr>`;
   const heading1Style = `<w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:pPr><w:outlineLvl w:val="0"/></w:pPr></w:style>`;
@@ -3544,6 +3753,13 @@ async function buildDocx(
   const relationshipXml = (id: string, type: string, target: string, external?: boolean) =>
     `<Relationship Id="${escapeXml(id)}" Type="${type}" Target="${escapeXml(target)}"${external ? ' TargetMode="External"' : ''}/>`;
 
+  const numberingRel = numberingXml
+    ? relationshipXml(
+        'rNum1',
+        'http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering',
+        'numbering.xml',
+      )
+    : '';
   const documentRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${images
     .map((img) =>
@@ -3562,16 +3778,19 @@ async function buildDocx(
         true,
       ),
     )
-    .join('')}</Relationships>`;
+    .join('')}${numberingRel}</Relationships>`;
 
   const JSZip = (await import('jszip')).default;
   const zip = new JSZip();
-  zip.file('[Content_Types].xml', DOCX_CONTENT_TYPES);
+  zip.file('[Content_Types].xml', docxContentTypes(numberingXml));
   zip.folder('_rels')?.file('.rels', DOCX_RELS);
   const word = zip.folder('word');
   word?.file('document.xml', documentXml);
   word?.folder('_rels')?.file('document.xml.rels', documentRels);
   word?.file('styles.xml', stylesXml);
+  if (numberingXml) {
+    word?.file('numbering.xml', numberingXml);
+  }
   if (images.length > 0) {
     const media = word?.folder('media');
     for (const image of images) {
@@ -3613,18 +3832,35 @@ async function renderPageToPngBytes(
 
 export async function pdfToWord(file: File): Promise<Uint8Array> {
   const layout = await extractPdfLayout(file, { colors: true, links: true, columns: true });
-  const allSizes = layout
+
+  // Phase F: повторяющиеся строки в поясах колонтитулов вырезаются ДО
+  // конвертации (уже на уровне layout — не участвуют ни в медиане кегля,
+  // ни в табличных эвристиках).
+  const headerFooterTexts = findRepeatingHeaderFooterLines(layout);
+  const layoutPages =
+    headerFooterTexts.size === 0
+      ? layout
+      : layout.map((page) => ({
+          ...page,
+          lines: page.lines.filter(
+            (line) =>
+              !isInHeaderFooterZone(line, page.height) ||
+              !headerFooterTexts.has(normalizeHeaderFooterText(line.text)),
+          ),
+        }));
+
+  const allSizes = layoutPages
     .flatMap((page) => page.lines.map((line) => line.size))
     .sort((a, b) => a - b);
   const medianSize = allSizes[Math.floor(allSizes.length / 2)] || 12;
 
   const images: DocxImage[] = [];
   const links: { id: string; url: string }[] = [];
-  const bodyParts: string[] = [];
+  const body = new WordBodyBuilder();
   let docPrId = 1;
 
-  for (let pageIndex = 0; pageIndex < layout.length; pageIndex++) {
-    const page = layout[pageIndex];
+  for (let pageIndex = 0; pageIndex < layoutPages.length; pageIndex++) {
+    const page = layoutPages[pageIndex];
 
     if (isScanPage(page)) {
       try {
@@ -3642,7 +3878,7 @@ export async function pdfToWord(file: File): Promise<Uint8Array> {
           cyEmu: Math.round(displayHeightPt * DOCX_EMU_PER_PT),
           docPrId: docPrId++,
         });
-        bodyParts.push(
+        body.addRaw(
           drawingParagraphXml(
             relId,
             `image-p${pageIndex + 1}.png`,
@@ -3666,7 +3902,7 @@ export async function pdfToWord(file: File): Promise<Uint8Array> {
     while (lineIndex < page.lines.length) {
       const region = regionByStart.get(lineIndex);
       if (region) {
-        bodyParts.push(
+        body.addRaw(
           tableRegionToXml(cellsPerLine, region, {
             usableWidthPt: Math.max(72, page.width - 144),
             fallbackSize: medianSize,
@@ -3688,24 +3924,40 @@ export async function pdfToWord(file: File): Promise<Uint8Array> {
         links.push({ id: linkRelId, url: link.url });
       }
 
-      const xml = lineToParagraphXml(line, { headingLevel: level, linkRelId });
-      if (xml) bodyParts.push(xml);
+      // Phase F: маркеры списков превращаем в настоящие w:numPr (маркер
+      // срезается из runs). Заголовки и ссылки списком не становятся —
+      // они разрывают ordered-группу как обычные параграфы.
+      const listItem = level === 0 && !link ? detectListItem(line.text) : null;
+      if (listItem) {
+        const runs = stripRunsPrefix(
+          itemsToStyledRuns(line.items, line.size),
+          listItem.prefixLength,
+        );
+        const xml = paragraphXmlFromRuns(runs, { headingLevel: 0, alignment: line.alignment });
+        if (xml) body.addListItem(xml, listItem.kind);
+      } else {
+        const xml = lineToParagraphXml(line, { headingLevel: level, linkRelId });
+        if (xml) body.addParagraph(xml);
+      }
       lineIndex += 1;
     }
   }
 
-  if (bodyParts.length === 0) {
+  const bodyXml = body.finish();
+  if (bodyXml.length === 0) {
     throw new Error(
       'No extractable text found. If this is a scan, run OCR PDF first, then convert to Word.',
     );
   }
 
-  const firstPage = layout[0];
+  const firstPage = layoutPages[0];
+  const numberingXml = body.listItemCount > 0 ? buildNumberingXml(body.orderedGroupCount) : null;
   return buildDocx(
-    bodyParts.join(''),
+    bodyXml,
     [firstPage?.width ?? 595, firstPage?.height ?? 842],
     images,
     links,
+    numberingXml,
   );
 }
 
@@ -4003,8 +4255,9 @@ const OCR_LANGUAGES: Record<string, string> = {
 
 /**
  * Строит «сэндвич»: растровый слой + невидимый текстовый слой (opacity 0),
- * чтобы PDF стал searchable/selectable. OCR идёт на main thread — tesseract.js
- * создаёт вложенные воркеры, которые нельзя спавнить из нашего module worker.
+ * чтобы PDF стал searchable/selectable. Выполняется в воркере, когда
+ * probeNestedWorkers() подтвердил вложенные воркеры для tesseract.js
+ * (см. tool-page ocr-pdf), иначе — в main thread через fallback.
  */
 export async function ocrPdf(
   file: File,

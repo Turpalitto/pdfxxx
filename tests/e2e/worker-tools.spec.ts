@@ -290,9 +290,9 @@ test.describe('redact-pdf rasterises matching pages in the worker', () => {
 });
 
 test.describe('pdf-to-pptx runs in the worker (pptxgenjs has no DOM dependency)', () => {
-  // ocrPdf is deliberately NOT covered here: tesseract.js spawns nested workers
-  // that fail inside our module worker, so OCR stays on the main thread (the
-  // worker path always fell back — verified via a one-off probe).
+  // ocrPdf is covered separately: it now runs in the worker only when the
+  // runtime nested-worker probe passes (tool-page decides via
+  // probeNestedWorkers); otherwise the honest main-thread path is used.
   test('pdf-to-pptx completes and yields a download', async ({ page }) => {
     const fallbackWarnings: string[] = [];
     page.on('console', (msg) => {
@@ -317,4 +317,40 @@ test.describe('pdf-to-pptx runs in the worker (pptxgenjs has no DOM dependency)'
     expect(download.suggestedFilename()).toMatch(/\.pptx$/);
     expect(fallbackWarnings, fallbackWarnings.join('\n')).toHaveLength(0);
   });
+});
+
+test.describe('Office converters run in the worker', () => {
+  // pdfToWord / pdfToExcel use jszip and xlsx — both DOM-free, so the worker
+  // path must succeed (a fallback warning would mean a real regression).
+  const OFFICE_TOOLS: { slug: string; extension: string }[] = [
+    { slug: 'pdf-to-word', extension: 'docx' },
+    { slug: 'pdf-to-excel', extension: 'xlsx' },
+  ];
+
+  for (const tool of OFFICE_TOOLS) {
+    test(`${tool.slug} completes and yields a .${tool.extension} download`, async ({ page }) => {
+      const fallbackWarnings: string[] = [];
+      page.on('console', (msg) => {
+        if (msg.text().includes('falling back to main thread')) {
+          fallbackWarnings.push(msg.text());
+        }
+      });
+
+      await page.goto(`/tools/${tool.slug}`);
+      await expect(page.getByTestId('dropzone-file-upload')).toBeVisible();
+
+      await upload(page, multiPagePdfPath);
+      await page.getByTestId('button-process').click();
+
+      const downloadButton = page.getByTestId('button-download');
+      await expect(downloadButton).toBeVisible({ timeout: 45_000 });
+
+      const downloadPromise = page.waitForEvent('download');
+      await downloadButton.click();
+      const download = await downloadPromise;
+
+      expect(download.suggestedFilename()).toMatch(new RegExp(`\\.${tool.extension}$`));
+      expect(fallbackWarnings, fallbackWarnings.join('\n')).toHaveLength(0);
+    });
+  }
 });

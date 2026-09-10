@@ -1,15 +1,92 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'wouter';
-import { CheckCircle2, ShieldCheck, Users, Zap } from 'lucide-react';
+import { CheckCircle2, KeyRound, ShieldCheck, Users, Zap } from 'lucide-react';
 import { useLang } from '@/lib/lang-context';
 import { useSeo } from '@/hooks/use-seo';
 import { DEFAULT_MAX_FILE_SIZE_MB } from '@/lib/upload-limits';
 import { getLaunchReadyTools } from '@/lib/tools';
+import { getPremiumConfig, usePremium } from '@/lib/monetization';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+
+/**
+ * Панель активации Pro-лицензии (offline-ключи, ADR-019). Рендерится только
+ * когда premium-модель включена через VITE_PREMIUM_ENABLED=1.
+ */
+function LicensePanel({ isRu }: { isRu: boolean }) {
+  const premium = usePremium();
+  const [keyInput, setKeyInput] = useState('');
+
+  const activate = async () => {
+    if (!keyInput.trim()) return;
+    await premium.activate(keyInput);
+  };
+
+  return (
+    <section className="max-w-6xl mx-auto px-6 pb-20" data-testid="license-panel">
+      <div className="pdfx-panel rounded-xl p-7">
+        <div className="mb-2 flex items-center gap-2 text-xl font-bold text-foreground">
+          <KeyRound className="size-5 text-primary" />
+          {isRu ? 'Лицензия PDFX Pro' : 'PDFX Pro license'}
+        </div>
+        <p className="mb-5 text-sm text-muted-foreground">
+          {isRu
+            ? 'Лицензионный ключ хранится только в вашем браузере и проверяется локально.'
+            : 'The license key is stored only in your browser and verified locally.'}
+        </p>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Input
+            id="license-key"
+            value={keyInput}
+            onChange={(e) => setKeyInput(e.target.value)}
+            placeholder="PDFX-…"
+            disabled={premium.isPro}
+            className="font-mono"
+            data-testid="input-license-key"
+          />
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              disabled={premium.isPro || !keyInput.trim()}
+              onClick={() => void activate()}
+              data-testid="button-license-activate"
+            >
+              {isRu ? 'Активировать' : 'Activate'}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={!premium.isPro}
+              onClick={premium.deactivate}
+              data-testid="button-license-deactivate"
+            >
+              {isRu ? 'Деактивировать' : 'Deactivate'}
+            </Button>
+          </div>
+        </div>
+        {premium.isPro && (
+          <p className="mt-4 text-sm font-semibold text-emerald-500" data-testid="license-active">
+            {isRu ? 'Pro активен ✓' : 'Pro active ✓'}
+          </p>
+        )}
+        {premium.error && (
+          <p className="mt-4 text-sm font-semibold text-destructive" data-testid="license-error">
+            {isRu
+              ? 'Ключ не прошёл проверку. Проверьте формат и попробуйте снова.'
+              : 'The key failed verification. Check the format and try again.'}
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
 
 export default function Pricing() {
   const { lang } = useLang();
   const isRu = lang === 'ru';
   const tools = getLaunchReadyTools();
+  const premiumEnabled = getPremiumConfig().enabled;
 
   useSeo({
     title: isRu ? 'Тарифы — PDFX' : 'Pricing — PDFX',
@@ -167,6 +244,8 @@ export default function Pricing() {
           ))}
         </div>
       </section>
+
+      {premiumEnabled && <LicensePanel isRu={isRu} />}
 
       <section className="max-w-6xl mx-auto px-6 pb-16">
         <div className="grid gap-4 md:grid-cols-3">

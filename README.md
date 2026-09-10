@@ -26,6 +26,19 @@ npm run build    # production build to dist/
 
 Requires Node 20+.
 
+## Environment variables
+
+All optional; the app builds and runs without any of them.
+
+| Variable | Purpose |
+| --- | --- |
+| `VITE_PREMIUM_ENABLED` | `'1'` turns on premium gates (everything else = off). |
+| `VITE_PREMIUM_FEATURES` | CSV of active gates: `ocr`, `bigfile` (>50 MB), `batch` (>5 files). |
+| `VITE_PREMIUM_PUBLIC_KEY` | Ed25519 public key (64 hex) for offline license verification (`npm run license:generate`). |
+| `VITE_GOOGLE_CLIENT_ID` + `VITE_GOOGLE_PICKER_KEY` | Enable the Google Drive import button (both required). |
+| `VITE_DROPBOX_APP_KEY` | Enable the Dropbox import button. |
+| `VITE_PLAUSIBLE_URL` + `VITE_PLAUSIBLE_DOMAIN` | Optional Plausible analytics injection. |
+
 ## Project layout
 
 ```

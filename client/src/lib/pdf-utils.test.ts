@@ -959,13 +959,29 @@ describe('detectTableRegions', () => {
       expect(out.map((l) => l.text)).toEqual(['Title', 'M1L', 'M2L', 'M1R', 'M2R']);
     });
 
-    it('bails out when consecutive spanning lines look like table rows', async () => {
+    it('protects dense-pitch spanning rows with >=3 cells (table rows)', async () => {
       const { reorderLinesByColumns } = await import('@/lib/pdf-utils');
+      // 3 ячейки в строке + плотный шаг (20 ≤ 2.5×12) → таблица: не режем.
       const row = (text: string, y: number) =>
-        mkLine(text, 50, y, 490, [mkItem(`${text}-a`, 50, 200), mkItem(`${text}-b`, 340, 200)]);
+        mkLine(text, 50, y, 490, [
+          mkItem(`${text}-a`, 50, 100),
+          mkItem(`${text}-b`, 250, 60),
+          mkItem(`${text}-c`, 400, 100),
+        ]);
       const lines = [row('Row1', 700), row('Row2', 680)];
-      // Табличные строки не режутся и не перемешиваются.
       expect(reorderLinesByColumns(lines, cuts, 595)).toEqual(lines);
+    });
+
+    it('cuts two-cell aligned columns back into column order', async () => {
+      const { reorderLinesByColumns } = await import('@/lib/pdf-utils');
+      // 2 выровненные ячейки — двухколоночная статья, а не таблица.
+      const row = (left: string, right: string, y: number) =>
+        mkLine(`${left} ${right}`, 50, y, 490, [mkItem(left, 50, 210), mkItem(right, 330, 210)]);
+      const lines = [row('L1', 'R1', 700), row('L2', 'R2', 680)];
+      const out = reorderLinesByColumns(lines, cuts, 595);
+      expect(out.map((l) => l.text)).toEqual(['L1', 'L2', 'R1', 'R2']);
+      expect(out[0].x).toBe(50);
+      expect(out[2].x).toBe(330);
     });
 
     it('keeps a truly spanning line as a band separator', async () => {
@@ -1070,5 +1086,190 @@ describe('detectTableRegions', () => {
       const { batesNumbering } = await import('@/lib/pdf-utils');
       expect(batesNumbering.length).toBeGreaterThanOrEqual(1);
     });
+  });
+});
+
+// ============================================================
+// Phase F — списки и колонтитулы
+// ============================================================
+
+describe('detectListItem', () => {
+  it('detects bullet markers with a following space', async () => {
+    const { detectListItem } = await import('@/lib/pdf-utils');
+    for (const marker of ['•', '●', '▪', '◦', '‣', '·']) {
+      expect(detectListItem(`${marker} Buy milk`), `${marker}`).toMatchObject({
+        kind: 'bullet',
+        prefixLength: marker.length + 1,
+      });
+    }
+    expect(detectListItem('- Task one')).toMatchObject({ kind: 'bullet', prefixLength: 2 });
+    expect(detectListItem('– Task one')).toMatchObject({ kind: 'bullet', prefixLength: 2 });
+    expect(detectListItem('— Task one')).toMatchObject({ kind: 'bullet', prefixLength: 2 });
+    expect(detectListItem('* Task one')).toMatchObject({ kind: 'bullet', prefixLength: 2 });
+  });
+
+  it('detects ordered markers: digits, letters, roman numerals', async () => {
+    const { detectListItem } = await import('@/lib/pdf-utils');
+    expect(detectListItem('1. Ship the build')).toMatchObject({ kind: 'ordered', prefixLength: 3 });
+    expect(detectListItem('12) Ship the build')).toMatchObject({
+      kind: 'ordered',
+      prefixLength: 4,
+    });
+    expect(detectListItem('a. First point')).toMatchObject({ kind: 'ordered', prefixLength: 3 });
+    expect(detectListItem('б) Русская буква')).toMatchObject({ kind: 'ordered', prefixLength: 3 });
+    expect(detectListItem('IV. Appendix')).toMatchObject({ kind: 'ordered', prefixLength: 4 });
+    expect(detectListItem('999. Edge case')).toMatchObject({ kind: 'ordered', prefixLength: 5 });
+  });
+
+  it('rejects false positives: years, negatives, i.e., decimals', async () => {
+    const { detectListItem } = await import('@/lib/pdf-utils');
+    expect(detectListItem('2026. A year in review')).toBeNull(); // 4 цифры — год, не номер
+    expect(detectListItem('-5')).toBeNull(); // нет пробела — отрицательное число
+    expect(detectListItem('-5 degrees')).toBeNull(); // пробел после числа, не маркера
+    expect(detectListItem('i. it is')).toBeNull(); // одиночная строчная «i» (i.e.)
+    expect(detectListItem('1.5 ratio')).toBeNull(); // дробь: нет пробела после точки
+    expect(detectListItem('1000. Not a list')).toBeNull(); // 4 цифры
+    expect(detectListItem('plain sentence')).toBeNull();
+    expect(detectListItem('')).toBeNull();
+  });
+});
+
+describe('stripRunsPrefix', () => {
+  it('cuts the marker across a style boundary, preserving run styles', async () => {
+    const { stripRunsPrefix } = await import('@/lib/pdf-utils');
+    const runs = [
+      { text: '1. Sh', bold: true, italic: false, halfPoints: 22 },
+      { text: 'ip the build', bold: false, italic: true, halfPoints: 22 },
+    ];
+    const out = stripRunsPrefix(runs, 3); // «1. »
+    expect(out).toHaveLength(2);
+    expect(out[0]).toMatchObject({ text: 'Sh', bold: true });
+    expect(out[1]).toMatchObject({ text: 'ip the build', italic: true });
+    expect(out.map((r) => r.text).join('')).toBe('Ship the build');
+  });
+
+  it('drops runs consumed entirely and handles zero length', async () => {
+    const { stripRunsPrefix } = await import('@/lib/pdf-utils');
+    const runs = [
+      { text: '• ', bold: true, italic: false, halfPoints: 22 },
+      { text: 'Item', bold: false, italic: false, halfPoints: 22 },
+    ];
+    const out = stripRunsPrefix(runs, 2);
+    expect(out).toHaveLength(1);
+    expect(out[0].text).toBe('Item');
+    const untouched = stripRunsPrefix(runs, 0);
+    expect(untouched).toBe(runs);
+  });
+});
+
+describe('findRepeatingHeaderFooterLines', () => {
+  const mkPages = (
+    count: number,
+    headerEvery: number,
+    opts: { height?: number } = {},
+  ): { height: number; lines: { y: number; text: string }[] }[] => {
+    const height = opts.height ?? 400;
+    return Array.from({ length: count }, (_, i) => ({
+      height,
+      lines: [
+        ...(i < headerEvery ? [{ y: 20, text: 'Quarterly   Digest' }] : []),
+        { y: 200, text: `Unique body ${i}` },
+        ...(i < headerEvery ? [{ y: height - 20, text: 'Confidential — internal' }] : []),
+      ],
+    }));
+  };
+
+  it('returns nothing for fewer pages than minPages (2 pages)', async () => {
+    const { findRepeatingHeaderFooterLines } = await import('@/lib/pdf-utils');
+    expect(findRepeatingHeaderFooterLines(mkPages(2, 2)).size).toBe(0);
+  });
+
+  it('requires the ratio threshold: 5/10 is below it, 6/10 passes', async () => {
+    const { findRepeatingHeaderFooterLines } = await import('@/lib/pdf-utils');
+    expect(findRepeatingHeaderFooterLines(mkPages(10, 5)).size).toBe(0);
+    const found = findRepeatingHeaderFooterLines(mkPages(10, 6));
+    expect(found.has('Quarterly Digest')).toBe(true); // пробелы нормализованы
+    expect(found.has('Confidential — internal')).toBe(true);
+    expect(found.has('Unique body 0')).toBe(false);
+  });
+
+  it('ignores repeated text outside header/footer zones', async () => {
+    const { findRepeatingHeaderFooterLines } = await import('@/lib/pdf-utils');
+    const pages = Array.from({ length: 4 }, () => ({
+      height: 400,
+      lines: [{ y: 200, text: 'Same middle line' }],
+    }));
+    expect(findRepeatingHeaderFooterLines(pages).size).toBe(0);
+  });
+});
+
+describe('buildNumberingXml', () => {
+  it('emits bullet num 1 and one decimal num per ordered group (2..N+1)', async () => {
+    const { buildNumberingXml } = await import('@/lib/pdf-utils');
+    const xml = buildNumberingXml(2);
+    expect(xml).toContain('w:abstractNumId="0"');
+    expect(xml).toContain('w:numFmt w:val="bullet"');
+    expect(xml).toContain('w:numFmt w:val="decimal"');
+    expect(xml).toContain('w:ind w:left="720" w:hanging="360"');
+    expect(xml).toContain('<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>');
+    expect(xml).toContain('<w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num>');
+    expect(xml).toContain('<w:num w:numId="3"><w:abstractNumId w:val="1"/></w:num>');
+    expect(xml).not.toContain('w:numId="4"');
+  });
+});
+
+describe('WordBodyBuilder', () => {
+  const mkPara = (text: string) =>
+    `<w:p><w:pPr><w:spacing w:after="120"/><w:jc w:val="left"/></w:pPr><w:r><w:t xml:space="preserve">${text}</w:t></w:r></w:p>`;
+
+  it('shares numId=1 across bullets and restarts ordered groups (2, 3, …)', async () => {
+    const { WordBodyBuilder } = await import('@/lib/pdf-utils');
+    const body = new WordBodyBuilder();
+    expect(body.addListItem(mkPara('Bullet A'), 'bullet')).toBe(1);
+    expect(body.addListItem(mkPara('Bullet B'), 'bullet')).toBe(1);
+    expect(body.addListItem(mkPara('One'), 'ordered')).toBe(2);
+    expect(body.addListItem(mkPara('Two'), 'ordered')).toBe(2);
+    body.addParagraph(mkPara('Separator'));
+    expect(body.addListItem(mkPara('Restart'), 'ordered')).toBe(3);
+    expect(body.orderedGroupCount).toBe(2);
+    expect(body.listItemCount).toBe(5);
+
+    const xml = body.finish();
+    expect(xml).toContain('<w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr>');
+    expect(xml).toContain('<w:numId w:val="2"/>');
+    expect(xml).toContain('<w:numId w:val="3"/>');
+    // numPr вставлен внутрь pPr, первым элементом (перед spacing).
+    expect(xml).toMatch(/<w:pPr><w:numPr>/);
+    expect(xml.indexOf('Bullet A')).toBeLessThan(xml.indexOf('Restart'));
+  });
+
+  it('addRaw (tables/images) breaks the ordered group too', async () => {
+    const { WordBodyBuilder } = await import('@/lib/pdf-utils');
+    const body = new WordBodyBuilder();
+    body.addListItem(mkPara('One'), 'ordered');
+    body.addRaw('<w:tbl/>');
+    // Новая группа после таблицы → новый numId (рестарт нумерации).
+    expect(body.addListItem(mkPara('Two'), 'ordered')).toBe(3);
+    expect(body.orderedGroupCount).toBe(2);
+    expect(body.finish()).toContain('<w:tbl/>');
+  });
+
+  it('keeps Heading pStyle before numPr when a list item is styled', async () => {
+    const { WordBodyBuilder, lineToParagraphXml } = await import('@/lib/pdf-utils');
+    const line = {
+      text: 'Item',
+      x: 40,
+      y: 100,
+      width: 80,
+      size: 22,
+      bold: true,
+      italic: false,
+      alignment: 'left' as const,
+      items: [{ text: 'Item', x: 40, size: 22, bold: true, italic: false }],
+    };
+    const styled = lineToParagraphXml(line, { headingLevel: 2 });
+    const body = new WordBodyBuilder();
+    body.addListItem(styled, 'ordered');
+    expect(body.finish()).toMatch(/<w:pPr><w:pStyle[^>]*\/><w:numPr>/);
   });
 });

@@ -4,6 +4,40 @@
 
 ---
 
+## 2026-09-10 — Fidelity Phase F: списки w:numPr + колонтитулы, воркер для конвертеров, OCR-probe, premium-каркас, cloud import
+
+### Phase F — списки и колонтитулы в pdf-to-word
+
+- **Списки → настоящие `w:numPr`**: `detectListItem()` (буллеты `•●▪◦‣·` и `-–—*` — только с пробелом после маркера; ordered `\d{1,3}|a-zа-яё|IVXLC` + `[.)]` + пробел; отказы: «2026.», «-5», «1.5», одиночная строчная «i.») + `stripRunsPrefix()` (срез маркера через границы runs со сохранением стилей).
+- **`WordBodyBuilder`**: буллеты делят общий `numId=1`; каждая непрерывная ordered-группа получает свой `numId` (2, 3, …) для рестарта с 1; обычный параграф/заголовок/ссылка и `addRaw` (таблицы/картинки) разрывают группу. `buildNumberingXml(count)`: abstractNum 0 = «•» (ind 720/360), 1 = decimal «%1.», num 1 и 2..N+1. `buildDocx` получил 5-й параметр `numberingXml` — условные `[Content_Types]` override, rel `rNum1` и `word/numbering.xml` (`DOCX_CONTENT_TYPES` → функция `docxContentTypes()`).
+- **`findRepeatingHeaderFooterLines()`**: повторы в поясах y≤12% и y≥86% высоты, нормализация пробелов, порог max(3, ceil(pages×0.6)), вырезание ДО конвертации (не влияют на медиану кегля и табличные эвристики).
+
+### Table-cut guard ≥3 ячеек (уточнение ADR-018)
+
+- Строка засчитывается табличной только при `lineCells(line).length ≥ 3`: merged-строка из двух ячеек — выровненная двухколоночная статья, её режем в reading order. 2-колоночная borderless-таблица геометрически неотличима от 2-колоночного текста — осознанный компромисс в пользу текста. Golden двухколоночного PDF переведён на выровненные baselines — порядок остаётся Left1..3, Right1..3.
+
+### Конвертеры в воркере, OCR через runtime-probe
+
+- `WorkerOp += pdfToWord | pdfToExcel` (кейсы в pdf-worker, `WORKER_OP_BY_SLUG` в registry, кейсы tool-page через `runOrFallback` по образцу pdf-to-pptx). e2e: оба инструмента скачивают .docx/.xlsx без «falling back to main thread».
+- **`nested-worker-probe.ts`**: `probeNestedWorkers()` — кэшируемый promise, Blob-воркер создаёт ВЛОЖЕННЫЙ воркер и ждёт `pong` (timeout 1500 ms, безопасно false без `Worker`); `ocrExecutionTarget()` решает worker/main. tool-page `ocr-pdf` вызывает `runPdfTask('ocrPdf', …)` напрямую, когда probe подтвердил nested workers; ocr-pdf сознательно НЕ hybrid в registry.
+
+### Проверка DOCX через mammoth
+
+- Golden-валидации независимым потребителем: `<h1>`/`<h2>` (fixture-заголовок 22pt — медиана!), `<td><p>North</p></td>`, `<a href>`, списки `<ul><li>Prepare assets…</li></ul>` и `<ol><li>Ship the build…</li></ol>`.
+
+### Premium-каркас (ADR-019)
+
+- `monetization.ts`: `checkPremiumGate` (ocr-pdf / >50 МБ / >5 файлов, только при включённых фичах), офлайн-лицензия `PDFX-<base64url(64B)>` — Ed25519-подпись над `pdfx-pro-v1` через `crypto.subtle`, `usePremium()` (localStorage `pdfx.license.v1`), `premiumUpsellMessage` en/ru. Конфиг строго через env (`VITE_PREMIUM_ENABLED=1`, `VITE_PREMIUM_FEATURES`, `VITE_PREMIUM_PUBLIC_KEY`).
+- `/pricing`: панель лицензии (только при enabled), `script/license-key.mjs` + `npm run license:generate`, README-таблица env.
+
+### Cloud import (каркас #5)
+
+- `cloud-import.ts`: провайдеры только при env-ключах; чистые мапперы (`driveFileName`, `driveDownloadUrl`, `dropboxFileNameFromLink`, `fileFromDownload`); Google Drive (GIS + Picker DocsView → `alt=media` с Bearer) и Dropbox (dropins Chooser, direct links). FileUpload: кнопки в дропзоне (ghost/stopPropagation/disabled/testid), общий `acceptFiles(FileList|File[])` путь, ошибки в `onValidationError`.
+
+### Проверка
+
+- vitest 183 → **222** (+39: Phase F unit+golden, guard ≥3, probe, mammoth, monetization, cloud-import) · tsc 0 · eslint 0 · build OK · roundtrip `license:generate` ↔ `verifyLicenseKey` проверен в Node.
+
 ## 2026-09-10 — Fidelity Phase E: мультиколоночный reading order + фикс порядка строк
 
 ### Найдено и исправлено (старый баг)
