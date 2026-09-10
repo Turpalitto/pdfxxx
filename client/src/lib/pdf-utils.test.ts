@@ -855,6 +855,140 @@ describe('detectTableRegions', () => {
     });
   });
 
+  describe('findColumnCuts', () => {
+    const twoColumnItems = () => {
+      const items: { x: number; y: number; width: number; size: number }[] = [];
+      for (let row = 0; row < 4; row++) {
+        const y = 700 - row * 16;
+        items.push({ x: 50, y, width: 210, size: 12 }, { x: 330, y, width: 210, size: 12 });
+      }
+      return items;
+    };
+
+    it('finds a single gutter on a two-column page', async () => {
+      const { findColumnCuts } = await import('@/lib/pdf-utils');
+      const cuts = findColumnCuts(twoColumnItems(), 595, 12);
+      expect(cuts).toHaveLength(1);
+      expect(cuts[0].start).toBeGreaterThanOrEqual(260);
+      expect(cuts[0].end).toBeLessThanOrEqual(330);
+    });
+
+    it('ignores wide spanning items but still splits', async () => {
+      const { findColumnCuts } = await import('@/lib/pdf-utils');
+      const items = [...twoColumnItems(), { x: 50, y: 780, width: 480, size: 18 }];
+      const cuts = findColumnCuts(items, 595, 12);
+      expect(cuts).toHaveLength(1);
+    });
+
+    it('rejects single-column pages', async () => {
+      const { findColumnCuts } = await import('@/lib/pdf-utils');
+      const items = Array.from({ length: 10 }, (_, i) => ({
+        x: 60,
+        y: 700 - i * 16,
+        width: 460,
+        size: 12,
+      }));
+      expect(findColumnCuts(items, 595, 12)).toEqual([]);
+    });
+
+    it('rejects lopsided splits', async () => {
+      const { findColumnCuts } = await import('@/lib/pdf-utils');
+      const items = [
+        ...Array.from({ length: 9 }, (_, i) => ({ x: 50, y: 700 - i * 16, width: 210, size: 12 })),
+        { x: 330, y: 700, width: 210, size: 12 },
+      ];
+      expect(findColumnCuts(items, 595, 12)).toEqual([]);
+    });
+
+    it('finds two cuts on a three-column page', async () => {
+      const { findColumnCuts } = await import('@/lib/pdf-utils');
+      const items: { x: number; y: number; width: number; size: number }[] = [];
+      for (let row = 0; row < 4; row++) {
+        const y = 700 - row * 16;
+        items.push(
+          { x: 50, y, width: 180, size: 12 },
+          { x: 270, y, width: 180, size: 12 },
+          { x: 490, y, width: 180, size: 12 },
+        );
+      }
+      const cuts = findColumnCuts(items, 700, 12);
+      expect(cuts).toHaveLength(2);
+    });
+  });
+
+  describe('reorderLinesByColumns', () => {
+    const cuts = [{ start: 270, end: 320 }];
+    const mkItem = (text: string, x: number, width: number) => ({
+      text,
+      x,
+      width,
+      size: 12,
+      bold: false,
+      italic: false,
+    });
+    const mkLine = (
+      text: string,
+      x: number,
+      y: number,
+      width: number,
+      items?: ReturnType<typeof mkItem>[],
+    ) => ({
+      text,
+      x,
+      y,
+      width,
+      size: 12,
+      bold: false,
+      italic: false,
+      alignment: 'left' as const,
+      items: items ?? [mkItem(text, x, width)],
+    });
+
+    it('emits columns in reading order for independent column flows', async () => {
+      const { reorderLinesByColumns } = await import('@/lib/pdf-utils');
+      // Колонки с независимым ритмом строк (не выровнены по y) — строки
+      // целиком в одной колонке.
+      const lines = [
+        mkLine('Title', 50, 760, 200),
+        mkLine('M1L', 50, 700, 210),
+        mkLine('M1R', 330, 690, 210),
+        mkLine('M2L', 50, 660, 210),
+        mkLine('M2R', 330, 650, 210),
+      ];
+      const out = reorderLinesByColumns(lines, cuts, 595);
+      expect(out.map((l) => l.text)).toEqual(['Title', 'M1L', 'M2L', 'M1R', 'M2R']);
+    });
+
+    it('bails out when consecutive spanning lines look like table rows', async () => {
+      const { reorderLinesByColumns } = await import('@/lib/pdf-utils');
+      const row = (text: string, y: number) =>
+        mkLine(text, 50, y, 490, [mkItem(`${text}-a`, 50, 200), mkItem(`${text}-b`, 340, 200)]);
+      const lines = [row('Row1', 700), row('Row2', 680)];
+      // Табличные строки не режутся и не перемешиваются.
+      expect(reorderLinesByColumns(lines, cuts, 595)).toEqual(lines);
+    });
+
+    it('keeps a truly spanning line as a band separator', async () => {
+      const { reorderLinesByColumns } = await import('@/lib/pdf-utils');
+      const spanning = mkLine('Wide heading text', 50, 760, 490, [
+        mkItem('Wide heading', 50, 210),
+        mkItem(' ', 280, 30), // занимает просвет
+        mkItem('text', 330, 60),
+      ]);
+      const merged = mkLine('L1 R1', 50, 700, 490, [mkItem('L1', 50, 210), mkItem('R1', 330, 210)]);
+      const out = reorderLinesByColumns([spanning, merged], cuts, 595);
+      expect(out.map((l) => l.text)).toEqual(['Wide heading text', 'L1', 'R1']);
+      expect(out[1].x).toBe(50);
+      expect(out[2].x).toBe(330);
+    });
+
+    it('returns lines unchanged when there are no cuts', async () => {
+      const { reorderLinesByColumns } = await import('@/lib/pdf-utils');
+      const lines = [mkLine('A', 50, 700, 200), mkLine('B', 50, 680, 200)];
+      expect(reorderLinesByColumns(lines, [], 595)).toBe(lines);
+    });
+  });
+
   describe('fillColorToHex', () => {
     it('converts RGB to hex', async () => {
       const { fillColorToHex } = await import('@/lib/pdf-utils');

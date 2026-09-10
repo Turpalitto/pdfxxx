@@ -10,7 +10,7 @@
 > У PDFX уже 55+ инструментов (больше iLovePDF). Разрыв — в качестве 5 ключевых операций + экосистеме. Козырь PDFX: 100% в браузере, без загрузки на сервер.
 
 - [x] **#1 Реальное сжатие картинок в Compress PDF (2026-06-12)** — см. ниже в «Решено»
-- [~] **#2 Fidelity pdf-to-word/excel** — **Phase A+B+C+ восстановлены + Phase D (2026-09-10)**: A — типографика, B — таблицы `w:tbl`, C — цвет текста (`<w:color>`) + сканы (PNG в docx), C+ — `w:rFonts`/spacing/smart scan. **D добавил**: гиперссылки (`<w:hyperlink>` из аннотаций), числовые ячейки Excel, hasImages-guard для сканов, shared `lineCells()`. ⚠️ Важно: broken merge 2026-08-26 откатил pdfToWord к Phase A — golden-тесты теперь ловят регрессии структуры/цвета/ссылок. Остаток: мультиколоночный reading order, списки/bullets, дедуп колонтитулов.
+- [~] **#2 Fidelity pdf-to-word/excel** — **Phase A+B+C+ восстановлены + D + E (2026-09-10)**: A — типографика, B — таблицы `w:tbl`, C — цвет/сканы, C+ — rFonts/spacing, D — гиперссылки + числовые ячейки Excel + hasImages-guard, E — мультиколоночный reading order (`findColumnCuts`/`reorderLinesByColumns` + table-cut guard) и фикс глобального бага bottom-to-top порядка строк. Остаток: списки/bullets → `numPr`, дедуп колонтитулов, выровненные baselines-колонки (см. ADR-018).
 - [x] **#3 Workflow-цепочки (2026-06-12)** — см. ниже в «Решено»
 - [x] **#4 Включить 10 языков + RTL** — es, fr, de, pt, zh, ja, ko, ar, hi, tr добавлены в LANGUAGES. Арабский RTL. Переводы.hero/nav уже были в translationMap, tool-translations полные. tsc 0 · vitest 56/56 · build OK.
 - [x] **SEO для 12 языков (2026-06-18)** — sitemap.xml LANG_CODES 12 + все TOOL_SLUGS, home.tsx useSeo через t.hero, hreflang динамически.

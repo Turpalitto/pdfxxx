@@ -2914,6 +2914,8 @@ export interface PdfLayoutItem {
   color?: string;
   /** имя шрифта из pdfjs-стилей (может быть generic — см. normalizeFontFamily) */
   fontFamily?: string;
+  /** ширина глифового прогона в pt (для column-детекции) */
+  width?: number;
 }
 
 export interface PdfLayoutLine extends PdfLayoutItem {
@@ -3049,8 +3051,244 @@ async function extractRawTextItems(
   }
 }
 
-function groupItemsIntoLines(items: RawTextItem[], pageWidth: number): PdfLayoutLine[] {
-  const sorted = [...items].sort((a, b) => b.y - a.y || a.x - b.x);
+// ============================================================
+// Multi-column reading order (Phase E)
+// ============================================================
+
+export interface ColumnCut {
+  start: number;
+  end: number;
+}
+
+export interface ColumnProbeItem {
+  x: number;
+  width?: number;
+}
+
+function sideIndexForCenter(center: number, mids: number[]): number {
+  let side = 0;
+  for (const mid of mids) {
+    if (center > mid) side += 1;
+  }
+  return side;
+}
+
+/**
+ * Вертикальные просветы (gutters) между текстовыми колонками страницы.
+ *
+ * Проекция всех items на ось x: свободные интервалы ≥ max(18, 1.8×медианный
+ * кегль), не примыкающие к полям контента. «Широкие» элементы (заголовки
+ * через страницу, > 45% ширины контента) в проекции не участвуют, но входят
+ * в проверку наполненности колонок. Возвращает ≤ 3 разрезов или [] — колонок
+ * нет (одноколоночная/подозрительная разметка).
+ */
+export function findColumnCuts(
+  items: ColumnProbeItem[],
+  pageWidth: number,
+  medianSize = 12,
+): ColumnCut[] {
+  const widthOf = (it: ColumnProbeItem) => Math.max(0, it.width ?? 0);
+  if (items.length < 6) return [];
+
+  const contentLeft = Math.min(...items.map((it) => it.x));
+  const contentRight = Math.max(...items.map((it) => it.x + widthOf(it)));
+  const contentWidth = contentRight - contentLeft;
+  if (contentWidth < pageWidth * 0.3) return [];
+
+  const maxProbeWidth = contentWidth * 0.45;
+  const probe = items.filter((it) => widthOf(it) <= maxProbeWidth);
+  if (probe.length < 6 || probe.length < items.length * 0.5) return [];
+
+  const minGap = Math.max(18, medianSize * 1.8);
+  const intervals = probe
+    .map((it) => [it.x, it.x + widthOf(it)] as [number, number])
+    .sort((a, b) => a[0] - b[0]);
+  const gaps: ColumnCut[] = [];
+  let cursor = intervals[0][1];
+  for (let i = 1; i < intervals.length; i++) {
+    const [x0, x1] = intervals[i];
+    if (x0 - cursor >= minGap) gaps.push({ start: cursor, end: x0 });
+    cursor = Math.max(cursor, x1);
+  }
+  const usable = gaps.filter(
+    (g) =>
+      g.start >= contentLeft + contentWidth * 0.08 && g.end <= contentRight - contentWidth * 0.08,
+  );
+  if (usable.length === 0 || usable.length > 3) return [];
+
+  const mids = usable.map((c) => (c.start + c.end) / 2);
+  const counts = new Array<number>(mids.length + 1).fill(0);
+  for (const it of items) {
+    counts[sideIndexForCenter(it.x + widthOf(it) / 2, mids)] += 1;
+  }
+  const minPerColumn = Math.max(3, Math.ceil(items.length * 0.12));
+  if (counts.some((count) => count < minPerColumn)) return [];
+
+  return usable;
+}
+
+/** Пересобирает строку из фрагментов одной колонки (после разреза merged-строки). */
+function buildFragmentLine(items: PdfLayoutItem[], pageWidth: number, y: number): PdfLayoutLine {
+  const x = Math.min(...items.map((it) => it.x));
+  const width = Math.max(0, Math.max(...items.map((it) => it.x + (it.width ?? 0))) - x);
+  const size = dominantString(items.map((it) => String(Math.round(it.size))));
+  const color = dominantString(
+    items.map((it) => it.color).filter((c): c is string => typeof c === 'string'),
+  );
+  const fontFamily = dominantString(
+    items.map((it) => it.fontFamily).filter((f): f is string => typeof f === 'string'),
+  );
+  const boldCount = items.filter((it) => it.bold).length;
+  const italicCount = items.filter((it) => it.italic).length;
+  return {
+    text: items
+      .map((it) => it.text)
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim(),
+    x,
+    width,
+    size: size ? Number(size) : (items[0]?.size ?? 12),
+    bold: boldCount * 2 > items.length,
+    italic: italicCount * 2 > items.length,
+    color,
+    fontFamily,
+    alignment: lineAlignment(x, x + width, pageWidth),
+    y,
+    items,
+  };
+}
+
+/**
+ * Пытается разрезать строку, пересекающую колонки. Строки, у которых элемент
+ * занимает просвет (непрерывный текст/заголовок поверх gutter), не режутся —
+ * они остаются «разделителями полос» (span separator).
+ */
+function splitLineByCuts(
+  line: PdfLayoutLine,
+  cuts: ColumnCut[],
+  pageWidth: number,
+): PdfLayoutLine[] | null {
+  if (cuts.length === 0) return null;
+  const mids = cuts.map((c) => (c.start + c.end) / 2);
+  const sides = line.items.map((it) => sideIndexForCenter(it.x + (it.width ?? 0) / 2, mids));
+  if (new Set(sides).size === 1) return null;
+
+  for (let i = 0; i < cuts.length; i++) {
+    const hasLeft = sides.some((s) => s <= i);
+    const hasRight = sides.some((s) => s >= i + 1);
+    if (!hasLeft || !hasRight) continue;
+    const cut = cuts[i];
+    const blocked = line.items.some((it) => it.x + (it.width ?? 0) > cut.start && it.x < cut.end);
+    if (blocked) return null;
+  }
+
+  const groups = new Map<number, PdfLayoutItem[]>();
+  line.items.forEach((it, j) => {
+    const list = groups.get(sides[j]);
+    if (list) list.push(it);
+    else groups.set(sides[j], [it]);
+  });
+  return [...groups.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([, items]) => buildFragmentLine(items, pageWidth, line.y));
+}
+
+/**
+ * Переупорядочивает строки страницы в reading order колонок: строки полос
+ * (между span-строками) отдаются колонка за колонкой слева направо, span-строки
+ * (заголовки через страницу) остаются на своих y-позициях между полосами.
+ * Вход уже отсортирован по y сверху вниз — порядок внутри колонки сохраняется.
+ */
+export function reorderLinesByColumns(
+  lines: PdfLayoutLine[],
+  cuts: ColumnCut[],
+  pageWidth: number,
+  medianSize = 12,
+): PdfLayoutLine[] {
+  if (cuts.length === 0) return lines;
+
+  const spansCut = (line: PdfLayoutLine, cut: ColumnCut) =>
+    line.items.some((it) => it.x + (it.width ?? 0) <= cut.start) &&
+    line.items.some((it) => it.x >= cut.end);
+
+  // Табличный просвет: ≥2 подряд пересекающих cut строки с плотным шагом
+  // (≤ 2.5×кегль) — это строки таблицы с выровненными baselines. Такой cut
+  // не режем, иначе ячейки разъедутся по колонкам и detectTableRegions
+  // (w:tbl / Excel) не соберёт строки. Разреженные spanning-строки (заголовок
+  // + первая строка тела) таблицей не считаются.
+  const rowPitch = medianSize * 2.5;
+  const tableCuts = new Set<number>();
+  cuts.forEach((cut, i) => {
+    let run = 0;
+    let prevY = Number.NaN;
+    for (const line of lines) {
+      if (spansCut(line, cut)) {
+        run = Number.isFinite(prevY) && Math.abs(line.y - prevY) <= rowPitch ? run + 1 : 1;
+        prevY = line.y;
+        if (run >= 2) {
+          tableCuts.add(i);
+          break;
+        }
+      } else {
+        run = 0;
+        prevY = Number.NaN;
+      }
+    }
+  });
+  const active = cuts.filter((_, i) => !tableCuts.has(i));
+  if (active.length === 0) return lines;
+
+  const mids = active.map((c) => (c.start + c.end) / 2);
+  const spansAGap = (line: PdfLayoutLine) =>
+    active.some((c) => line.items.some((it) => it.x + (it.width ?? 0) > c.start && it.x < c.end));
+
+  const out: PdfLayoutLine[] = [];
+  let band: { side: number; line: PdfLayoutLine }[] = [];
+  const flushBand = () => {
+    if (band.length === 0) return;
+    const bySide = new Map<number, PdfLayoutLine[]>();
+    for (const entry of band) {
+      const list = bySide.get(entry.side);
+      if (list) list.push(entry.line);
+      else bySide.set(entry.side, [entry.line]);
+    }
+    for (const side of [...bySide.keys()].sort((a, b) => a - b)) {
+      out.push(...(bySide.get(side) as PdfLayoutLine[]));
+    }
+    band = [];
+  };
+
+  for (const line of lines) {
+    const fragments = splitLineByCuts(line, active, pageWidth);
+    if (fragments === null) {
+      if (spansAGap(line)) {
+        flushBand();
+        out.push(line);
+      } else {
+        band.push({ side: sideIndexForCenter(line.x + line.width / 2, mids), line });
+      }
+      continue;
+    }
+    for (const fragment of fragments) {
+      band.push({
+        side: sideIndexForCenter(fragment.x + fragment.width / 2, mids),
+        line: fragment,
+      });
+    }
+  }
+  flushBand();
+  return out;
+}
+
+function groupItemsIntoLines(
+  items: RawTextItem[],
+  pageWidth: number,
+  opts: { columns?: boolean } = {},
+): PdfLayoutLine[] {
+  // Viewport y растёт ВНИЗ: ascending = чтение сверху вниз. (До Phase E здесь
+  // была descending-сортировка — абзацы и строки таблиц шли bottom-to-top.)
+  const sorted = [...items].sort((a, b) => a.y - b.y || a.x - b.x);
   const lines: PdfLayoutLine[] = [];
   let current: RawTextItem[] = [];
 
@@ -3091,6 +3329,7 @@ function groupItemsIntoLines(items: RawTextItem[], pageWidth: number): PdfLayout
         italic: detectFontStyle(it.fontName).italic,
         color: it.color,
         fontFamily: it.fontName,
+        width: it.width,
       })),
     });
     current = [];
@@ -3112,12 +3351,17 @@ function groupItemsIntoLines(items: RawTextItem[], pageWidth: number): PdfLayout
   }
   flush();
 
-  return lines;
+  if (!opts.columns || items.length < 6) return lines;
+  const sizes = items.map((it) => it.size).sort((a, b) => a - b);
+  const medianSize = sizes[Math.floor(sizes.length / 2)] || 12;
+  const cuts = findColumnCuts(items, pageWidth, medianSize);
+  if (cuts.length === 0) return lines;
+  return reorderLinesByColumns(lines, cuts, pageWidth, medianSize);
 }
 
 async function extractPdfLayout(
   file: File,
-  opts: { colors?: boolean; links?: boolean } = {},
+  opts: { colors?: boolean; links?: boolean; columns?: boolean } = {},
 ): Promise<PdfLayoutPage[]> {
   const rawPages = await extractRawTextItems(file, {
     colors: opts.colors ?? false,
@@ -3126,7 +3370,7 @@ async function extractPdfLayout(
   return rawPages.map((page) => ({
     width: page.width,
     height: page.height,
-    lines: groupItemsIntoLines(page.items, page.width),
+    lines: groupItemsIntoLines(page.items, page.width, { columns: opts.columns ?? false }),
     links: page.links,
     hasImages: page.hasImages,
   }));
@@ -3368,7 +3612,7 @@ async function renderPageToPngBytes(
 }
 
 export async function pdfToWord(file: File): Promise<Uint8Array> {
-  const layout = await extractPdfLayout(file, { colors: true, links: true });
+  const layout = await extractPdfLayout(file, { colors: true, links: true, columns: true });
   const allSizes = layout
     .flatMap((page) => page.lines.map((line) => line.size))
     .sort((a, b) => a - b);
@@ -3554,7 +3798,9 @@ export async function excelToPdf(file: File): Promise<Uint8Array> {
 }
 
 export async function pdfToMarkdown(file: File): Promise<string> {
-  const layout = await extractPdfLayout(file);
+  // Колонки включены: markdown — прозаический формат, reading order важен.
+  // Excel сознательно оставлен на плоском пути (см. ADR-018).
+  const layout = await extractPdfLayout(file, { columns: true });
   if (layout.every((page) => page.lines.length === 0)) {
     throw new Error('No extractable text found. If this is a scan, run OCR PDF first.');
   }

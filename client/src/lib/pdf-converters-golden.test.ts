@@ -97,6 +97,11 @@ describe('converter golden checks (pdfToWord / pdfToExcel)', () => {
     expect(documentXml).toMatch(/<w:tc>.{0,300}North/s);
     expect(documentXml).toMatch(/<w:tc>.{0,300}120/s);
 
+    // Строки таблицы идут сверху вниз (регрессия bottom-to-top ловится здесь).
+    const rowOrder = ['Region', 'North', 'South'].map((t) => documentXml.indexOf(`>${t}<`));
+    expect(rowOrder.every((idx) => idx >= 0)).toBe(true);
+    expect([...rowOrder].sort((a, b) => a - b)).toEqual(rowOrder);
+
     // Цвет заливки текста (rgb(0.8,0,0) → CC0000) дошёл до run props.
     expect(documentXml).toContain('w:color w:val="cc0000"');
 
@@ -139,5 +144,70 @@ describe('converter golden checks (pdfToWord / pdfToExcel)', () => {
 
     await expect(pdfToWord(file)).rejects.toThrow(/No extractable text/);
     await expect(pdfToExcel(file)).rejects.toThrow(/No extractable content/);
+  });
+
+  it('pdfToWord reads two-column pages in column order', async () => {
+    const doc = await PDFDocument.create();
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+    const page = doc.addPage([595, 842]);
+
+    page.drawText('Two Column Report', { x: 50, y: 780, size: 18, font: bold });
+    // Колонки с независимым ритмом строк (не выровнены по y) — как в реальных
+    // документах Word/брошюрах. Выровненные по y колонки сейчас сознательно
+    // не режутся (защита таблиц, см. ADR-018).
+    const leftLines = ['Left line one.', 'Left line two.', 'Left line three.'];
+    const rightLines = ['Right line one.', 'Right line two.', 'Right line three.'];
+    leftLines.forEach((text, i) => {
+      page.drawText(text, { x: 50, y: 720 - i * 22, size: 12, font });
+    });
+    rightLines.forEach((text, i) => {
+      page.drawText(text, { x: 330, y: 705 - i * 26, size: 12, font });
+    });
+
+    const file = new File([await doc.save()], 'two-col.pdf', { type: 'application/pdf' });
+    const docx = await pdfToWord(file);
+
+    const JSZip = (await import('jszip')).default;
+    const zip = await JSZip.loadAsync(docx);
+    const documentXml = await zip.file('word/document.xml')!.async('string');
+
+    // Reading order: заголовок, вся левая колонка, затем вся правая.
+    const order = [
+      'Two Column Report',
+      'Left line one.',
+      'Left line two.',
+      'Left line three.',
+      'Right line one.',
+      'Right line two.',
+      'Right line three.',
+    ].map((text) => documentXml.indexOf(text));
+    expect(order.every((idx) => idx >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+
+    // Строки колонок не склеены в один параграф (старое поведение).
+    expect(documentXml).not.toContain('Left line one. Right line one.');
+  });
+
+  it('pdfToExcel keeps the flat row path (no column splitting)', async () => {
+    const doc = await PDFDocument.create();
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    const page = doc.addPage([595, 842]);
+    // Две строки: детект таблиц требует ≥2 подряд табличных строк.
+    page.drawText('Left cell', { x: 50, y: 700, size: 12, font });
+    page.drawText('Right cell', { x: 330, y: 700, size: 12, font });
+    page.drawText('Left two', { x: 51, y: 680, size: 12, font });
+    page.drawText('Right two', { x: 331, y: 680, size: 12, font });
+
+    const file = new File([await doc.save()], 'two-col-flat.pdf', { type: 'application/pdf' });
+    const xlsx = await pdfToExcel(file);
+
+    const XLSX = await import('xlsx');
+    const workbook = XLSX.read(xlsx, { type: 'array' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1 });
+    // Ячейки одной визуальной строки остаются в одной строке листа.
+    expect(rows.some((row) => row.includes('Left cell') && row.includes('Right cell'))).toBe(true);
+    expect(rows.some((row) => row.includes('Left two') && row.includes('Right two'))).toBe(true);
   });
 });
