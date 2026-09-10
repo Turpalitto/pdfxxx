@@ -10,15 +10,17 @@
 > У PDFX уже 55+ инструментов (больше iLovePDF). Разрыв — в качестве 5 ключевых операций + экосистеме. Козырь PDFX: 100% в браузере, без загрузки на сервер.
 
 - [x] **#1 Реальное сжатие картинок в Compress PDF (2026-06-12)** — см. ниже в «Решено»
-- [~] **#2 Fidelity pdf-to-word/excel** — **Phase A+B+C+ восстановлены + D + E (2026-09-10)**: A — типографика, B — таблицы `w:tbl`, C — цвет/сканы, C+ — rFonts/spacing, D — гиперссылки + числовые ячейки Excel + hasImages-guard, E — мультиколоночный reading order (`findColumnCuts`/`reorderLinesByColumns` + table-cut guard) и фикс глобального бага bottom-to-top порядка строк. Остаток: списки/bullets → `numPr`, дедуп колонтитулов, выровненные baselines-колонки (см. ADR-018).
+- [x] **#2 Fidelity pdf-to-word/excel** — **Phase A+B+C+ восстановлены + D + E + F (2026-09-10), остаток снят**: A — типографика, B — таблицы `w:tbl`, C — цвет/сканы, C+ — rFonts/spacing, D — гиперссылки + числовые ячейки Excel + hasImages-guard, E — мультиколоночный reading order + фикс bottom-to-top, F — списки → настоящие `w:numPr` (`detectListItem`/`WordBodyBuilder`/`buildNumberingXml` + numbering.xml в buildDocx) и дедуп колонтитулов (`findRepeatingHeaderFooterLines`, пояса 12%/86%, порог max(3, 60%)). Table-cut guard уточнён до ≥3 ячеек — выровненные 2-колоночные baselines теперь режутся в column order (ADR-018). Дальше — только реальные эскилации по QA-корпусу.
 - [x] **#3 Workflow-цепочки (2026-06-12)** — см. ниже в «Решено»
 - [x] **#4 Включить 10 языков + RTL** — es, fr, de, pt, zh, ja, ko, ar, hi, tr добавлены в LANGUAGES. Арабский RTL. Переводы.hero/nav уже были в translationMap, tool-translations полные. tsc 0 · vitest 56/56 · build OK.
 - [x] **SEO для 12 языков (2026-06-18)** — sitemap.xml LANG_CODES 12 + все TOOL_SLUGS, home.tsx useSeo через t.hero, hreflang динамически.
 - [x] **Новый инструмент bates-numbering (2026-06-18)** — юридическая нумерация (prefix+zero-pad+suffix), 5 позиций, переводы 12 языков.
-- [ ] **#5 Импорт из Google Drive / Dropbox**
+- [~] **#5 Импорт из Google Drive / Dropbox** — каркас готов (2026-09-10): `cloud-import.ts` (GIS+Picker, dropins Chooser, чистые мапперы), кнопки в FileUpload (только при env-ключах), unit 9 шт. **Нужны боевые ключи** (`VITE_GOOGLE_CLIENT_ID`/`VITE_GOOGLE_PICKER_KEY`/`VITE_DROPBOX_APP_KEY`) и ручная проверка OAuth-потоков.
 - [x] **#6 Усилить OCR** — адаптивный масштаб рендера (`ocrRenderScale`), мультиязычный UI (16 языков, чекбоксы). Скорость на больших страницах; точность на мелких.
 
 ## 🔄 Текущие задачи (In Progress)
+
+- [x] **Phase F + воркер-конвертеры + OCR-probe + premium-каркас + cloud import (2026-09-10)** — списки `w:numPr` и колонтитулы в pdfToWord; guard таблиц ≥3 ячейки; `WorkerOp += pdfToWord/pdfToExcel` (registry hybrid, e2e на .docx/.xlsx без fallback); OCR в воркере через кэшируемый `probeNestedWorkers()` (ocr-pdf НЕ hybrid в registry — runPdfTask напрямую); mammoth golden-валидации docx; `monetization.ts` (ADR-019, env-гейты, Ed25519 offline-лицензии, /pricing панель, `npm run license:generate`); `cloud-import.ts` + кнопки FileUpload. Проверено: tsc 0, eslint 0, vitest **222/222** (+39), build OK, roundtrip license generate↔verify OK.
 
 - [x] **Fidelity pdf-to-word/excel — Phase D (2026-09-10)** — обнаружен регресс: восстановление после broken merge 8ddf5fa вернуло `pdfToWord` к Phase A (потеряны `w:tbl`/`w:color`/`w:rFonts`/spacing/сканы из фаз B/C/C+, а golden-тесты проверяли только текст). Восстановлены таблицы, цвет (через operatorList, pdfjs v5 hex-args), шрифты, spacing; добавлены гиперссылки (`<w:hyperlink>`), числовые ячейки Excel (`excelCellToNumber`), hasImages-guard для scan-PNG (born-digital страницы без картинок остаются текстом), shared `lineCells()`. Обогащение `{colors, links}` опционально по инструменту. ADR-017. Проверено: tsc 0, eslint 0, vitest **164/164** (+25), build OK, prod smoke OK.
 

@@ -21,6 +21,7 @@
     "test:e2e": "playwright test",
     "test": "vitest run",
     "test:watch": "vitest",
+    "license:generate": "node script/license-key.mjs",
     "build:full": "npm run build && tsx script/prerender.ts"
   },
   "dependencies": {

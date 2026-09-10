@@ -44,7 +44,8 @@ import {
   type ToolResultReport,
 } from '@/tools/shared/output';
 import { createToolDownloadPlan } from '@/tools/shared/download';
-import { WorkerAbortError } from '@/workers/worker-client';
+import { WorkerAbortError, runPdfTask } from '@/workers/worker-client';
+import { ocrExecutionTarget, probeNestedWorkers } from '@/workers/nested-worker-probe';
 import {
   mergePdfs,
   splitPdf,
@@ -541,13 +542,25 @@ export default function ToolPage() {
           result = await runToolMainThreadTask(entry, () => excelToPdf(files[0]));
           break;
 
-        case 'pdf-to-word':
-          result = await runToolMainThreadTask(entry, () => pdfToWord(files[0]));
+        case 'pdf-to-word': {
+          const fallback = () => pdfToWord(files[0]);
+          result = await runOrFallback(entry, fallback, {
+            file: files[0],
+            onProgress: setProgress,
+            signal,
+          });
           break;
+        }
 
-        case 'pdf-to-excel':
-          result = await runToolMainThreadTask(entry, () => pdfToExcel(files[0]));
+        case 'pdf-to-excel': {
+          const fallback = () => pdfToExcel(files[0]);
+          result = await runOrFallback(entry, fallback, {
+            file: files[0],
+            onProgress: setProgress,
+            signal,
+          });
           break;
+        }
 
         case 'pdf-to-text': {
           const text = await pdfToText(files[0]);
@@ -755,11 +768,23 @@ export default function ToolPage() {
           break;
         }
 
-        case 'ocr-pdf':
-          result = await runToolMainThreadTask(entry, () =>
-            ocrPdf(files[0], ocrLanguage, setProgress),
-          );
+        case 'ocr-pdf': {
+          // Воркерный путь только если nested workers (tesseract.js) реально
+          // поддерживаются — probe закэширован, runPdfTask добьёт fallback'ом.
+          // ocr-pdf сознательно НЕ hybrid в registry (см. registry.test).
+          const mainFallback = () => ocrPdf(files[0], ocrLanguage, setProgress);
+          const target = ocrExecutionTarget(await probeNestedWorkers());
+          result =
+            target === 'worker'
+              ? await runPdfTask('ocrPdf', mainFallback, {
+                  file: files[0],
+                  args: [ocrLanguage],
+                  onProgress: setProgress,
+                  signal,
+                })
+              : await mainFallback();
           break;
+        }
 
         case 'pdf-to-pptx': {
           const fallback = () => pdfToPptx(files[0], setProgress);

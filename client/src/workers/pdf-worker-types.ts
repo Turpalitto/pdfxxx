@@ -15,9 +15,10 @@
  * Для двухфайловых операций (comparePdf, pdfDiff) второй файл передаётся в
  * args[0] — структурное клонирование File поддерживается postMessage.
  *
- * pdfToPptx (pptxgenjs зависит от DOM) и ocrPdf (tesseract.js создаёт
- * вложенные воркеры) объявлены здесь, но пока выполняются в main thread —
- * перенос отдельным этапом после проверки совместимости.
+ * Конвертеры pdfToWord/pdfToExcel (jszip/xlsx не зависят от DOM) и pdfToPptx
+ * работают в воркере. ocrPdf объявлен здесь, но запускается воркерным только
+ * когда probeNestedWorkers() подтвердил поддержку вложенных воркеров
+ * (tesseract.js создаёт вложенные воркеры) — иначе fallback в main thread.
  */
 export type WorkerOp =
   | 'grayscalePdf'
@@ -33,6 +34,8 @@ export type WorkerOp =
   | 'pdfDiff'
   | 'redactPdf'
   | 'pdfToPptx'
+  | 'pdfToWord'
+  | 'pdfToExcel'
   | 'ocrPdf';
 
 /** Запрос на выполнение операции. file и args передаются structured-clone. */

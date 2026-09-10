@@ -41,4 +41,11 @@ export default tseslint.config(
       '@typescript-eslint/no-require-imports': 'off',
     },
   },
+  {
+    // Node-скрипты (.mjs): без browser-типов, но с process/console/Buffer.
+    files: ['script/**/*.mjs'],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
 );
