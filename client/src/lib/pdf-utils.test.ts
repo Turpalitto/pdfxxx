@@ -539,6 +539,456 @@ describe('detectTableRegions', () => {
     ]);
   });
 
+  describe('trackTextFillColors', () => {
+    it('tracks fill color across show ops and honors save/restore', async () => {
+      const { trackTextFillColors } = await import('@/lib/pdf-utils');
+      const ops = { save: 10, restore: 11, setFillRGBColor: 59, showText: 44 };
+      const track = trackTextFillColors(
+        [59, 44, 10, 59, 44, 11, 44],
+        [
+          [255, 0, 0],
+          [[{ unicode: 'Red' }]],
+          undefined,
+          [0, 0, 255],
+          [[{ unicode: 'Blue' }]],
+          undefined,
+          [[{ unicode: 'After' }]],
+        ],
+        ops,
+      );
+      expect(track.colors).toEqual(['ff0000', '0000ff', 'ff0000']);
+      expect(track.texts).toEqual(['Red', 'Blue', 'After']);
+    });
+
+    it('handles gray and unknown ops without throwing', async () => {
+      const { trackTextFillColors } = await import('@/lib/pdf-utils');
+      const ops = { setFillGray: 57, showText: 44, beginText: 31 };
+      const track = trackTextFillColors(
+        [57, 31, 44],
+        [[0.5], undefined, [[{ unicode: 'x' }]]],
+        ops,
+      );
+      expect(track.colors).toEqual(['808080']);
+      expect(track.texts).toEqual(['x']);
+    });
+
+    it('accepts hex-string color args from pdfjs v5', async () => {
+      const { trackTextFillColors } = await import('@/lib/pdf-utils');
+      const ops = { setFillRGBColor: 59, showText: 44 };
+      const track = trackTextFillColors([59, 44], [['#CC0000'], [[{ unicode: 'Red' }]]], ops);
+      expect(track.colors).toEqual(['cc0000']);
+      expect(track.texts).toEqual(['Red']);
+    });
+  });
+
+  describe('attachColorsToItems', () => {
+    it('pairs directly when counts match', async () => {
+      const { attachColorsToItems } = await import('@/lib/pdf-utils');
+      const items = [{ str: 'a' }, { str: 'b' }, { str: '' }];
+      attachColorsToItems(items, { colors: ['ff0000', undefined, '00ff00'], texts: ['a', '', ''] });
+      expect(items[0].color).toBe('ff0000');
+      expect(items[1].color).toBeUndefined();
+      expect(items[2].color).toBe('00ff00');
+    });
+
+    it('falls back to non-empty subsequence pairing', async () => {
+      const { attachColorsToItems } = await import('@/lib/pdf-utils');
+      const items = [{ str: '' }, { str: 'a' }, { str: 'b' }];
+      attachColorsToItems(items, { colors: ['ff0000', '00ff00'], texts: ['a', 'b'] });
+      expect(items[1].color).toBe('ff0000');
+      expect(items[2].color).toBe('00ff00');
+      expect(items[0].color).toBeUndefined();
+    });
+  });
+
+  describe('pageTextDensity / isScanPage', () => {
+    it('dense text page is not a scan', async () => {
+      const { isScanPage } = await import('@/lib/pdf-utils');
+      const lines = Array.from({ length: 40 }, () => ({ width: 500, size: 12 }));
+      expect(isScanPage({ width: 595, height: 842, lines })).toBe(false);
+    });
+
+    it('text-free pages are always scans', async () => {
+      const { isScanPage } = await import('@/lib/pdf-utils');
+      expect(isScanPage({ width: 595, height: 842, lines: [] })).toBe(true);
+    });
+
+    it('sparse pages are scans only when they contain images', async () => {
+      const { isScanPage } = await import('@/lib/pdf-utils');
+      const sparse = {
+        width: 595,
+        height: 842,
+        lines: [
+          { width: 300, size: 10 },
+          { width: 200, size: 10 },
+        ],
+      };
+      expect(isScanPage({ ...sparse })).toBe(false); // born-digital, остаётся текстом
+      expect(isScanPage({ ...sparse, hasImages: true })).toBe(true); // скан с подписью
+    });
+
+    it('low density pages with >=3 lines stay text without images', async () => {
+      const { isScanPage, pageTextDensity } = await import('@/lib/pdf-utils');
+      const airy = {
+        width: 595,
+        height: 842,
+        lines: Array.from({ length: 3 }, () => ({ width: 250, size: 12 })),
+      };
+      expect(pageTextDensity(airy)).toBeLessThan(0.02);
+      expect(isScanPage(airy)).toBe(false);
+      expect(isScanPage({ ...airy, hasImages: true })).toBe(true);
+    });
+
+    it('density divides ink by page area', async () => {
+      const { pageTextDensity } = await import('@/lib/pdf-utils');
+      const density = pageTextDensity({
+        width: 100,
+        height: 100,
+        lines: [{ width: 50, size: 10 }],
+      });
+      expect(density).toBeCloseTo(0.05, 5);
+    });
+  });
+
+  describe('excelCellToNumber', () => {
+    it('converts plain integers and decimals', async () => {
+      const { excelCellToNumber } = await import('@/lib/pdf-utils');
+      expect(excelCellToNumber('120')).toBe(120);
+      expect(excelCellToNumber(' 42 ')).toBe(42);
+      expect(excelCellToNumber('-3.14')).toBe(-3.14);
+      expect(excelCellToNumber('1,5')).toBe(1.5);
+      expect(excelCellToNumber('2026')).toBe(2026);
+    });
+
+    it('converts space-grouped thousands', async () => {
+      const { excelCellToNumber } = await import('@/lib/pdf-utils');
+      expect(excelCellToNumber('1 200')).toBe(1200);
+      expect(excelCellToNumber('12\u00A0345,67')).toBeCloseTo(12345.67, 2);
+    });
+
+    it('keeps identifiers and non-numbers as strings', async () => {
+      const { excelCellToNumber } = await import('@/lib/pdf-utils');
+      expect(excelCellToNumber('007')).toBeUndefined();
+      expect(excelCellToNumber('0123')).toBeUndefined();
+      expect(excelCellToNumber('1.2.3')).toBeUndefined();
+      expect(excelCellToNumber('$8')).toBeUndefined();
+      expect(excelCellToNumber('Q1')).toBeUndefined();
+      expect(excelCellToNumber('')).toBeUndefined();
+      expect(excelCellToNumber('North')).toBeUndefined();
+    });
+  });
+
+  describe('normalizeFontFamily', () => {
+    it('strips subset prefixes and keeps real names', async () => {
+      const { normalizeFontFamily } = await import('@/lib/pdf-utils');
+      expect(normalizeFontFamily('ABCDEE+Arial-BoldMT')).toBe('Arial-BoldMT');
+      expect(normalizeFontFamily('Roboto')).toBe('Roboto');
+    });
+
+    it('rejects generic CSS keywords and empties', async () => {
+      const { normalizeFontFamily } = await import('@/lib/pdf-utils');
+      expect(normalizeFontFamily('sans-serif')).toBeUndefined();
+      expect(normalizeFontFamily('monospace')).toBeUndefined();
+      expect(normalizeFontFamily(undefined)).toBeUndefined();
+      expect(normalizeFontFamily('   ')).toBeUndefined();
+    });
+  });
+
+  describe('lineCells', () => {
+    it('merges close items and splits on large gaps', async () => {
+      const { lineCells } = await import('@/lib/pdf-utils');
+      const line = {
+        text: 'Item Qty',
+        x: 50,
+        y: 100,
+        width: 200,
+        size: 12,
+        bold: false,
+        italic: false,
+        alignment: 'left' as const,
+        items: [
+          { text: 'Item', x: 50, size: 12, bold: false, italic: false },
+          { text: 'na', x: 62, size: 12, bold: false, italic: false },
+          { text: 'Qty', x: 220, size: 12, bold: false, italic: false },
+        ],
+      };
+      const cells = lineCells(line);
+      expect(cells.map((c) => c.text)).toEqual(['Item na', 'Qty']);
+      expect(cells[0].items).toHaveLength(2);
+    });
+  });
+
+  describe('itemsToStyledRuns', () => {
+    it('groups same-style items and splits on style change', async () => {
+      const { itemsToStyledRuns } = await import('@/lib/pdf-utils');
+      const runs = itemsToStyledRuns(
+        [
+          { text: 'Bold', x: 0, size: 12, bold: true, italic: false },
+          { text: 'text', x: 30, size: 12, bold: true, italic: false },
+          { text: 'plain', x: 60, size: 12, bold: false, italic: false },
+        ],
+        12,
+      );
+      expect(runs).toHaveLength(2);
+      expect(runs[0].text).toBe('Bold text');
+      expect(runs[0].bold).toBe(true);
+      expect(runs[1].text).toBe('plain');
+    });
+
+    it('keeps color and font family on runs', async () => {
+      const { itemsToStyledRuns } = await import('@/lib/pdf-utils');
+      const runs = itemsToStyledRuns(
+        [
+          {
+            text: 'Red',
+            x: 0,
+            size: 12,
+            bold: false,
+            italic: false,
+            color: 'CC0000',
+            fontFamily: 'ABCDEE+Roboto',
+          },
+        ],
+        12,
+      );
+      expect(runs[0].color).toBe('CC0000');
+      expect(runs[0].fontFamily).toBe('Roboto');
+      expect(runs[0].halfPoints).toBe(22); // round(12*2*0.92)
+    });
+  });
+
+  describe('linkForLine', () => {
+    it('picks the link with the largest horizontal overlap', async () => {
+      const { linkForLine } = await import('@/lib/pdf-utils');
+      const line = { y: 100, size: 12, x: 50, width: 100 };
+      const links = [
+        { url: 'https://a.example', x0: 0, y0: 80, x1: 60, y1: 110 },
+        { url: 'https://b.example', x0: 40, y0: 90, x1: 200, y1: 112 },
+      ];
+      expect(linkForLine(line, links)?.url).toBe('https://b.example');
+    });
+
+    it('returns undefined when nothing overlaps', async () => {
+      const { linkForLine } = await import('@/lib/pdf-utils');
+      const line = { y: 100, size: 12, x: 50, width: 100 };
+      expect(
+        linkForLine(line, [{ url: 'https://a.example', x0: 0, y0: 10, x1: 30, y1: 20 }]),
+      ).toBeUndefined();
+      expect(linkForLine(line, [])).toBeUndefined();
+    });
+  });
+
+  describe('lineToParagraphXml', () => {
+    it('emits runs with color, fonts, bold and alignment', async () => {
+      const { lineToParagraphXml } = await import('@/lib/pdf-utils');
+      const line = {
+        text: 'Hello world',
+        x: 40,
+        y: 200,
+        width: 200,
+        size: 12,
+        bold: false,
+        italic: false,
+        color: 'CC0000',
+        alignment: 'left' as const,
+        items: [
+          {
+            text: 'Hello',
+            x: 40,
+            size: 12,
+            bold: true,
+            italic: false,
+            color: 'CC0000',
+            fontFamily: 'Roboto',
+          },
+          { text: 'world', x: 80, size: 12, bold: false, italic: false, color: 'CC0000' },
+        ],
+      };
+      const xml = lineToParagraphXml(line, { headingLevel: 0 });
+      expect(xml).toContain('<w:b/>');
+      expect(xml).toContain('w:color w:val="CC0000"');
+      expect(xml).toContain('w:rFonts w:ascii="Roboto"');
+      expect(xml).toContain('<w:jc w:val="left"/>');
+      expect(xml).toContain('w:spacing w:after="120"');
+    });
+
+    it('wraps runs into a hyperlink when rel id is given', async () => {
+      const { lineToParagraphXml } = await import('@/lib/pdf-utils');
+      const line = {
+        text: 'Visit',
+        x: 40,
+        y: 200,
+        width: 50,
+        size: 12,
+        bold: false,
+        italic: false,
+        alignment: 'left' as const,
+        items: [{ text: 'Visit', x: 40, size: 12, bold: false, italic: false }],
+      };
+      const xml = lineToParagraphXml(line, { headingLevel: 0, linkRelId: 'rLnk1' });
+      expect(xml).toContain('<w:hyperlink r:id="rLnk1"');
+      expect(xml).toContain('w:u w:val="single"');
+      expect(xml).toContain('w:color w:val="0563C1"');
+    });
+  });
+
+  describe('tableRegionToXml', () => {
+    it('builds a w:tbl with grid, borders and styled cells', async () => {
+      const { detectTableRegions, tableRegionToXml } = await import('@/lib/pdf-utils');
+      const mk = (text: string, x: number) => ({
+        text,
+        x,
+        items: [{ text, x, size: 12, bold: false, italic: false }],
+      });
+      const cellsPerLine = [
+        [mk('Item', 50), mk('Qty', 220)],
+        [mk('Paper', 52), mk('2', 221)],
+      ];
+      const [region] = detectTableRegions(cellsPerLine, 14);
+      const xml = tableRegionToXml(cellsPerLine, region, { usableWidthPt: 451, fallbackSize: 12 });
+      expect(xml).toContain('<w:tbl>');
+      expect(xml).toContain('<w:gridCol');
+      expect(xml).toContain('w:tblBorders');
+      expect(xml).toMatch(/<w:tc>.{0,300}Item/s);
+      expect(xml).toMatch(/<w:tc>.{0,300}Qty/s);
+      expect(xml.endsWith('<w:p/>')).toBe(true);
+    });
+  });
+
+  describe('findColumnCuts', () => {
+    const twoColumnItems = () => {
+      const items: { x: number; y: number; width: number; size: number }[] = [];
+      for (let row = 0; row < 4; row++) {
+        const y = 700 - row * 16;
+        items.push({ x: 50, y, width: 210, size: 12 }, { x: 330, y, width: 210, size: 12 });
+      }
+      return items;
+    };
+
+    it('finds a single gutter on a two-column page', async () => {
+      const { findColumnCuts } = await import('@/lib/pdf-utils');
+      const cuts = findColumnCuts(twoColumnItems(), 595, 12);
+      expect(cuts).toHaveLength(1);
+      expect(cuts[0].start).toBeGreaterThanOrEqual(260);
+      expect(cuts[0].end).toBeLessThanOrEqual(330);
+    });
+
+    it('ignores wide spanning items but still splits', async () => {
+      const { findColumnCuts } = await import('@/lib/pdf-utils');
+      const items = [...twoColumnItems(), { x: 50, y: 780, width: 480, size: 18 }];
+      const cuts = findColumnCuts(items, 595, 12);
+      expect(cuts).toHaveLength(1);
+    });
+
+    it('rejects single-column pages', async () => {
+      const { findColumnCuts } = await import('@/lib/pdf-utils');
+      const items = Array.from({ length: 10 }, (_, i) => ({
+        x: 60,
+        y: 700 - i * 16,
+        width: 460,
+        size: 12,
+      }));
+      expect(findColumnCuts(items, 595, 12)).toEqual([]);
+    });
+
+    it('rejects lopsided splits', async () => {
+      const { findColumnCuts } = await import('@/lib/pdf-utils');
+      const items = [
+        ...Array.from({ length: 9 }, (_, i) => ({ x: 50, y: 700 - i * 16, width: 210, size: 12 })),
+        { x: 330, y: 700, width: 210, size: 12 },
+      ];
+      expect(findColumnCuts(items, 595, 12)).toEqual([]);
+    });
+
+    it('finds two cuts on a three-column page', async () => {
+      const { findColumnCuts } = await import('@/lib/pdf-utils');
+      const items: { x: number; y: number; width: number; size: number }[] = [];
+      for (let row = 0; row < 4; row++) {
+        const y = 700 - row * 16;
+        items.push(
+          { x: 50, y, width: 180, size: 12 },
+          { x: 270, y, width: 180, size: 12 },
+          { x: 490, y, width: 180, size: 12 },
+        );
+      }
+      const cuts = findColumnCuts(items, 700, 12);
+      expect(cuts).toHaveLength(2);
+    });
+  });
+
+  describe('reorderLinesByColumns', () => {
+    const cuts = [{ start: 270, end: 320 }];
+    const mkItem = (text: string, x: number, width: number) => ({
+      text,
+      x,
+      width,
+      size: 12,
+      bold: false,
+      italic: false,
+    });
+    const mkLine = (
+      text: string,
+      x: number,
+      y: number,
+      width: number,
+      items?: ReturnType<typeof mkItem>[],
+    ) => ({
+      text,
+      x,
+      y,
+      width,
+      size: 12,
+      bold: false,
+      italic: false,
+      alignment: 'left' as const,
+      items: items ?? [mkItem(text, x, width)],
+    });
+
+    it('emits columns in reading order for independent column flows', async () => {
+      const { reorderLinesByColumns } = await import('@/lib/pdf-utils');
+      // Колонки с независимым ритмом строк (не выровнены по y) — строки
+      // целиком в одной колонке.
+      const lines = [
+        mkLine('Title', 50, 760, 200),
+        mkLine('M1L', 50, 700, 210),
+        mkLine('M1R', 330, 690, 210),
+        mkLine('M2L', 50, 660, 210),
+        mkLine('M2R', 330, 650, 210),
+      ];
+      const out = reorderLinesByColumns(lines, cuts, 595);
+      expect(out.map((l) => l.text)).toEqual(['Title', 'M1L', 'M2L', 'M1R', 'M2R']);
+    });
+
+    it('bails out when consecutive spanning lines look like table rows', async () => {
+      const { reorderLinesByColumns } = await import('@/lib/pdf-utils');
+      const row = (text: string, y: number) =>
+        mkLine(text, 50, y, 490, [mkItem(`${text}-a`, 50, 200), mkItem(`${text}-b`, 340, 200)]);
+      const lines = [row('Row1', 700), row('Row2', 680)];
+      // Табличные строки не режутся и не перемешиваются.
+      expect(reorderLinesByColumns(lines, cuts, 595)).toEqual(lines);
+    });
+
+    it('keeps a truly spanning line as a band separator', async () => {
+      const { reorderLinesByColumns } = await import('@/lib/pdf-utils');
+      const spanning = mkLine('Wide heading text', 50, 760, 490, [
+        mkItem('Wide heading', 50, 210),
+        mkItem(' ', 280, 30), // занимает просвет
+        mkItem('text', 330, 60),
+      ]);
+      const merged = mkLine('L1 R1', 50, 700, 490, [mkItem('L1', 50, 210), mkItem('R1', 330, 210)]);
+      const out = reorderLinesByColumns([spanning, merged], cuts, 595);
+      expect(out.map((l) => l.text)).toEqual(['Wide heading text', 'L1', 'R1']);
+      expect(out[1].x).toBe(50);
+      expect(out[2].x).toBe(330);
+    });
+
+    it('returns lines unchanged when there are no cuts', async () => {
+      const { reorderLinesByColumns } = await import('@/lib/pdf-utils');
+      const lines = [mkLine('A', 50, 700, 200), mkLine('B', 50, 680, 200)];
+      expect(reorderLinesByColumns(lines, [], 595)).toBe(lines);
+    });
+  });
+
   describe('fillColorToHex', () => {
     it('converts RGB to hex', async () => {
       const { fillColorToHex } = await import('@/lib/pdf-utils');

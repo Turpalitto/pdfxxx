@@ -1,8 +1,10 @@
-import { Suspense, lazy, useEffect } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { Switch, Route, useLocation } from 'wouter';
 import { MotionConfig } from 'framer-motion';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/toaster';
+import { KeyboardHelpDialog } from '@/components/keyboard-help';
+import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { ThemeProvider } from '@/lib/theme';
 import { LangProvider } from '@/lib/lang-context';
 import { Navbar } from '@/components/navbar';
@@ -76,6 +78,9 @@ function ThemedLayout() {
   // Route transitions: re-key only on pathname (not query/hash) so category
   // pill clicks do not replay the entrance animation on the whole page.
   const routeKey = location.split(/[?#]/)[0];
+  const [helpOpen, setHelpOpen] = useState(false);
+  const shortcutHandlers = useMemo(() => ({ help: () => setHelpOpen((open) => !open) }), []);
+  useKeyboardShortcuts(shortcutHandlers);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -113,6 +118,7 @@ function ThemedLayout() {
         </main>
         <Footer />
       </div>
+      <KeyboardHelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
     </div>
   );
 }

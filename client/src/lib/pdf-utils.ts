@@ -2625,6 +2625,282 @@ export function ocrRenderScale(
 }
 
 // ============================================================
+// Fidelity helpers (pdf-to-word / pdf-to-excel) — Phase D
+// ============================================================
+
+/** Аннотация Link с внешним URI; координаты в viewport-пространстве (top-left). */
+export interface PdfLinkInfo {
+  url: string;
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+/** Ячейка строки для табличных инструментов (Word-таблицы и Excel). */
+export interface LineCell {
+  text: string;
+  x: number;
+  items: PdfLayoutItem[];
+}
+
+/** Стилизованный run для DOCX. */
+export interface StyledRun {
+  text: string;
+  bold: boolean;
+  italic: boolean;
+  halfPoints: number;
+  color?: string;
+  fontFamily?: string;
+}
+
+/**
+ * «sans-serif»/«monospace» и прочие generic-имена для Word бесполезны,
+ * префиксы подмножеств (ABCDEE+) — мусор. Возвращает undefined, если шрифт
+ * передавать не нужно (Word возьмёт документный дефолт).
+ */
+export function normalizeFontFamily(family?: string): string | undefined {
+  if (!family) return undefined;
+  const cleaned = family.replace(/^[A-Z]{6}\+/, '').trim();
+  if (!cleaned) return undefined;
+  if (
+    /^(sans-serif|serif|monospace|cursive|fantasy|system-ui|ui-sans-serif|ui-serif|ui-monospace|ui-rounded|inherit|initial|unset)$/i.test(
+      cleaned,
+    )
+  ) {
+    return undefined;
+  }
+  return cleaned.slice(0, 64);
+}
+
+/**
+ * Читает цвет заливки из pdfjs operatorList и возвращает hex-цвет для каждой
+ * show-text операции (в порядке следования). q/Q (save/restore) корректно
+ * откатывают цвет. Цветовые пространства DeviceRGB/Gray/CMYK (+setFillColor
+ * с известным пространством) поддержаны; неизвестные пространства дают undefined.
+ */
+export function trackTextFillColors(
+  fnArray: number[],
+  argsArray: unknown[][],
+  ops: Record<string, number>,
+): { colors: (string | undefined)[]; texts: string[] } {
+  const showOps = new Set(
+    [ops.showText, ops.showSpacedText, ops.nextLineShowText, ops.nextLineSetSpacingShowText].filter(
+      (v) => typeof v === 'number',
+    ),
+  );
+  const colors: (string | undefined)[] = [];
+  const texts: string[] = [];
+  const stack: (string | undefined)[] = [];
+  let current: string | undefined;
+  let fillSpace: 'rgb' | 'gray' | 'cmyk' | undefined;
+
+  const nums = (args: unknown): number[] =>
+    Array.isArray(args) ? args.map((v) => Number(v)).filter((v) => Number.isFinite(v)) : [];
+
+  // pdfjs v5 передаёт цвет готовой hex-строкой (например, ["#cc0000"]);
+  // старые сборки — массивом компонентов. Поддерживаем оба формата.
+  // Чёрный/белый (цвет по умолчанию) → undefined, как и fillColorToHex.
+  const hexArg = (args: unknown): string | undefined => {
+    const first = Array.isArray(args) ? args[0] : undefined;
+    if (typeof first !== 'string') return undefined;
+    const m = /^#([0-9a-fA-F]{6})$/.exec(first.trim());
+    if (!m) return undefined;
+    const hex = m[1].toLowerCase();
+    return hex === '000000' || hex === 'ffffff' ? undefined : hex;
+  };
+
+  const glyphText = (args: unknown): string => {
+    // pdfjs: args = [glyphsArray, ...доп. параметры], глифы — args[0].
+    const glyphs = Array.isArray(args) ? args[0] : undefined;
+    if (!Array.isArray(glyphs)) return '';
+    return glyphs
+      .map((g) => (typeof g === 'object' && g !== null ? String((g as any).unicode ?? '') : ''))
+      .join('');
+  };
+
+  fnArray.forEach((fn, i) => {
+    const args = argsArray[i];
+    if (fn === ops.save) {
+      stack.push(current);
+    } else if (fn === ops.restore) {
+      current = stack.pop() ?? current;
+    } else if (fn === ops.setFillRGBColor) {
+      current =
+        hexArg(args) ??
+        fillColorToHex(
+          'rgb',
+          nums(args).map((v) => v / 255),
+        );
+    } else if (fn === ops.setFillGray) {
+      current = hexArg(args) ?? fillColorToHex('gray', nums(args));
+    } else if (fn === ops.setFillCMYKColor) {
+      current = hexArg(args) ?? fillColorToHex('cmyk', nums(args));
+    } else if (fn === ops.setFillColorSpace) {
+      const name = String((Array.isArray(args) ? (args[0] as any)?.name : '') ?? '')
+        .replace(/^Device/, '')
+        .replace(/^Cal/, '');
+      fillSpace =
+        name === 'Gray' ? 'gray' : name === 'CMYK' ? 'cmyk' : name === 'RGB' ? 'rgb' : undefined;
+    } else if (fn === ops.setFillColor && fillSpace) {
+      current = hexArg(args) ?? fillColorToHex(fillSpace, nums(args));
+    } else if (showOps.has(fn)) {
+      colors.push(current);
+      texts.push(glyphText(args));
+    }
+  });
+
+  return { colors, texts };
+}
+
+/**
+ * Соединяет цвета show-операций с textContent-элементами. Идеально show-опов
+ * ровно столько же, сколько элементов; при расхождении (синтезированные EOL и
+ * т.п.) пробуем парное выравнивание по непустым подпоследовательностям.
+ */
+export function attachColorsToItems<T extends { str: string; color?: string }>(
+  items: T[],
+  track: { colors: (string | undefined)[]; texts: string[] },
+): void {
+  if (track.colors.length === items.length) {
+    items.forEach((item, i) => {
+      item.color = track.colors[i];
+    });
+    return;
+  }
+  const nonEmptyItems = items.filter((it) => it.str.trim());
+  const nonEmptyOps = track.colors
+    .map((color, i) => ({ color, text: track.texts[i] ?? '' }))
+    .filter((op) => op.text.trim());
+  if (nonEmptyOps.length === nonEmptyItems.length) {
+    nonEmptyItems.forEach((item, i) => {
+      item.color = nonEmptyOps[i].color;
+    });
+  }
+  // Иначе оставляем undefined — конвертер честно использует цвет по умолчанию.
+}
+
+/** Доля страницы, реально занятая текстом (0..~1). */
+export function pageTextDensity(page: {
+  width: number;
+  height: number;
+  lines: { width: number; size: number }[];
+}): number {
+  const area = Math.max(1, page.width * page.height);
+  const ink = page.lines.reduce(
+    (sum, line) => sum + Math.max(0, line.width) * Math.max(1, line.size),
+    0,
+  );
+  return ink / area;
+}
+
+/**
+ * Страница-скан: нет текста, либо текста почти нет и при этом на странице
+ * есть растровые изображения (иначе born-digital страница с парой строк
+ * остаётся честным текстом, а не превращается в PNG).
+ */
+export function isScanPage(page: {
+  width: number;
+  height: number;
+  lines: { width: number; size: number }[];
+  hasImages?: boolean;
+}): boolean {
+  if (page.lines.length === 0) return true;
+  if (page.lines.length < 3 || pageTextDensity(page) < 0.02) {
+    return page.hasImages === true;
+  }
+  return false;
+}
+
+/**
+ * Строковая ячейка → число для Excel. Консервативно: обычные целые и
+ * десятичные (точка или запятая), разряды через пробел. Ведущие нули
+ * («007»), версии («1.2.3»), деньги («$8»), «Q1» остаются строками.
+ */
+export function excelCellToNumber(text: string): number | undefined {
+  const s = text.trim();
+  if (!s || s.length > 20) return undefined;
+  const simple = /^-?\d+([.,]\d+)?$/.test(s);
+  const grouped = /^-?\d{1,3}([ \u00A0]\d{3})+([.,]\d+)?$/.test(s);
+  if (!simple && !grouped) return undefined;
+  const normalized = s.replace(/[ \u00A0]/g, '').replace(',', '.');
+  if (/^-?0\d/.test(normalized)) return undefined; // «007», «0123» — идентификаторы
+  const value = Number(normalized);
+  return Number.isFinite(value) ? value : undefined;
+}
+
+/**
+ * Сливает items строки в ячейки по горизонтальному разрыву (общая эвристика
+ * для Word-таблиц и Excel-колонок).
+ */
+export function lineCells(line: PdfLayoutLine): LineCell[] {
+  const merged: LineCell[] = [];
+  const sorted = [...line.items].sort((a, b) => a.x - b.x);
+  const gapThreshold = line.size * 1.6;
+  for (const item of sorted) {
+    const prev = merged[merged.length - 1];
+    if (prev && item.x - prev.x < gapThreshold) {
+      prev.text = `${prev.text} ${item.text}`.replace(/\s+/g, ' ');
+      prev.items.push(item);
+    } else {
+      merged.push({ text: item.text, x: item.x, items: [item] });
+    }
+  }
+  return merged.filter((cell) => cell.text.trim());
+}
+
+/** Группирует items строки в runs одного стиля (bold/italic/size/color/шрифт). */
+export function itemsToStyledRuns(items: PdfLayoutItem[], fallbackSize: number): StyledRun[] {
+  const runs: StyledRun[] = [];
+  for (const item of items) {
+    if (!item.text || !item.text.trim()) continue;
+    const style = {
+      bold: item.bold,
+      italic: item.italic,
+      halfPoints: Math.round((item.size || fallbackSize) * 2 * 0.92),
+      color: item.color,
+      fontFamily: normalizeFontFamily(item.fontFamily),
+    };
+    const prev = runs[runs.length - 1];
+    const sameStyle =
+      prev &&
+      prev.bold === style.bold &&
+      prev.italic === style.italic &&
+      prev.halfPoints === style.halfPoints &&
+      prev.color === style.color &&
+      prev.fontFamily === style.fontFamily;
+    if (sameStyle) {
+      const joiner = /[ \u00A0]$/.test(prev.text) || /^[ \u00A0]/.test(item.text) ? '' : ' ';
+      prev.text = `${prev.text}${joiner}${item.text}`;
+    } else {
+      runs.push({ text: item.text, ...style });
+    }
+  }
+  return runs;
+}
+
+/** Ссылка, перекрывающая строку сильнее прочих (или undefined). */
+export function linkForLine(
+  line: { y: number; size: number; x: number; width: number },
+  links: PdfLinkInfo[],
+): PdfLinkInfo | undefined {
+  let best: PdfLinkInfo | undefined;
+  let bestOverlap = 0;
+  for (const link of links) {
+    const yLo = Math.max(link.y0, line.y - line.size * 0.8);
+    const yHi = Math.min(link.y1, line.y + line.size * 0.3);
+    if (yHi - yLo <= 0) continue;
+    const xOverlap = Math.min(link.x1, line.x + line.width) - Math.max(link.x0, line.x);
+    if (xOverlap <= 0) continue;
+    if (xOverlap > bestOverlap) {
+      best = link;
+      bestOverlap = xOverlap;
+    }
+  }
+  return best;
+}
+
+// ============================================================
 // Text layout extraction (shared by Word / Excel / Markdown)
 // ============================================================
 
@@ -2634,11 +2910,19 @@ export interface PdfLayoutItem {
   size: number;
   bold: boolean;
   italic: boolean;
+  /** hex без «#», undefined = цвет по умолчанию */
+  color?: string;
+  /** имя шрифта из pdfjs-стилей (может быть generic — см. normalizeFontFamily) */
+  fontFamily?: string;
+  /** ширина глифового прогона в pt (для column-детекции) */
+  width?: number;
 }
 
 export interface PdfLayoutLine extends PdfLayoutItem {
   width: number;
   alignment: 'left' | 'center' | 'right';
+  /** viewport-y строки (top-left origin), для сопоставления со ссылками */
+  y: number;
   items: PdfLayoutItem[];
 }
 
@@ -2646,6 +2930,9 @@ export interface PdfLayoutPage {
   width: number;
   height: number;
   lines: PdfLayoutLine[];
+  links: PdfLinkInfo[];
+  /** на странице есть растровые изображения (признак скана) */
+  hasImages?: boolean;
 }
 
 interface RawTextItem {
@@ -2655,30 +2942,47 @@ interface RawTextItem {
   width: number;
   size: number;
   fontName?: string;
+  color?: string;
 }
 
 async function extractRawTextItems(
   file: File,
-): Promise<{ width: number; height: number; items: RawTextItem[] }[]> {
+  opts: { colors: boolean; links: boolean } = { colors: false, links: false },
+): Promise<
+  {
+    width: number;
+    height: number;
+    items: RawTextItem[];
+    links: PdfLinkInfo[];
+    hasImages?: boolean;
+  }[]
+> {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const doc = await openPdfWithPdfjs(bytes);
+  const pdfjs = opts.colors ? await loadPdfJs() : null;
   try {
-    const pages: { width: number; height: number; items: RawTextItem[] }[] = [];
+    const pages: {
+      width: number;
+      height: number;
+      items: RawTextItem[];
+      links: PdfLinkInfo[];
+      hasImages?: boolean;
+    }[] = [];
 
     for (let i = 1; i <= doc.numPages; i++) {
       const page = await doc.getPage(i);
       const vp = page.getViewport({ scale: 1 });
       const tc = await page.getTextContent();
       const styles = tc.styles ?? {};
-      const items: RawTextItem[] = [];
+      const allItems: RawTextItem[] = [];
 
       for (const item of tc.items ?? []) {
-        if (typeof item.str !== 'string' || !item.str.trim()) continue;
+        if (typeof item.str !== 'string') continue;
         const [, , , , tx, ty] = item.transform;
         const pt = vp.convertToViewportPoint(tx, ty);
         const size = Math.abs(item.transform[3]) || Math.abs(item.transform[0]) || 10;
         const style = styles[item.fontName ?? ''];
-        items.push({
+        allItems.push({
           str: item.str,
           x: pt[0],
           y: pt[1],
@@ -2688,7 +2992,56 @@ async function extractRawTextItems(
         });
       }
 
-      pages.push({ width: vp.width, height: vp.height, items });
+      // Цвет заливки текста: show-опы operatorList парсятся с textContent.
+      let hasImages = false;
+      try {
+        if (opts.colors && pdfjs) {
+          const opList = await page.getOperatorList();
+          const track = trackTextFillColors(opList.fnArray, opList.argsArray, pdfjs.OPS);
+          attachColorsToItems(allItems, track);
+          const imageOps = new Set(
+            [
+              pdfjs.OPS.paintImageXObject,
+              pdfjs.OPS.paintInlineImageXObject,
+              pdfjs.OPS.paintImageMaskXObject,
+            ].filter((v) => typeof v === 'number'),
+          );
+          hasImages = opList.fnArray.some((fn: number) => imageOps.has(fn));
+        }
+      } catch {
+        // цвет — опциональное обогащение: без operatorList идём чёрным
+      }
+
+      // Внешние ссылки из аннотаций.
+      let links: PdfLinkInfo[] = [];
+      if (opts.links) {
+        try {
+          const annots = await page.getAnnotations({ intent: 'display' });
+          for (const a of annots ?? []) {
+            if (a?.subtype !== 'Link') continue;
+            const url: unknown = a.url ?? a.unsafeUrl;
+            if (typeof url !== 'string' || !/^https?:/i.test(url)) continue;
+            if (!Array.isArray(a.rect) || a.rect.length !== 4) continue;
+            const [vx0, vy0, vx1, vy1] = vp.convertToViewportRectangle(a.rect);
+            const x0 = Math.min(vx0, vx1);
+            const x1 = Math.max(vx0, vx1);
+            const y0 = Math.min(vy0, vy1);
+            const y1 = Math.max(vy0, vy1);
+            if (x1 - x0 <= 1 || y1 - y0 <= 1) continue;
+            links.push({ url, x0, y0, x1, y1 });
+          }
+        } catch {
+          links = [];
+        }
+      }
+
+      pages.push({
+        width: vp.width,
+        height: vp.height,
+        items: allItems.filter((item) => item.str.trim()),
+        links,
+        hasImages,
+      });
       page.cleanup?.();
     }
 
@@ -2698,8 +3051,244 @@ async function extractRawTextItems(
   }
 }
 
-function groupItemsIntoLines(items: RawTextItem[], pageWidth: number): PdfLayoutLine[] {
-  const sorted = [...items].sort((a, b) => b.y - a.y || a.x - b.x);
+// ============================================================
+// Multi-column reading order (Phase E)
+// ============================================================
+
+export interface ColumnCut {
+  start: number;
+  end: number;
+}
+
+export interface ColumnProbeItem {
+  x: number;
+  width?: number;
+}
+
+function sideIndexForCenter(center: number, mids: number[]): number {
+  let side = 0;
+  for (const mid of mids) {
+    if (center > mid) side += 1;
+  }
+  return side;
+}
+
+/**
+ * Вертикальные просветы (gutters) между текстовыми колонками страницы.
+ *
+ * Проекция всех items на ось x: свободные интервалы ≥ max(18, 1.8×медианный
+ * кегль), не примыкающие к полям контента. «Широкие» элементы (заголовки
+ * через страницу, > 45% ширины контента) в проекции не участвуют, но входят
+ * в проверку наполненности колонок. Возвращает ≤ 3 разрезов или [] — колонок
+ * нет (одноколоночная/подозрительная разметка).
+ */
+export function findColumnCuts(
+  items: ColumnProbeItem[],
+  pageWidth: number,
+  medianSize = 12,
+): ColumnCut[] {
+  const widthOf = (it: ColumnProbeItem) => Math.max(0, it.width ?? 0);
+  if (items.length < 6) return [];
+
+  const contentLeft = Math.min(...items.map((it) => it.x));
+  const contentRight = Math.max(...items.map((it) => it.x + widthOf(it)));
+  const contentWidth = contentRight - contentLeft;
+  if (contentWidth < pageWidth * 0.3) return [];
+
+  const maxProbeWidth = contentWidth * 0.45;
+  const probe = items.filter((it) => widthOf(it) <= maxProbeWidth);
+  if (probe.length < 6 || probe.length < items.length * 0.5) return [];
+
+  const minGap = Math.max(18, medianSize * 1.8);
+  const intervals = probe
+    .map((it) => [it.x, it.x + widthOf(it)] as [number, number])
+    .sort((a, b) => a[0] - b[0]);
+  const gaps: ColumnCut[] = [];
+  let cursor = intervals[0][1];
+  for (let i = 1; i < intervals.length; i++) {
+    const [x0, x1] = intervals[i];
+    if (x0 - cursor >= minGap) gaps.push({ start: cursor, end: x0 });
+    cursor = Math.max(cursor, x1);
+  }
+  const usable = gaps.filter(
+    (g) =>
+      g.start >= contentLeft + contentWidth * 0.08 && g.end <= contentRight - contentWidth * 0.08,
+  );
+  if (usable.length === 0 || usable.length > 3) return [];
+
+  const mids = usable.map((c) => (c.start + c.end) / 2);
+  const counts = new Array<number>(mids.length + 1).fill(0);
+  for (const it of items) {
+    counts[sideIndexForCenter(it.x + widthOf(it) / 2, mids)] += 1;
+  }
+  const minPerColumn = Math.max(3, Math.ceil(items.length * 0.12));
+  if (counts.some((count) => count < minPerColumn)) return [];
+
+  return usable;
+}
+
+/** Пересобирает строку из фрагментов одной колонки (после разреза merged-строки). */
+function buildFragmentLine(items: PdfLayoutItem[], pageWidth: number, y: number): PdfLayoutLine {
+  const x = Math.min(...items.map((it) => it.x));
+  const width = Math.max(0, Math.max(...items.map((it) => it.x + (it.width ?? 0))) - x);
+  const size = dominantString(items.map((it) => String(Math.round(it.size))));
+  const color = dominantString(
+    items.map((it) => it.color).filter((c): c is string => typeof c === 'string'),
+  );
+  const fontFamily = dominantString(
+    items.map((it) => it.fontFamily).filter((f): f is string => typeof f === 'string'),
+  );
+  const boldCount = items.filter((it) => it.bold).length;
+  const italicCount = items.filter((it) => it.italic).length;
+  return {
+    text: items
+      .map((it) => it.text)
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim(),
+    x,
+    width,
+    size: size ? Number(size) : (items[0]?.size ?? 12),
+    bold: boldCount * 2 > items.length,
+    italic: italicCount * 2 > items.length,
+    color,
+    fontFamily,
+    alignment: lineAlignment(x, x + width, pageWidth),
+    y,
+    items,
+  };
+}
+
+/**
+ * Пытается разрезать строку, пересекающую колонки. Строки, у которых элемент
+ * занимает просвет (непрерывный текст/заголовок поверх gutter), не режутся —
+ * они остаются «разделителями полос» (span separator).
+ */
+function splitLineByCuts(
+  line: PdfLayoutLine,
+  cuts: ColumnCut[],
+  pageWidth: number,
+): PdfLayoutLine[] | null {
+  if (cuts.length === 0) return null;
+  const mids = cuts.map((c) => (c.start + c.end) / 2);
+  const sides = line.items.map((it) => sideIndexForCenter(it.x + (it.width ?? 0) / 2, mids));
+  if (new Set(sides).size === 1) return null;
+
+  for (let i = 0; i < cuts.length; i++) {
+    const hasLeft = sides.some((s) => s <= i);
+    const hasRight = sides.some((s) => s >= i + 1);
+    if (!hasLeft || !hasRight) continue;
+    const cut = cuts[i];
+    const blocked = line.items.some((it) => it.x + (it.width ?? 0) > cut.start && it.x < cut.end);
+    if (blocked) return null;
+  }
+
+  const groups = new Map<number, PdfLayoutItem[]>();
+  line.items.forEach((it, j) => {
+    const list = groups.get(sides[j]);
+    if (list) list.push(it);
+    else groups.set(sides[j], [it]);
+  });
+  return [...groups.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([, items]) => buildFragmentLine(items, pageWidth, line.y));
+}
+
+/**
+ * Переупорядочивает строки страницы в reading order колонок: строки полос
+ * (между span-строками) отдаются колонка за колонкой слева направо, span-строки
+ * (заголовки через страницу) остаются на своих y-позициях между полосами.
+ * Вход уже отсортирован по y сверху вниз — порядок внутри колонки сохраняется.
+ */
+export function reorderLinesByColumns(
+  lines: PdfLayoutLine[],
+  cuts: ColumnCut[],
+  pageWidth: number,
+  medianSize = 12,
+): PdfLayoutLine[] {
+  if (cuts.length === 0) return lines;
+
+  const spansCut = (line: PdfLayoutLine, cut: ColumnCut) =>
+    line.items.some((it) => it.x + (it.width ?? 0) <= cut.start) &&
+    line.items.some((it) => it.x >= cut.end);
+
+  // Табличный просвет: ≥2 подряд пересекающих cut строки с плотным шагом
+  // (≤ 2.5×кегль) — это строки таблицы с выровненными baselines. Такой cut
+  // не режем, иначе ячейки разъедутся по колонкам и detectTableRegions
+  // (w:tbl / Excel) не соберёт строки. Разреженные spanning-строки (заголовок
+  // + первая строка тела) таблицей не считаются.
+  const rowPitch = medianSize * 2.5;
+  const tableCuts = new Set<number>();
+  cuts.forEach((cut, i) => {
+    let run = 0;
+    let prevY = Number.NaN;
+    for (const line of lines) {
+      if (spansCut(line, cut)) {
+        run = Number.isFinite(prevY) && Math.abs(line.y - prevY) <= rowPitch ? run + 1 : 1;
+        prevY = line.y;
+        if (run >= 2) {
+          tableCuts.add(i);
+          break;
+        }
+      } else {
+        run = 0;
+        prevY = Number.NaN;
+      }
+    }
+  });
+  const active = cuts.filter((_, i) => !tableCuts.has(i));
+  if (active.length === 0) return lines;
+
+  const mids = active.map((c) => (c.start + c.end) / 2);
+  const spansAGap = (line: PdfLayoutLine) =>
+    active.some((c) => line.items.some((it) => it.x + (it.width ?? 0) > c.start && it.x < c.end));
+
+  const out: PdfLayoutLine[] = [];
+  let band: { side: number; line: PdfLayoutLine }[] = [];
+  const flushBand = () => {
+    if (band.length === 0) return;
+    const bySide = new Map<number, PdfLayoutLine[]>();
+    for (const entry of band) {
+      const list = bySide.get(entry.side);
+      if (list) list.push(entry.line);
+      else bySide.set(entry.side, [entry.line]);
+    }
+    for (const side of [...bySide.keys()].sort((a, b) => a - b)) {
+      out.push(...(bySide.get(side) as PdfLayoutLine[]));
+    }
+    band = [];
+  };
+
+  for (const line of lines) {
+    const fragments = splitLineByCuts(line, active, pageWidth);
+    if (fragments === null) {
+      if (spansAGap(line)) {
+        flushBand();
+        out.push(line);
+      } else {
+        band.push({ side: sideIndexForCenter(line.x + line.width / 2, mids), line });
+      }
+      continue;
+    }
+    for (const fragment of fragments) {
+      band.push({
+        side: sideIndexForCenter(fragment.x + fragment.width / 2, mids),
+        line: fragment,
+      });
+    }
+  }
+  flushBand();
+  return out;
+}
+
+function groupItemsIntoLines(
+  items: RawTextItem[],
+  pageWidth: number,
+  opts: { columns?: boolean } = {},
+): PdfLayoutLine[] {
+  // Viewport y растёт ВНИЗ: ascending = чтение сверху вниз. (До Phase E здесь
+  // была descending-сортировка — абзацы и строки таблиц шли bottom-to-top.)
+  const sorted = [...items].sort((a, b) => a.y - b.y || a.x - b.x);
   const lines: PdfLayoutLine[] = [];
   let current: RawTextItem[] = [];
 
@@ -2711,6 +3300,12 @@ function groupItemsIntoLines(items: RawTextItem[], pageWidth: number): PdfLayout
     const x = Math.min(...current.map((it) => it.x));
     const last = current[current.length - 1];
     const width = last.x + last.width - x;
+    const color = dominantString(
+      current.map((it) => it.color).filter((c): c is string => typeof c === 'string'),
+    );
+    const fontFamily = dominantString(
+      current.map((it) => it.fontName).filter((f): f is string => typeof f === 'string'),
+    );
     lines.push({
       text: current
         .map((it) => it.str)
@@ -2722,13 +3317,19 @@ function groupItemsIntoLines(items: RawTextItem[], pageWidth: number): PdfLayout
       size: lineSize,
       bold: fontStyle.bold,
       italic: fontStyle.italic,
+      color,
+      fontFamily,
       alignment: lineAlignment(x, x + width, pageWidth),
+      y: current[0].y,
       items: current.map((it) => ({
         text: it.str,
         x: it.x,
         size: it.size,
         bold: detectFontStyle(it.fontName).bold,
         italic: detectFontStyle(it.fontName).italic,
+        color: it.color,
+        fontFamily: it.fontName,
+        width: it.width,
       })),
     });
     current = [];
@@ -2750,15 +3351,28 @@ function groupItemsIntoLines(items: RawTextItem[], pageWidth: number): PdfLayout
   }
   flush();
 
-  return lines;
+  if (!opts.columns || items.length < 6) return lines;
+  const sizes = items.map((it) => it.size).sort((a, b) => a - b);
+  const medianSize = sizes[Math.floor(sizes.length / 2)] || 12;
+  const cuts = findColumnCuts(items, pageWidth, medianSize);
+  if (cuts.length === 0) return lines;
+  return reorderLinesByColumns(lines, cuts, pageWidth, medianSize);
 }
 
-async function extractPdfLayout(file: File): Promise<PdfLayoutPage[]> {
-  const rawPages = await extractRawTextItems(file);
+async function extractPdfLayout(
+  file: File,
+  opts: { colors?: boolean; links?: boolean; columns?: boolean } = {},
+): Promise<PdfLayoutPage[]> {
+  const rawPages = await extractRawTextItems(file, {
+    colors: opts.colors ?? false,
+    links: opts.links ?? false,
+  });
   return rawPages.map((page) => ({
     width: page.width,
     height: page.height,
-    lines: groupItemsIntoLines(page.items, page.width),
+    lines: groupItemsIntoLines(page.items, page.width, { columns: opts.columns ?? false }),
+    links: page.links,
+    hasImages: page.hasImages,
   }));
 }
 
@@ -2776,51 +3390,179 @@ function escapeXml(text: string): string {
 }
 
 const DOCX_CONTENT_TYPES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`;
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`;
 
 const DOCX_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`;
 
-interface DocxParagraph {
-  text: string;
-  bold: boolean;
-  italic: boolean;
-  halfPoints: number;
-  align: 'left' | 'center' | 'right';
-  headingLevel: number;
+const DOCX_TABLE_BORDER_COLOR = 'BFBFBF';
+/** Синий hyperlink по умолчанию Word (ThemeColor Hyperlink ≈ 0563C1). */
+const DOCX_LINK_COLOR = '0563C1';
+const DOCX_EMU_PER_PT = 12700;
+
+function runPropsXml(run: StyledRun, opts: { link?: boolean } = {}): string {
+  const props: string[] = [];
+  if (run.fontFamily) {
+    const family = escapeXml(run.fontFamily);
+    props.push(`<w:rFonts w:ascii="${family}" w:hAnsi="${family}" w:cs="${family}"/>`);
+  }
+  if (run.bold) props.push('<w:b/>');
+  if (run.italic) props.push('<w:i/>');
+  const color = opts.link ? DOCX_LINK_COLOR : run.color;
+  if (color) props.push(`<w:color w:val="${color}"/>`);
+  props.push(`<w:sz w:val="${run.halfPoints}"/><w:szCs w:val="${run.halfPoints}"/>`);
+  if (opts.link) props.push('<w:u w:val="single"/>');
+  return props.join('');
 }
 
-function docxParagraphXml(p: DocxParagraph): string {
-  const props: string[] = [];
-  if (p.headingLevel > 0) {
-    props.push(`<w:pStyle w:val="Heading${p.headingLevel}"/>`);
-  }
-  props.push(`<w:jc w:val="${p.align}"/>`);
-  const runProps: string[] = [];
-  if (p.bold) runProps.push('<w:b/>');
-  if (p.italic) runProps.push('<w:i/>');
-  runProps.push(`<w:sz w:val="${p.halfPoints}"/>`);
-  runProps.push(`<w:szCs w:val="${p.halfPoints}"/>`);
+function runsXml(runs: StyledRun[], opts: { link?: boolean } = {}): string {
+  return runs
+    .map(
+      (run) =>
+        `<w:r><w:rPr>${runPropsXml(run, opts)}</w:rPr><w:t xml:space="preserve">${escapeXml(run.text)}</w:t></w:r>`,
+    )
+    .join('');
+}
 
-  return `<w:p><w:pPr>${props.join('')}</w:pPr><w:r><w:rPr>${runProps.join('')}</w:rPr><w:t xml:space="preserve">${escapeXml(p.text)}</w:t></w:r></w:p>`;
+/** Параграф строки с runs, стилями заголовков, spacing и опциональной ссылкой. */
+export function lineToParagraphXml(
+  line: PdfLayoutLine,
+  opts: { headingLevel: number; linkRelId?: string },
+): string {
+  const runs = itemsToStyledRuns(line.items, line.size);
+  if (runs.length === 0) return '';
+
+  const props: string[] = [];
+  if (opts.headingLevel > 0) {
+    props.push(`<w:pStyle w:val="Heading${opts.headingLevel}"/>`);
+  }
+  props.push(
+    opts.headingLevel > 0
+      ? '<w:spacing w:before="240" w:after="120"/>'
+      : '<w:spacing w:after="120"/>',
+  );
+  props.push(`<w:jc w:val="${line.alignment}"/>`);
+
+  const body = opts.linkRelId
+    ? `<w:hyperlink r:id="${escapeXml(opts.linkRelId)}" w:history="1">${runsXml(runs, { link: true })}</w:hyperlink>`
+    : runsXml(runs);
+  return `<w:p><w:pPr>${props.join('')}</w:pPr>${body}</w:p>`;
+}
+
+/** Таблица Word (`w:tbl`) для региона с общими колонками. */
+export function tableRegionToXml(
+  cellsPerLine: LineCell[][],
+  region: TableRegion,
+  opts: { usableWidthPt: number; fallbackSize: number },
+): string {
+  const columns = region.columns;
+  const colWidths = columns.map((x, i) => {
+    const next = i + 1 < columns.length ? columns[i + 1] : Math.max(x, opts.usableWidthPt);
+    return Math.max(720, Math.round((next - x) * 20)); // twips, минимум 0.5"
+  });
+
+  const border = (side: string) =>
+    `<w:${side} w:val="single" w:sz="4" w:space="0" w:color="${DOCX_TABLE_BORDER_COLOR}"/>`;
+  const tblPr = `<w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders>${border('top')}${border('left')}${border('bottom')}${border('right')}${border('insideH')}${border('insideV')}</w:tblBorders></w:tblPr>`;
+  const grid = `<w:tblGrid>${colWidths.map((w) => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>`;
+
+  const rows: string[] = [];
+  for (let lineIdx = region.start; lineIdx <= region.end; lineIdx++) {
+    const lineSize = opts.fallbackSize;
+    const assigned = new Map<number, LineCell>();
+    for (const cell of [...cellsPerLine[lineIdx]].sort((a, b) => a.x - b.x)) {
+      const col = assignToColumn(cell.x, columns);
+      if (!assigned.has(col)) assigned.set(col, cell);
+    }
+    const tcs = columns
+      .map((_, col) => {
+        const cell = assigned.get(col);
+        const runs = cell ? itemsToStyledRuns(cell.items, cell.items[0]?.size ?? lineSize) : [];
+        const para = runs.length
+          ? runsXml(runs)
+          : '<w:r><w:rPr><w:sz w:val="16"/></w:rPr><w:t xml:space="preserve"/></w:r>';
+        return `<w:tc><w:tcPr><w:tcW w:w="${colWidths[col]}" w:type="dxa"/></w:tcPr><w:p><w:pPr><w:spacing w:after="0"/></w:pPr>${para}</w:p></w:tc>`;
+      })
+      .join('');
+    rows.push(`<w:tr>${tcs}</w:tr>`);
+  }
+
+  // Пустой <w:p/> после таблицы — требование Word.
+  return `<w:tbl>${tblPr}${grid}${rows.join('')}</w:tbl><w:p/>`;
+}
+
+/** Картинка страницы (скан) как inline-DrawingML. */
+function drawingParagraphXml(
+  relId: string,
+  mediaName: string,
+  cxEmu: number,
+  cyEmu: number,
+  docPrId: number,
+): string {
+  return (
+    `<w:p><w:pPr><w:spacing w:after="120"/><w:jc w:val="center"/></w:pPr>` +
+    `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">` +
+    `<wp:extent cx="${cxEmu}" cy="${cyEmu}"/><wp:effectExtent l="0" t="0" r="0" b="0"/>` +
+    `<wp:docPr id="${docPrId}" name="${escapeXml(mediaName)}"/><wp:cNvGraphicFramePr/>` +
+    `<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
+    `<pic:pic><pic:nvPicPr><pic:cNvPr id="${docPrId}" name="${escapeXml(mediaName)}"/><pic:cNvPicPr/></pic:nvPicPr>` +
+    `<pic:blipFill><a:blip r:embed="${escapeXml(relId)}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>` +
+    `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cxEmu}" cy="${cyEmu}"/></a:xfrm>` +
+    `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>` +
+    `</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`
+  );
+}
+
+interface DocxImage {
+  relId: string;
+  mediaName: string;
+  bytes: Uint8Array;
+  cxEmu: number;
+  cyEmu: number;
+  docPrId: number;
 }
 
 /**
  * Минимальный валидный DOCX (OOXML) без внешних генераторов: достаточно для
- * Word/LibreOffice/Google Docs. Стили заголовков объявлены в document.xml.
+ * Word/LibreOffice/Google Docs. Стили заголовков объявлены в styles.xml;
+ * картинки — в word/media/ со связями, ссылки — внешние relationship'ы.
  */
 async function buildDocx(
-  paragraphs: DocxParagraph[],
+  bodyXml: string,
   pageSize: [number, number],
+  images: DocxImage[],
+  links: { id: string; url: string }[],
 ): Promise<Uint8Array> {
-  const body = paragraphs.map(docxParagraphXml).join('');
   const sectPr = `<w:sectPr><w:pgSz w:w="${Math.round(pageSize[0] * 20)}" w:h="${Math.round(pageSize[1] * 20)}"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr>`;
   const heading1Style = `<w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:pPr><w:outlineLvl w:val="0"/></w:pPr></w:style>`;
   const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}${sectPr}</w:body></w:document>`;
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><w:body>${bodyXml}${sectPr}</w:body></w:document>`;
 
   const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">${heading1Style}<w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:pPr><w:outlineLvl w:val="1"/></w:pPr></w:style><w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="heading 3"/><w:pPr><w:outlineLvl w:val="2"/></w:pPr></w:style></w:styles>`;
+
+  const relationshipXml = (id: string, type: string, target: string, external?: boolean) =>
+    `<Relationship Id="${escapeXml(id)}" Type="${type}" Target="${escapeXml(target)}"${external ? ' TargetMode="External"' : ''}/>`;
+
+  const documentRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${images
+    .map((img) =>
+      relationshipXml(
+        img.relId,
+        'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+        `media/${img.mediaName}`,
+      ),
+    )
+    .join('')}${links
+    .map((link) =>
+      relationshipXml(
+        link.id,
+        'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink',
+        link.url,
+        true,
+      ),
+    )
+    .join('')}</Relationships>`;
 
   const JSZip = (await import('jszip')).default;
   const zip = new JSZip();
@@ -2828,49 +3570,143 @@ async function buildDocx(
   zip.folder('_rels')?.file('.rels', DOCX_RELS);
   const word = zip.folder('word');
   word?.file('document.xml', documentXml);
-  word
-    ?.folder('_rels')
-    ?.file(
-      'document.xml.rels',
-      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`,
-    );
+  word?.folder('_rels')?.file('document.xml.rels', documentRels);
   word?.file('styles.xml', stylesXml);
+  if (images.length > 0) {
+    const media = word?.folder('media');
+    for (const image of images) {
+      media?.file(image.mediaName, image.bytes);
+    }
+  }
 
   return zip.generateAsync({ type: 'uint8array' });
 }
 
-export async function pdfToWord(file: File): Promise<Uint8Array> {
-  const layout = await extractPdfLayout(file);
-  if (layout.every((page) => page.lines.length === 0)) {
-    throw new Error(
-      'No extractable text found. If this is a scan, run OCR PDF first, then convert to Word.',
-    );
+/** Рендер страницы в PNG (для страниц-сканов в docx). */
+async function renderPageToPngBytes(
+  file: File,
+  pageNumber: number,
+  widthPt: number,
+  heightPt: number,
+): Promise<Uint8Array> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const doc = await openPdfWithPdfjs(bytes);
+  try {
+    const page = await doc.getPage(pageNumber);
+    try {
+      const scale = ocrRenderScale(widthPt, heightPt, 1600, 0.5, 2);
+      const vp = page.getViewport({ scale });
+      const { canvas, ctx } = createRenderCanvas(vp.width, vp.height);
+      await page.render({
+        canvasContext: ctx as CanvasRenderingContext2D,
+        viewport: vp,
+        canvas,
+      }).promise;
+      return await canvasToBytes(canvas, 'image/png');
+    } finally {
+      page.cleanup?.();
+    }
+  } finally {
+    await destroyPdfjsDoc(doc);
   }
+}
 
+export async function pdfToWord(file: File): Promise<Uint8Array> {
+  const layout = await extractPdfLayout(file, { colors: true, links: true, columns: true });
   const allSizes = layout
     .flatMap((page) => page.lines.map((line) => line.size))
     .sort((a, b) => a - b);
   const medianSize = allSizes[Math.floor(allSizes.length / 2)] || 12;
 
-  const paragraphs: DocxParagraph[] = [];
-  for (const page of layout) {
-    for (const line of page.lines) {
+  const images: DocxImage[] = [];
+  const links: { id: string; url: string }[] = [];
+  const bodyParts: string[] = [];
+  let docPrId = 1;
+
+  for (let pageIndex = 0; pageIndex < layout.length; pageIndex++) {
+    const page = layout[pageIndex];
+
+    if (isScanPage(page)) {
+      try {
+        const png = await renderPageToPngBytes(file, pageIndex + 1, page.width, page.height);
+        const relId = `rImg${pageIndex + 1}`;
+        // Показываем «натуральный» размер страницы, вписанный в поля документа.
+        const contentWidthPt = Math.max(72, page.width - 144);
+        const displayWidthPt = Math.min(page.width, contentWidthPt);
+        const displayHeightPt = displayWidthPt * (page.height / Math.max(1, page.width));
+        images.push({
+          relId,
+          mediaName: `image-p${pageIndex + 1}.png`,
+          bytes: png,
+          cxEmu: Math.round(displayWidthPt * DOCX_EMU_PER_PT),
+          cyEmu: Math.round(displayHeightPt * DOCX_EMU_PER_PT),
+          docPrId: docPrId++,
+        });
+        bodyParts.push(
+          drawingParagraphXml(
+            relId,
+            `image-p${pageIndex + 1}.png`,
+            images[images.length - 1].cxEmu,
+            images[images.length - 1].cyEmu,
+            docPrId - 1,
+          ),
+        );
+        continue;
+      } catch {
+        // Рендер недоступен (например, тестовое окружение без canvas) —
+        // откатываемся к текстовому представлению страницы ниже.
+      }
+    }
+
+    const cellsPerLine = page.lines.map(lineCells);
+    const regions = detectTableRegions(cellsPerLine, page.lines[0]?.size ?? medianSize);
+    const regionByStart = new Map(regions.map((region) => [region.start, region]));
+
+    let lineIndex = 0;
+    while (lineIndex < page.lines.length) {
+      const region = regionByStart.get(lineIndex);
+      if (region) {
+        bodyParts.push(
+          tableRegionToXml(cellsPerLine, region, {
+            usableWidthPt: Math.max(72, page.width - 144),
+            fallbackSize: medianSize,
+          }),
+        );
+        lineIndex = region.end + 1;
+        continue;
+      }
+
+      const line = page.lines[lineIndex];
       const ratio = line.size / medianSize;
       const headingLevel = ratio >= 1.7 ? 1 : ratio >= 1.35 ? 2 : 0;
       const level = headingLevel || (line.bold && line.text.length < 80 && ratio >= 1.15 ? 3 : 0);
-      paragraphs.push({
-        text: line.text,
-        bold: line.bold,
-        italic: line.italic,
-        halfPoints: Math.round(line.size * 2 * 0.92),
-        align: line.alignment,
-        headingLevel: level,
-      });
+
+      const link = linkForLine(line, page.links);
+      let linkRelId: string | undefined;
+      if (link) {
+        linkRelId = `rLnk${links.length + 1}`;
+        links.push({ id: linkRelId, url: link.url });
+      }
+
+      const xml = lineToParagraphXml(line, { headingLevel: level, linkRelId });
+      if (xml) bodyParts.push(xml);
+      lineIndex += 1;
     }
   }
 
+  if (bodyParts.length === 0) {
+    throw new Error(
+      'No extractable text found. If this is a scan, run OCR PDF first, then convert to Word.',
+    );
+  }
+
   const firstPage = layout[0];
-  return buildDocx(paragraphs, [firstPage?.width ?? 595, firstPage?.height ?? 842]);
+  return buildDocx(
+    bodyParts.join(''),
+    [firstPage?.width ?? 595, firstPage?.height ?? 842],
+    images,
+    links,
+  );
 }
 
 export async function pdfToExcel(file: File): Promise<Uint8Array> {
@@ -2881,23 +3717,10 @@ export async function pdfToExcel(file: File): Promise<Uint8Array> {
   let addedSheets = 0;
 
   layout.forEach((page, pageIndex) => {
-    // Сливаем соседние items с маленьким горизонтальным разрывом в одну ячейку.
-    const cellsPerLine = page.lines.map((line) => {
-      const merged: { text: string; x: number }[] = [];
-      const sortedItems = [...line.items].sort((a, b) => a.x - b.x);
-      for (const item of sortedItems) {
-        const prev = merged[merged.length - 1];
-        const gapThreshold = line.size * 1.6;
-        if (prev && item.x - prev.x < gapThreshold) {
-          prev.text = `${prev.text} ${item.text}`.replace(/\s+/g, ' ');
-        } else {
-          merged.push({ text: item.text, x: item.x });
-        }
-      }
-      return merged.filter((cell) => cell.text.trim());
-    });
-
-    const rows = buildExcelRowsFromLineCells(cellsPerLine, page.lines[0]?.size ?? 12);
+    const cellsPerLine = page.lines.map(lineCells);
+    const rows = buildExcelRowsFromLineCells(cellsPerLine, page.lines[0]?.size ?? 12).map((row) =>
+      row.map((cell) => excelCellToNumber(cell) ?? cell),
+    );
     if (rows.length === 0) return;
 
     const sheet = XLSX.utils.aoa_to_sheet(rows);
@@ -2975,7 +3798,9 @@ export async function excelToPdf(file: File): Promise<Uint8Array> {
 }
 
 export async function pdfToMarkdown(file: File): Promise<string> {
-  const layout = await extractPdfLayout(file);
+  // Колонки включены: markdown — прозаический формат, reading order важен.
+  // Excel сознательно оставлен на плоском пути (см. ADR-018).
+  const layout = await extractPdfLayout(file, { columns: true });
   if (layout.every((page) => page.lines.length === 0)) {
     throw new Error('No extractable text found. If this is a scan, run OCR PDF first.');
   }

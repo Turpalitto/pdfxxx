@@ -1,7 +1,7 @@
-﻿# PDFX — Tasks & Technical Debt
+# PDFX — Tasks & Technical Debt
 
 > Обновляется AI-агентами после каждой значимой задачи.  
-> Last updated: 2026-08-27
+> Last updated: 2026-09-10
 
 ---
 
@@ -10,7 +10,7 @@
 > У PDFX уже 55+ инструментов (больше iLovePDF). Разрыв — в качестве 5 ключевых операций + экосистеме. Козырь PDFX: 100% в браузере, без загрузки на сервер.
 
 - [x] **#1 Реальное сжатие картинок в Compress PDF (2026-06-12)** — см. ниже в «Решено»
-- [~] **#2 Fidelity pdf-to-word/excel** — **Phase A+B+C+ готов (2026-06-18)**: A — типографика, B — таблицы `w:tbl`, C — цвет текста (`<w:color>`) + сканы (PNG в docx) + fontFamily (`<w:rFonts>`) + page size из PDF + spacing + smart scan detection (text density < 2%).
+- [~] **#2 Fidelity pdf-to-word/excel** — **Phase A+B+C+ восстановлены + D + E (2026-09-10)**: A — типографика, B — таблицы `w:tbl`, C — цвет/сканы, C+ — rFonts/spacing, D — гиперссылки + числовые ячейки Excel + hasImages-guard, E — мультиколоночный reading order (`findColumnCuts`/`reorderLinesByColumns` + table-cut guard) и фикс глобального бага bottom-to-top порядка строк. Остаток: списки/bullets → `numPr`, дедуп колонтитулов, выровненные baselines-колонки (см. ADR-018).
 - [x] **#3 Workflow-цепочки (2026-06-12)** — см. ниже в «Решено»
 - [x] **#4 Включить 10 языков + RTL** — es, fr, de, pt, zh, ja, ko, ar, hi, tr добавлены в LANGUAGES. Арабский RTL. Переводы.hero/nav уже были в translationMap, tool-translations полные. tsc 0 · vitest 56/56 · build OK.
 - [x] **SEO для 12 языков (2026-06-18)** — sitemap.xml LANG_CODES 12 + все TOOL_SLUGS, home.tsx useSeo через t.hero, hreflang динамически.
@@ -19,6 +19,8 @@
 - [x] **#6 Усилить OCR** — адаптивный масштаб рендера (`ocrRenderScale`), мультиязычный UI (16 языков, чекбоксы). Скорость на больших страницах; точность на мелких.
 
 ## 🔄 Текущие задачи (In Progress)
+
+- [x] **Fidelity pdf-to-word/excel — Phase D (2026-09-10)** — обнаружен регресс: восстановление после broken merge 8ddf5fa вернуло `pdfToWord` к Phase A (потеряны `w:tbl`/`w:color`/`w:rFonts`/spacing/сканы из фаз B/C/C+, а golden-тесты проверяли только текст). Восстановлены таблицы, цвет (через operatorList, pdfjs v5 hex-args), шрифты, spacing; добавлены гиперссылки (`<w:hyperlink>`), числовые ячейки Excel (`excelCellToNumber`), hasImages-guard для scan-PNG (born-digital страницы без картинок остаются текстом), shared `lineCells()`. Обогащение `{colors, links}` опционально по инструменту. ADR-017. Проверено: tsc 0, eslint 0, vitest **164/164** (+25), build OK, prod smoke OK.
 
 - [x] **Мега-аудит по .ai/prompts/mega-audit.md (2026-08-27)** — 14 eslint warnings → 0 (refs/стабильные setState в deps; `actionTypes` const → type; unused imports); compare-pdf/pdf-diff/overlay-pdf SecondFileInput: sr-only input + label-кнопка вместо всегда-видимого нативного file input (testid сохранён для e2e). Аудит фаз 2–5: новых багов нет (слаги/переводы/registry/секреты/XSS/утечки/чанки чисто). Проверено: tsc 0, eslint 0/0, vitest 139/139, build OK, headless smoke 0 ошибок.
 
@@ -269,7 +271,7 @@
 - [x] Предпросмотр результата до скачивания (уже реализован — previewDataUrl для PDF)
 - [x] История последних файлов (localStorage) — уже реализовано (useRecentFiles)
 - [x] Прогресс-бар для split-by-size (уже реализован — onProgress)
-- [ ] Keyboard shortcuts help popup
+- [x] Keyboard shortcuts help popup (Shift+/) — повторно подключён 2026-09-10: проводка в App.tsx потерялась при broken merge; заодно matchesShortcut теперь понимает `?` (Shift+/ на US-раскладке)
 
 ### Технические улучшения
 
@@ -294,8 +296,8 @@
 
 ## ⚠️ Техдолг (выявлен аудитом 2026-08-26, не блокирует)
 
-- [ ] **edit-pdf: векторное сохранение** — сейчас аннотации растеризуются в полностраничный PNG (DISPLAY_SCALE 1.5): текст нерезкий и невыделяемый. Нужна конвертация fabric-объектов в pdf-lib примитивы (текст/фигуры) с растером только для freehand.
-- [ ] **Мёртвые npm-зависимости** — @libpdf/core, pptxgenjs (теперь используется pdfToPptx ✅), tesseract.js, xlsx, date-fns, ws + половина shadcn-обвязки; allowlist в script/build.ts содержит призрачные пакеты (drizzle/stripe/passport/openai/multer).
-- [ ] **SEO: prerender/SSR** — SPA без серверного рендера; статический sitemap теперь дублирует динамический (в проде выигрывает серверный), оставить как fallback для статики.
-- [ ] **Pro-план не купить** — tool-page default кидает proOnlyError, но pricing Pro = «By request»; нужен явный контакт/CTA.
-- [ ] **FAQ упоминает «3 файла за раз»** — проверить реальный batch-лимит upload-limits.
+- [x] **edit-pdf: векторное сохранение** — ✅ сделано 2026-08-27 (fabric→pdf-lib, `edit-pdf-vector.ts`, 7 тестов); чекбокс проставлен 2026-09-10.
+- [x] **Мёртвые npm-зависимости** — ✅ по состоянию на 2026-09-10: в package.json только используемые пакеты (tesseract.js/xlsx/pptxgenjs реально используются), allowlist в script/build.ts = `['express']` (призрачных пакетов нет).
+- [x] **SEO: prerender/SSR** — ✅ `build:full` с пререндером 64 страниц сделан 2026-08-27; статический sitemap оставлен как fallback.
+- [x] **Pro-план не купить** — ✅ pricing.tsx ведёт Pro/Team на `/contact` («via contact», CTA «Contact us»); подтверждено 2026-09-10.
+- [x] **FAQ упоминает «3 файла за раз»** — ✅ упоминание отсутствует в коде; лимиты покрыты `upload-limits.ts` + тестами; подтверждено 2026-09-10.

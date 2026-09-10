@@ -1,6 +1,63 @@
-﻿# PDFX — Changelog
+# PDFX — Changelog
 
 > История изменений проекта. Обновляется после каждого значимого изменения.
+
+---
+
+## 2026-09-10 — Fidelity Phase E: мультиколоночный reading order + фикс порядка строк
+
+### Найдено и исправлено (старый баг)
+
+- **Строки группировались bottom-to-top**: viewport-y pdfjs растёт вниз, а сортировка в `groupItemsIntoLines` была по убыванию — абзацы в Word/Markdown и строки таблиц/Excel шли в обратном порядке на каждой странице. Никто не замечал: golden-тесты проверяли только наличие текста. Исправлено на ascending (чтение сверху вниз); порядок строк `w:tbl` закреплён golden-ассершном Region→North→South.
+
+### Добавлено (Phase E)
+
+- **`findColumnCuts()`** — детект вертикальных просветов (gutters) между колонками: проекция items на x, свободные интервалы ≥ max(18, 1.8×медианный кегль), не примыкающие к полям; «широкие» элементы (>45% ширины контента, заголовки через страницу) из проекции исключены; ≤3 разрезов; каждая колонка ≥ max(3, 12%) items.
+- **`reorderLinesByColumns()`** — reading order колонок: строки, склеенные из двух колонок (выровненные baselines), разрезаются по просвету, если просвет пуст внутри строки; непрерывные через-просвет строки — разделители полос; строки полос отдаются колонка за колонкой.
+- **Table-cut guard**: просвет, который пересекают ≥2 подряд строки с плотным шагом (≤2.5×кегль), — строки таблицы; такой cut не режется → `w:tbl`/Excel не разрушаются. Заголовок + разреженная строка тела таблицей не считаются.
+- **Включено для** `pdfToWord` и `pdfToMarkdown` (`columns: true`); `pdfToExcel` сознательно на плоском пути — таблицы его основной кейс (ADR-018).
+
+### Ограничения (документированы в ADR-018)
+
+- Колонки с выровненными baselines (LaTeX beams, плотные Word-секции) неотличимы от строк таблицы → не режутся (текст остаётся полным, но порядок построчный). Excel не затронут.
+
+### Проверка
+
+- vitest 172 → **183** (+11: cuts/reorder unit, golden на двухколоночный порядок, excel-flat, порядок строк w:tbl) · tsc 0 · eslint 0 · build OK.
+
+## 2026-09-10 — Hotfix: горяче-клавишный help-диалог снова доступен
+
+- `KeyboardHelpDialog` + `useKeyboardShortcuts` пережили broken merge как файлы, но потеряли проводку: диалог не открывался никак. Подключён в `ThemedLayout` (Shift+/ — toggle, Esc закрывает; рендер под LangProvider ради useLang).
+- Баг хука: `matchesShortcut` сравнивал `e.key === '/'`, но Shift+/ на US-раскладке даёт `?` — help был невозможно нажать. `'?'` теперь нормализуется к `'/'`; функция экспортирована для тестов.
+- Тесты: `use-keyboard-shortcuts.test.ts` (matchesShortcut: `?`/`/`/Shift/Ctrl/meta, getShortcutList: локализация и стрелки); e2e в smoke: диалог открывается по Shift+/ и закрывается по Esc. vitest 164 → **172**. tsc 0 · eslint 0.
+
+## 2026-09-10 — Fidelity pdf-to-word/excel Phase D: восстановление B/C/C+ + новые фичи
+
+### Обнаружено
+
+Восстановление `pdf-utils.ts` после broken merge (2026-08-26) вернуло файл **до фаз B/C/C+**: в `pdfToWord` не было таблиц `w:tbl`, цвета текста, `w:rFonts`, spacing и сканов-PNG — хотя хелперы `fillColorToHex`/`detectTableRegions` в файле оставались (с тестами, но неподключённые). Golden-тесты проверяли только наличие текста и регресс не ловили. Пункт roadmap #2 фактически был на уровне Phase A.
+
+### Восстановлено (утерянное)
+
+- **Таблицы `w:tbl` в Word**: `detectTableRegions` + новый `tableRegionToXml` (общие колонки через `clusterColumns`/`assignToColumn`, `tblGrid`/`tcW` в twips, границы `tblBorders`, текст ячеек через styled runs).
+- **Цвет текста `w:color`**: `trackTextFillColors` читает fill color из pdfjs `getOperatorList()` (v5 передаёт готовую hex-строку в `setFillRGBColor`; поддержаны компонентные rgb/gray/cmyk и `setFillColor` с известным пространством; q/Q-стек корректно откатывает цвет; чёрный/белый → undefined). `attachColorsToItems` парсит цвета show-опов с textContent (прямое парное выравнивание + fallback по непустым подпоследовательностям).
+- **`w:rFonts`** из pdfjs fontFamily (`normalizeFontFamily` чистит subset-префиксы `ABCDEE+` и отбрасывает generic `sans-serif`/…), **`w:spacing`** before/after (заголовки/обычные), runs группируются по стилю (`itemsToStyledRuns`).
+
+### Добавлено (новое)
+
+- **Гиперссылки в Word**: Link-аннотации (`getAnnotations`, только http/https) → `<w:hyperlink r:id>` + внешние relationship'ы + underline/0563C1. Сопоставление строка↔rect — `linkForLine` (максимальное горизонтальное перекрытие при вертикальном).
+- **Числовые ячейки в Excel**: `excelCellToNumber` — целые/десятичные (точка и запятая), разряды через пробел/nbsp; ведущие нули, версии, `$8`, `Q1` остаются строками.
+- **Смарт-сканы c проверкой картинок**: страницы без текста (или разреженные при наличии растра) рендерятся в PNG (`renderPageToPngBytes` через `createRenderCanvas`, работает и в воркере) и вставляются inline-DrawingML в `word/media/`. Разреженные born-digital страницы **без** изображений остаются честным текстом (флаг `hasImages` из image-опов того же operatorList).
+- Общая эвристика ячеек `lineCells()` (Word-таблицы и Excel больше не дублируют gap-merge).
+
+### Производительность
+
+- `getOperatorList()` и `getAnnotations()` вызываются только для pdf-to-word (`extractPdfLayout(file, { colors, links })`); Excel/Markdown не платят за обогащение.
+
+### Тесты
+
+- vitest 139 → **164**: golden на `w:tbl`/цвет/гиперссылку/числовые ячейки (+ link-аннотация в fixture через pdf-lib PDFDict), unit на `trackTextFillColors` (включая hex-строки pdfjs v5 и q/Q), `attachColorsToItems`, `isScanPage`/`pageTextDensity`, `excelCellToNumber`, `normalizeFontFamily`, `lineCells`, `itemsToStyledRuns`, `linkForLine`, `lineToParagraphXml`, `tableRegionToXml`, fallback «текст не извлекается».
+- tsc 0 · eslint 0 · prettier · build OK · prod smoke OK. Визуальная проверка docx/xlsx в Word/LibreOffice — ручной шаг (в песочнице нет браузера/LibreOffice; браузерный путь покрыт architecture-fallback и будет прогнан в CI).
 
 ---
 
