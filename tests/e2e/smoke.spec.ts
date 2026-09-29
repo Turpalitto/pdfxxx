@@ -21,6 +21,16 @@ test.describe('public pages', () => {
     await expect(
       page.getByRole('heading', { name: /Выберите инструмент|Choose your tool/i }),
     ).toBeVisible();
+    await expect(page.getByTestId('home-workflow-send-ready')).toBeVisible();
+
+    const toolHeadingY = await page
+      .getByRole('heading', { name: /Выберите инструмент|Choose your tool/i })
+      .evaluate((element) => element.getBoundingClientRect().top + window.scrollY);
+    const statsY = await page
+      .locator('[data-testid^="stat-"]')
+      .first()
+      .evaluate((element) => element.getBoundingClientRect().top + window.scrollY);
+    expect(toolHeadingY).toBeLessThan(statsY);
     await expectNoHorizontalOverflow(page);
   });
 
@@ -52,6 +62,7 @@ test.describe('public pages', () => {
   test('command palette shows privacy-safe recent tools', async ({ page }) => {
     await page.goto('/');
     await page.evaluate(() => {
+      localStorage.setItem('pdfx-recent-tools', JSON.stringify(['pdf-to-excel']));
       localStorage.setItem(
         'pdfx_recent_files',
         JSON.stringify([
@@ -64,6 +75,9 @@ test.describe('public pages', () => {
         ]),
       );
     });
+    await page.reload();
+
+    await expect(page.getByTestId('home-recent-pdf-to-excel')).toBeVisible();
 
     await page.keyboard.press('Control+K');
 
@@ -81,6 +95,15 @@ test.describe('public pages', () => {
     await expect(page.getByText('Free').first()).toBeVisible();
     await expect(page.getByText('Pro').first()).toBeVisible();
     await expect(page.getByText('Team').first()).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+  });
+
+  test('privacy page stays within the viewport', async ({ page }) => {
+    await page.goto('/privacy');
+
+    await expect(page.getByRole('heading', { level: 1 })).toContainText(
+      /Privacy Policy|Политика конфиденциальности/i,
+    );
     await expectNoHorizontalOverflow(page);
   });
 

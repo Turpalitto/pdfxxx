@@ -1,7 +1,7 @@
 # PDFX — Tasks & Technical Debt
 
 > Обновляется AI-агентами после каждой значимой задачи.  
-> Last updated: 2026-09-10
+> Last updated: 2026-09-14
 
 ---
 
@@ -21,6 +21,9 @@
 ## 🔄 Текущие задачи (In Progress)
 
 - [x] **Fidelity pdf-to-word/excel — Phase D (2026-09-10)** — обнаружен регресс: восстановление после broken merge 8ddf5fa вернуло `pdfToWord` к Phase A (потеряны `w:tbl`/`w:color`/`w:rFonts`/spacing/сканы из фаз B/C/C+, а golden-тесты проверяли только текст). Восстановлены таблицы, цвет (через operatorList, pdfjs v5 hex-args), шрифты, spacing; добавлены гиперссылки (`<w:hyperlink>`), числовые ячейки Excel (`excelCellToNumber`), hasImages-guard для scan-PNG (born-digital страницы без картинок остаются текстом), shared `lineCells()`. Обогащение `{colors, links}` опционально по инструменту. ADR-017. Проверено: tsc 0, eslint 0, vitest **164/164** (+25), build OK, prod smoke OK.
+- [x] **Рабочая главная + quality fixes (2026-09-14)** — каталог поднят выше маркетинговых блоков, добавлены локальные recent tools и четыре Workflow-сценария, command palette загружается лениво, массовые JS-анимации карточек убраны. Исправлены scale текста edit-pdf, DOCX page breaks, Excel column gaps и Unicode OCR layer. Проверено: tsc 0, eslint 0, vitest 142/142, build OK, browser QA desktop/mobile.
+
+- [x] **Sites-аудит и mobile privacy fix (2026-09-14)** — найдено переполнение `/privacy` на 390 px viewport из-за flex-заголовка; исправлены адаптивные отступы/сжатие/типографика, локализованы skip-link и route-loading status, добавлен e2e regression test. Проверено: tsc 0, vitest 139/139, build OK, browser QA основных маршрутов.
 
 - [x] **Мега-аудит по .ai/prompts/mega-audit.md (2026-08-27)** — 14 eslint warnings → 0 (refs/стабильные setState в deps; `actionTypes` const → type; unused imports); compare-pdf/pdf-diff/overlay-pdf SecondFileInput: sr-only input + label-кнопка вместо всегда-видимого нативного file input (testid сохранён для e2e). Аудит фаз 2–5: новых багов нет (слаги/переводы/registry/секреты/XSS/утечки/чанки чисто). Проверено: tsc 0, eslint 0/0, vitest 139/139, build OK, headless smoke 0 ошибок.
 
@@ -267,6 +270,7 @@
 
 ### UX улучшения
 
+- [x] Перенести выбранное направление 3: search-first главная, компактный каталог и mobile-first upload flow (2026-09-21)
 - [x] Drag-and-drop порядка файлов в merge-pdf
 - [x] Предпросмотр результата до скачивания (уже реализован — previewDataUrl для PDF)
 - [x] История последних файлов (localStorage) — уже реализовано (useRecentFiles)

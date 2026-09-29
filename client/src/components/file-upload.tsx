@@ -17,6 +17,7 @@ interface FileUploadProps {
   onReorderFiles?: (files: File[]) => void;
   label?: string;
   description?: string;
+  selectLabel?: string;
 }
 
 export function FileUpload({
@@ -31,6 +32,7 @@ export function FileUpload({
   onReorderFiles,
   label = 'Drop your PDF here',
   description,
+  selectLabel = 'Choose File',
 }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -99,7 +101,7 @@ export function FileUpload({
         onDragLeave={handleDrag}
         onDrop={handleDrop}
         className={cn(
-          'relative flex flex-col items-center justify-center gap-3 p-8 rounded-md border-2 border-dashed cursor-pointer transition-all duration-200',
+          'relative flex min-h-[230px] flex-col items-center justify-center gap-3 rounded-[20px] border-2 border-dashed p-6 cursor-pointer transition-all duration-200 sm:p-8',
           isDragging
             ? 'border-primary bg-primary/5 scale-[1.01]'
             : 'border-border hover:border-primary/50 hover:bg-accent/40',
@@ -123,7 +125,7 @@ export function FileUpload({
 
         <div
           className={cn(
-            'w-14 h-14 rounded-xl flex items-center justify-center transition-all duration-200',
+            'flex size-14 items-center justify-center rounded-2xl transition-all duration-200',
             isDragging ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
           )}
         >
@@ -131,23 +133,23 @@ export function FileUpload({
         </div>
 
         <div className="text-center">
-          <p className="font-semibold text-sm">{label}</p>
+          <p className="text-base font-bold sm:text-lg">{label}</p>
           <p className="text-xs text-muted-foreground mt-1">
             {description || `${multiple ? 'Multiple files' : 'Single file'} up to ${maxSizeMb}MB`}
           </p>
         </div>
 
         <Button
-          variant="outline"
-          size="sm"
+          size="lg"
           type="button"
+          className="mt-1 min-w-48 rounded-xl px-6 font-bold"
           onClick={(e) => {
             e.stopPropagation();
             inputRef.current?.click();
           }}
           data-testid="button-select-files"
         >
-          Choose File{multiple ? 's' : ''}
+          {selectLabel}
         </Button>
 
         {isDragging && (

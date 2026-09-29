@@ -1060,6 +1060,31 @@ describe('detectTableRegions', () => {
     });
   });
 
+  describe('OCR and table text helpers', () => {
+    it('detects when OCR text needs the embedded Unicode font', async () => {
+      const { needsUnicode } = await import('@/lib/pdf-utils');
+      expect(needsUnicode('Invoice 42')).toBe(false);
+      expect(needsUnicode('Счёт 42')).toBe(true);
+    });
+
+    it('merges adjacent text runs by their visual gap without collapsing columns', async () => {
+      const { mergeLineItemsIntoCells } = await import('@/lib/pdf-utils');
+      const cells = mergeLineItemsIntoCells(
+        [
+          { text: 'Account', x: 40, width: 58 },
+          { text: 'name', x: 102, width: 30 },
+          { text: 'Q1', x: 220, width: 15 },
+        ],
+        12,
+      );
+
+      expect(cells).toEqual([
+        { text: 'Account name', x: 40 },
+        { text: 'Q1', x: 220 },
+      ]);
+    });
+  });
+
   describe('batesNumbering', () => {
     it('is an async function accepting file and options', async () => {
       const { batesNumbering } = await import('@/lib/pdf-utils');

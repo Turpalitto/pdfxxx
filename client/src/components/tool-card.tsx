@@ -1,6 +1,5 @@
 import { memo } from 'react';
 import { Link } from 'wouter';
-import { motion } from 'framer-motion';
 import { ArrowUpRight } from 'lucide-react';
 import {
   type Tool,
@@ -33,11 +32,8 @@ function ToolCardComponent({ tool }: ToolCardProps) {
       onFocus={() => preloadToolRoute(tool.slug)}
       className="block w-full min-w-0"
     >
-      <motion.div
-        // Keep hover motion but avoid layout overflow in narrow grids/sidebars.
-        whileHover={{ y: -2 }}
-        whileTap={{ scale: 0.995 }}
-        className="paper-tool-card group grid min-h-[232px] w-full min-w-0 cursor-pointer content-start gap-4 rounded-[22px] p-5 transition-all duration-300"
+      <div
+        className="paper-tool-card group grid min-h-[232px] w-full min-w-0 cursor-pointer content-start gap-4 rounded-[22px] p-5 transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.995]"
         data-testid={`card-tool-${tool.slug}`}
       >
         <div className="relative z-[1] flex items-center justify-between gap-3">
@@ -88,7 +84,7 @@ function ToolCardComponent({ tool }: ToolCardProps) {
             {tool.pro ? 'Pro' : isReady ? getToolMaturityLabel(maturity, lang) : 'Soon'}
           </span>
         </div>
-      </motion.div>
+      </div>
     </Link>
   );
 }

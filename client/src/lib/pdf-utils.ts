@@ -8,6 +8,7 @@ import {
   rgb,
   StandardFonts,
   degrees,
+  type PDFFont,
 } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 
@@ -128,7 +129,7 @@ async function embedUnicodeFont(pdfDoc: PDFDocument) {
   return pdfDoc.embedFont(bytes);
 }
 
-function needsUnicode(text: string) {
+export function needsUnicode(text: string) {
   // eslint-disable-next-line no-control-regex -- intentional non-ASCII byte check
   return /[^\x00-\x7F]/.test(text);
 }
@@ -2559,6 +2560,28 @@ export function buildExcelRowsFromLineCells(
   return rows;
 }
 
+export function mergeLineItemsIntoCells(
+  items: Pick<PdfLayoutItem, 'text' | 'x' | 'width'>[],
+  lineSize: number,
+): { text: string; x: number }[] {
+  const merged: { text: string; x: number; width: number }[] = [];
+  const sortedItems = [...items].sort((a, b) => a.x - b.x);
+  const gapThreshold = Math.max(2, lineSize * 0.6);
+
+  for (const item of sortedItems) {
+    const prev = merged[merged.length - 1];
+    const gap = prev ? item.x - (prev.x + prev.width) : Number.POSITIVE_INFINITY;
+    if (prev && gap <= gapThreshold) {
+      prev.text = `${prev.text} ${item.text}`.replace(/\s+/g, ' ').trim();
+      prev.width = Math.max(prev.width, item.x + item.width - prev.x);
+    } else {
+      merged.push({ text: item.text.trim(), x: item.x, width: Math.max(0, item.width) });
+    }
+  }
+
+  return merged.filter((cell) => cell.text).map(({ text, x }) => ({ text, x }));
+}
+
 export function fillColorToHex(
   colorSpace: 'rgb' | 'gray' | 'cmyk',
   components: number[],
@@ -2907,6 +2930,7 @@ export function linkForLine(
 export interface PdfLayoutItem {
   text: string;
   x: number;
+  width: number;
   size: number;
   bold: boolean;
   italic: boolean;
@@ -3324,6 +3348,7 @@ function groupItemsIntoLines(
       items: current.map((it) => ({
         text: it.str,
         x: it.x,
+        width: it.width,
         size: it.size,
         bold: detectFontStyle(it.fontName).bold,
         italic: detectFontStyle(it.fontName).italic,
@@ -3624,6 +3649,10 @@ export async function pdfToWord(file: File): Promise<Uint8Array> {
   let docPrId = 1;
 
   for (let pageIndex = 0; pageIndex < layout.length; pageIndex++) {
+    // Page break between source PDF pages (keep pages separated in DOCX).
+    if (pageIndex > 0) {
+      bodyParts.push('<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
+    }
     const page = layout[pageIndex];
 
     if (isScanPage(page)) {
@@ -4019,7 +4048,8 @@ export async function ocrPdf(
   onProgress?.(5);
   const worker = await Tesseract.createWorker(lang);
   const out = await PDFDocument.create();
-  const invisibleFont = await out.embedFont(StandardFonts.Helvetica);
+  const asciiInvisibleFont = await out.embedFont(StandardFonts.Helvetica);
+  let unicodeInvisibleFont: PDFFont | null = null;
 
   try {
     for (let i = 1; i <= doc.numPages; i++) {
@@ -4050,6 +4080,14 @@ export async function ocrPdf(
               para.lines?.flatMap?.((line: any) => line.words ?? []),
             ) ?? [],
         ) ?? [];
+
+      const pageNeedsUnicode = words.some(
+        (word: any) => typeof word?.text === 'string' && needsUnicode(word.text),
+      );
+      if (pageNeedsUnicode && !unicodeInvisibleFont) {
+        unicodeInvisibleFont = await embedUnicodeFont(out);
+      }
+      const invisibleFont = unicodeInvisibleFont ?? asciiInvisibleFont;
 
       words.forEach((word: any) => {
         const bbox = word?.bbox;

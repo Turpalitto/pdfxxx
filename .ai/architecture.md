@@ -1,6 +1,6 @@
 # PDFX — Architecture
 
-> Source of truth. Last updated: 2026-06-22. Update after structural changes.
+> Source of truth. Last updated: 2026-09-14. Update after structural changes.
 
 ---
 
@@ -16,7 +16,7 @@ client/src/
 │   ├── tools.ts               # ← РЕЕСТР ИНСТРУМЕНТОВ (source of truth)
 │   ├── pdf-utils.ts           # ← ВСЕ PDF-функции (~3158 строк)
 │   ├── tool-translations.ts   # Переводы инструментов (18 языков, ~664 строки)
-│   ├── tool-experience.ts     # Sidebar: workflow suggestions per tool
+│   ├── tool-experience.ts     # Workflow suggestions + privacy-safe recent tool slugs
 │   ├── edit-pdf-copy.ts       # EN/RU SEO + primary UI copy for autonomous Edit PDF editor
 │   ├── upload-limits.ts       # Лимиты размера файла per tool
 │   ├── i18n.ts                # UI-строки (не названия инструментов)
@@ -48,6 +48,8 @@ client/src/
 └── components/
     ├── navbar.tsx
     ├── footer.tsx
+    ├── global-command-palette.tsx        # Лёгкий trigger + keyboard shortcut
+    ├── global-command-palette-dialog.tsx # Lazy-loaded поиск/команды
     ├── file-upload.tsx        # Drag-and-drop загрузчик
     ├── tool-card.tsx          # Карточка инструмента в сетке
     ├── page-thumbnails.tsx    # Превью страниц PDF (delete/reorder/extract)
@@ -99,7 +101,7 @@ handleDownload() → downloadBlob() / downloadText()
      → extractTextLines(): кэш текстовых строк → pageTextLinesRef
      → Fabric.js: интерактивный слой поверх canvas
      → per-page JSON state → pageStatesRef
-     → handleSave(): pdf-lib встраивает Fabric-объекты как изображения
+     → handleSave(): pdf-lib сохраняет Fabric-объекты векторно с пересчётом display scale
      → downloadBlob()
 ```
 
@@ -162,7 +164,9 @@ handleDownload() → downloadBlob() / downloadText()
 
 ### `GlobalCommandPalette` + home search
 
-`client/src/components/global-command-palette.tsx` и поиск на главной используют один источник для инструментов — `client/src/tools/search-index.ts`. Palette открывается через `Ctrl/⌘+K`, ищет по slug/category/output/maturity и EN/RU названиям/описаниям, затем ведёт на `/tools/{slug}` или `/workflow`. Дополнительные command sources живут в `client/src/components/command-palette-sources.ts`: Workflow presets строят deep link `/workflow?preset=<id>`, а recent tools читают sanitized recent storage без имён файлов, путей и содержимого документов.
+`client/src/components/global-command-palette.tsx` — лёгкий trigger и обработчик `Ctrl/⌘+K`; содержимое диалога находится в `global-command-palette-dialog.tsx` и загружается через `React.lazy()` только при первом открытии. Palette и поиск на главной используют один источник для инструментов — `client/src/tools/search-index.ts`. Дополнительные command sources живут в `client/src/components/command-palette-sources.ts`: Workflow presets строят deep link `/workflow?preset=<id>`, а команды по недавним файлам читают sanitized storage без имён файлов, путей и содержимого документов.
+
+Главная показывает недавние посещённые инструменты через `tool-experience.ts`. В `localStorage` под ключом `pdfx-recent-tools` хранится только ограниченный список валидных slug; `tool-page.tsx` и автономный `edit-pdf-page.tsx` обновляют его при посещении.
 
 **Правило:** новые поисковые поверхности должны переиспользовать `searchToolRegistry()`, а не строить отдельные локальные индексы. Recent/preset команды не должны хранить или показывать приватные имена файлов; для workflow preset metadata использовать lightweight `workflow-presets.ts`.
 

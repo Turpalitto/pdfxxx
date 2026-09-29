@@ -127,10 +127,18 @@ interface DrawContext {
   font: PDFFont;
 }
 
+export function fabricFontSizeToPdf(
+  fontSize: number,
+  objectScaleY: number,
+  displayScale: number,
+): number {
+  return (fontSize * objectScaleY) / Math.max(displayScale, 0.001);
+}
+
 function drawTextObject(obj: FabricObjectJson, ctx: DrawContext): void {
   const text = typeof obj.text === 'string' ? obj.text : '';
   if (text === '') return;
-  const size = (obj.fontSize ?? 40) * (obj.scaleY ?? 1);
+  const size = fabricFontSizeToPdf(obj.fontSize ?? 40, obj.scaleY ?? 1, ctx.scale);
   const lineHeight = (obj.lineHeight ?? 1.16) * size;
   const fill = parseFabricColor(obj.fill) ?? { r: 0, g: 0, b: 0, a: 1 };
   const left = (obj.left ?? 0) / ctx.scale;

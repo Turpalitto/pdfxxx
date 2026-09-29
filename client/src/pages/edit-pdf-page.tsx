@@ -33,6 +33,7 @@ import { useSeo } from '@/hooks/use-seo';
 import { cn } from '@/lib/utils';
 import { DEFAULT_MAX_FILE_SIZE_MB, mbToBytes } from '@/lib/upload-limits';
 import { drawFabricStateVector } from '@/lib/edit-pdf-vector';
+import { rememberRecentTool } from '@/lib/tool-experience';
 
 type ToolType =
   | 'select'
@@ -92,6 +93,10 @@ function dataUrlToBytes(dataUrl: string): Uint8Array {
 export default function EditPdfPage() {
   const { lang } = useLang();
   const isRu = lang === 'ru';
+
+  useEffect(() => {
+    rememberRecentTool('edit-pdf');
+  }, []);
 
   useSeo({
     title: isRu ? 'Редактировать PDF — PDFX' : 'Edit PDF — PDFX',

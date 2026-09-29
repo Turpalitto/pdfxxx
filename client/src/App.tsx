@@ -6,7 +6,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { KeyboardHelpDialog } from '@/components/keyboard-help';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { ThemeProvider } from '@/lib/theme';
-import { LangProvider } from '@/lib/lang-context';
+import { LangProvider, useLang } from '@/lib/lang-context';
 import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
 import {
@@ -38,6 +38,8 @@ type IdleWindow = Window & {
 };
 
 function Router() {
+  const { lang } = useLang();
+
   return (
     <Suspense
       fallback={
@@ -54,7 +56,9 @@ function Router() {
               <div className="h-10 w-40 animate-pulse rounded-lg bg-foreground/10" />
             </div>
           </div>
-          <span className="sr-only">Preparing PDFX...</span>
+          <span className="sr-only">
+            {lang === 'ru' ? 'Подготавливаем PDFX...' : 'Preparing PDFX...'}
+          </span>
         </div>
       }
     >
@@ -75,6 +79,7 @@ function Router() {
 
 function ThemedLayout() {
   const [location] = useLocation();
+  const { lang } = useLang();
   // Route transitions: re-key only on pathname (not query/hash) so category
   // pill clicks do not replay the entrance animation on the whole page.
   const routeKey = location.split(/[?#]/)[0];
@@ -107,7 +112,7 @@ function ThemedLayout() {
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:left-4 focus:top-4 focus:rounded-md focus:bg-white focus:px-3 focus:py-1.5 focus:text-sm focus:text-black focus:shadow-lg"
       >
-        Skip to main content
+        {lang === 'ru' ? 'Перейти к основному содержимому' : 'Skip to main content'}
       </a>
       <div className="relative z-10 flex flex-col min-h-screen">
         <Navbar />

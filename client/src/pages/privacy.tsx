@@ -58,13 +58,13 @@ export default function PrivacyPage() {
             {isRu ? '← На главную' : '← Back home'}
           </Link>
         </div>
-        <div className="rounded-3xl border border-border bg-card p-8 md:p-10">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+        <div className="rounded-3xl border border-border bg-card p-5 sm:p-8 md:p-10">
+          <div className="flex items-start gap-3 mb-6 sm:items-center">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-primary">
               <Shield className="size-6" />
             </div>
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">
+            <div className="min-w-0">
+              <h1 className="break-words text-xl font-bold text-foreground sm:text-3xl">
                 {isRu ? 'Политика конфиденциальности' : 'Privacy Policy'}
               </h1>
               <p className="text-muted-foreground mt-1">

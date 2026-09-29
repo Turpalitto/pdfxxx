@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useLang } from '@/lib/lang-context';
 import { LANGUAGES } from '@/lib/i18n';
 import { useSeo } from '@/hooks/use-seo';
-import { ArrowLeft, Download, CheckCircle, AlertCircle, RefreshCw, Lock } from 'lucide-react';
+import { ChevronRight, Download, CheckCircle, AlertCircle, RefreshCw, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -25,6 +25,7 @@ import { ProgressRing } from '@/components/progress-ring';
 import { ToolCard } from '@/components/tool-card';
 import { getToolBySlug, tools, categoryColors } from '@/lib/tools';
 import { getToolTranslation } from '@/lib/tool-translations';
+import { rememberRecentTool } from '@/lib/tool-experience';
 import { DEFAULT_MAX_FILE_SIZE_MB } from '@/lib/upload-limits';
 import { getToolRegistryEntry } from '@/tools/registry';
 import type { ToolOutputDefinition } from '@/tools/types';
@@ -142,6 +143,10 @@ export default function ToolPage() {
   const _toolName = toolTr?.name ?? tool?.name ?? '';
   const _toolDesc = toolTr?.description ?? tool?.description ?? '';
   const maxSizeMb = tool?.maxFilesMb ?? DEFAULT_MAX_FILE_SIZE_MB;
+
+  useEffect(() => {
+    if (tool) rememberRecentTool(tool.slug);
+  }, [tool]);
 
   const entry = useMemo(() => getToolRegistryEntry(slug), [slug]);
   const output = entry?.output ?? FALLBACK_OUTPUT;
@@ -1007,31 +1012,28 @@ export default function ToolPage() {
 
   return (
     <div className="min-h-screen">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-        <div className="mb-6">
-          <Button variant="ghost" size="sm" asChild className="text-muted-foreground">
-            <Link href="/">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              {t.tool.backToAll}
-            </Link>
-          </Button>
-        </div>
+      <div className="mx-auto max-w-6xl px-4 py-7 sm:px-6 sm:py-10">
+        <nav className="mb-5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground" aria-label={lang === 'ru' ? 'Хлебные крошки' : 'Breadcrumb'}>
+          <Link href="/" className="transition-colors hover:text-foreground">{lang === 'ru' ? 'Главная' : 'Home'}</Link>
+          <ChevronRight className="size-3" />
+          <Link href={`/?category=${tool.category}`} className="transition-colors hover:text-foreground">{lang === 'ru' ? 'Инструменты' : 'Tools'}</Link>
+        </nav>
 
-        <div className="grid lg:grid-cols-[1fr_340px] gap-8">
+        <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
           <div className="space-y-6">
             <div className="flex items-start gap-4">
               <div
-                className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0"
+                className="flex size-12 shrink-0 items-center justify-center rounded-2xl sm:size-14"
                 style={{
-                  background: `linear-gradient(135deg, ${colors.gradient}, ${colors.gradient.replace('0.18', '0.05')})`,
-                  border: `1px solid ${colors.gradient.replace('0.18', '0.2')}`,
+                  background: colors.gradient,
+                  border: `1px solid ${colors.glow}`,
                 }}
               >
-                {tool.emoji}
+                <Icon className="size-6" style={{ color: colors.from }} />
               </div>
               <div>
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <h1 className="text-2xl font-bold">{_toolName}</h1>
+                  <h1 className="text-3xl font-bold tracking-[-0.03em] sm:text-4xl">{_toolName}</h1>
                   {tool.pro && (
                     <Badge variant="secondary">
                       <Lock className="w-3 h-3 mr-1" />
@@ -1039,11 +1041,11 @@ export default function ToolPage() {
                     </Badge>
                   )}
                 </div>
-                <p className="text-muted-foreground">{_toolDesc}</p>
+                <p className="mt-2 max-w-2xl leading-6 text-muted-foreground">{_toolDesc}</p>
               </div>
             </div>
 
-            <div className="rounded-md border border-border bg-card p-5 space-y-5">
+            <div className="space-y-5 rounded-[24px] border border-border bg-card/80 p-4 shadow-[0_18px_50px_rgba(54,47,35,0.06)] sm:p-5">
               <FileUpload
                 accept={tool.accept}
                 multiple={tool.multiple}
@@ -1063,6 +1065,7 @@ export default function ToolPage() {
                 onRemoveFile={removeFile}
                 label={tool.accept?.includes('.pdf') ? t.tool.dropPdf : t.tool.chooseFile}
                 description={`${tool.multiple ? t.tool.multipleFiles : t.tool.singleFile} • ${t.tool.maxSize} ${maxSizeMb}MB`}
+                selectLabel={lang === 'ru' ? `Выбрать файл${tool.multiple ? 'ы' : ''}` : `Choose file${tool.multiple ? 's' : ''}`}
               />
 
               {(slug === 'compare-pdf' || slug === 'pdf-diff' || slug === 'overlay-pdf') && (
@@ -1894,19 +1897,19 @@ export default function ToolPage() {
                     </motion.div>
                   ) : (
                     <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                      <Button
-                        onClick={process}
-                        disabled={
-                          slug === 'protect-pdf' || (files.length === 0 && slug !== 'text-to-pdf')
-                        }
-                        className="gap-2 shadow-lg shadow-primary/20"
-                        data-testid="button-process"
-                      >
-                        <Icon className="w-4 h-4" />
-                        {slug === 'pdf-metadata' && metadataFields !== null
-                          ? t.tool.saveMetadata
-                          : (toolTr?.name ?? tool.name)}
-                      </Button>
+                      {(files.length > 0 || slug === 'text-to-pdf') && (
+                        <Button
+                          onClick={process}
+                          disabled={slug === 'protect-pdf'}
+                          className="gap-2 shadow-lg shadow-primary/20"
+                          data-testid="button-process"
+                        >
+                          <Icon className="w-4 h-4" />
+                          {slug === 'pdf-metadata' && metadataFields !== null
+                            ? t.tool.saveMetadata
+                            : (toolTr?.name ?? tool.name)}
+                        </Button>
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>

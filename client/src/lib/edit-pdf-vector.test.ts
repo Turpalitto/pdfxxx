@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
-import { drawFabricStateVector, parseFabricColor } from './edit-pdf-vector';
+import {
+  drawFabricStateVector,
+  fabricFontSizeToPdf,
+  parseFabricColor,
+} from './edit-pdf-vector';
 
 function makePage() {
   const doc = async () => {
@@ -25,6 +29,13 @@ describe('parseFabricColor', () => {
     expect(parseFabricColor('transparent')).toBeNull();
     expect(parseFabricColor('none')).toBeNull();
     expect(parseFabricColor('linear-gradient(red)')).toBeNull();
+  });
+});
+
+describe('fabricFontSizeToPdf', () => {
+  it('converts display-canvas pixels to PDF points', () => {
+    expect(fabricFontSizeToPdf(24, 1, 1.5)).toBe(16);
+    expect(fabricFontSizeToPdf(24, 1.5, 1.5)).toBe(24);
   });
 });
 

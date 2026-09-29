@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "protocol_version": "1.0",
+  "updated_at": "2026-09-14T14:54:27Z",
+  "nodes": [
+    {
+      "id": "project",
+      "kind": "project",
+      "name": "pdfxxx",
+      "managed": true
+    },
+    {
+      "id": "stack:node-js",
+      "kind": "stack",
+      "name": "Node.js",
+      "managed": true
+    },
+    {
+      "id": "stack:typescript",
+      "kind": "stack",
+      "name": "TypeScript",
+      "managed": true
+    },
+    {
+      "id": "stack:react",
+      "kind": "stack",
+      "name": "React",
+      "managed": true
+    },
+    {
+      "id": "module:client",
+      "kind": "module",
+      "name": "client",
+      "path": "client",
+      "managed": true
+    },
+    {
+      "id": "module:server",
+      "kind": "module",
+      "name": "server",
+      "path": "server",
+      "managed": true
+    }
+  ],
+  "edges": [
+    {
+      "source": "project",
+      "target": "module:client",
+      "type": "contains"
+    },
+    {
+      "source": "project",
+      "target": "module:server",
+      "type": "contains"
+    },
+    {
+      "source": "project",
+      "target": "stack:node-js",
+      "type": "uses"
+    },
+    {
+      "source": "project",
+      "target": "stack:typescript",
+      "type": "uses"
+    },
+    {
+      "source": "project",
+      "target": "stack:react",
+      "type": "uses"
+    }
+  ]
+}

@@ -80,6 +80,7 @@ describe('converter golden checks (pdfToWord / pdfToExcel)', () => {
     expect(documentXml).toContain('Plain paragraph body text.');
     expect(documentXml).toContain('Secondary page content.');
     expect(documentXml).toMatch(/pStyle w:val="Heading\d"/);
+    expect(documentXml).toContain('<w:pageBreakBefore/>');
   });
 
   it('pdfToWord keeps table structure, run styling and hyperlinks', async () => {
