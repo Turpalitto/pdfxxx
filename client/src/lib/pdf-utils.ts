@@ -2930,6 +2930,7 @@ export function linkForLine(
 export interface PdfLayoutItem {
   text: string;
   x: number;
+  /** ширина глифового прогона в pt (для column-детекции) */
   width: number;
   size: number;
   bold: boolean;
@@ -2938,8 +2939,6 @@ export interface PdfLayoutItem {
   color?: string;
   /** имя шрифта из pdfjs-стилей (может быть generic — см. normalizeFontFamily) */
   fontFamily?: string;
-  /** ширина глифового прогона в pt (для column-детекции) */
-  width?: number;
 }
 
 export interface PdfLayoutLine extends PdfLayoutItem {
@@ -3354,7 +3353,6 @@ function groupItemsIntoLines(
         italic: detectFontStyle(it.fontName).italic,
         color: it.color,
         fontFamily: it.fontName,
-        width: it.width,
       })),
     });
     current = [];
