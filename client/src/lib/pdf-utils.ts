@@ -11,6 +11,7 @@ import {
   type PDFFont,
 } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
+import { standardFontDataUrl } from './pdfjs-assets';
 
 // ============================================================
 // Canvas abstraction (ADR-010)
@@ -82,7 +83,7 @@ export async function loadPdfJs(): Promise<any> {
 async function openPdfWithPdfjs(file: File | Uint8Array, timeoutMs = 30_000): Promise<any> {
   const pdfjs = await loadPdfJs();
   const bytes = file instanceof Uint8Array ? file : new Uint8Array(await file.arrayBuffer());
-  const loadingTask = pdfjs.getDocument({ data: bytes });
+  const loadingTask = pdfjs.getDocument({ data: bytes, standardFontDataUrl: standardFontDataUrl() });
   return withTimeout(
     loadingTask.promise,
     timeoutMs,

@@ -33,6 +33,7 @@ import { useSeo } from '@/hooks/use-seo';
 import { cn } from '@/lib/utils';
 import { DEFAULT_MAX_FILE_SIZE_MB, mbToBytes } from '@/lib/upload-limits';
 import { drawFabricStateVector } from '@/lib/edit-pdf-vector';
+import { standardFontDataUrl } from '@/lib/pdfjs-assets';
 import { rememberRecentTool } from '@/lib/tool-experience';
 
 type ToolType =
@@ -361,7 +362,12 @@ export default function EditPdfPage() {
 
         const pdfjs = await loadPdfJs();
         setLoadProgress(30);
-        const doc = await pdfjs.getDocument({ data: new Uint8Array(bytesForPdfJs) }).promise;
+        const doc = await pdfjs
+          .getDocument({
+            data: new Uint8Array(bytesForPdfJs),
+            standardFontDataUrl: standardFontDataUrl(),
+          })
+          .promise;
         pdfjsDocRef.current?.destroy?.();
         pdfjsDocRef.current = doc;
         const count = doc.numPages;

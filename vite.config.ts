@@ -1,10 +1,67 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { createReadStream } from 'fs';
+import { readFile, readdir, stat } from 'fs/promises';
 import { VitePWA } from 'vite-plugin-pwa';
+
+// Путь в dist/public: emitFile с fileName кладёт ассеты в корень outDir,
+// а не в assetsDir — поэтому префикс без `/assets`.
+const PDFJS_ASSET_PREFIX = '/pdfjs/standard_fonts/';
+
+/**
+ * Раздаёт `pdfjs-dist/standard_fonts` по HTTP — pdfjs грузит оттуда
+ * стандартные 14 шрифтов (Helvetica/Times/Courier…), без чего падает
+ * `standardFontDataUrl` и ломается текстовый слой части PDF.
+ * В dev — middleware, при сборке — emit в dist/public.
+ */
+function pdfjsAssets(): Plugin {
+  const fontsDir = path.resolve(import.meta.dirname, 'node_modules/pdfjs-dist/standard_fonts');
+  let isBuild = false;
+
+  return {
+    name: 'pdfx:pdfjs-assets',
+    configResolved(config) {
+      isBuild = config.command === 'build';
+    },
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const url = req.url?.split('?')[0] ?? '';
+        if (!url.startsWith(PDFJS_ASSET_PREFIX)) return next();
+
+        const name = path.basename(decodeURIComponent(url.slice(PDFJS_ASSET_PREFIX.length)));
+        const file = path.join(fontsDir, name);
+        stat(file).then(
+          (info) => {
+            if (!info.isFile()) return next();
+            res.setHeader('Content-Type', 'application/octet-stream');
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+            createReadStream(file).pipe(res);
+          },
+          () => next(),
+        );
+      });
+    },
+    // В dev ассеты раздаёт middleware выше, а emitFile() в serve-режиме Vite
+    // не поддерживает (и ругается в лог) — поэтому гард по command.
+    async buildStart() {
+      if (!isBuild) return;
+      const dir = await readdir(fontsDir);
+      for (const name of dir) {
+        if (!name.endsWith('.pfb') && !name.endsWith('.ttf')) continue;
+        this.emitFile({
+          type: 'asset',
+          fileName: `pdfjs/standard_fonts/${name}`,
+          source: await readFile(path.join(fontsDir, name)),
+        });
+      }
+    },
+  };
+}
 
 export default defineConfig({
   plugins: [
+    pdfjsAssets(),
     react(),
     VitePWA({
       registerType: 'autoUpdate',
@@ -78,7 +135,10 @@ export default defineConfig({
             },
           },
           {
-            urlPattern: ({ url }) => url.pathname.startsWith('/assets/') || url.pathname.startsWith('/fonts/'),
+            urlPattern: ({ url }) =>
+              url.pathname.startsWith('/assets/') ||
+              url.pathname.startsWith('/fonts/') ||
+              url.pathname.startsWith(PDFJS_ASSET_PREFIX),
             handler: 'CacheFirst',
             options: {
               cacheName: 'pdfx-assets-cache',

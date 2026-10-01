@@ -96,7 +96,13 @@ function sanitizeOptions(def: WorkflowStepDef, rawOptions: unknown): StepOptions
       continue;
     }
 
-    if (option.kind === 'text' || option.kind === 'password') {
+    // Passwords belong only to the in-memory running workflow, never storage or share URLs.
+    if (option.kind === 'password') {
+      delete output[option.key];
+      continue;
+    }
+
+    if (option.kind === 'text') {
       output[option.key] =
         typeof value === 'string' ? value.slice(0, MAX_TEXT_OPTION_LENGTH) : option.default;
     }
@@ -224,7 +230,10 @@ export function loadSavedWorkflowChains(
   }
 
   try {
-    return parseStoredChains(storage.getItem(WORKFLOW_CHAINS_STORAGE_KEY), now);
+    const raw = storage.getItem(WORKFLOW_CHAINS_STORAGE_KEY);
+    const chains = parseStoredChains(raw, now);
+    if (raw && JSON.stringify(chains) !== raw) persistChains(storage, chains);
+    return chains;
   } catch {
     return [];
   }
@@ -298,10 +307,7 @@ function fromBase64Url(input: string): string {
 export function encodeWorkflowShare(items: WorkflowItem[]): string {
   const payload = {
     v: 1 as const,
-    steps: items.map((item) => ({
-      s: item.stepId,
-      o: item.options as Record<string, string | number>,
-    })),
+    steps: workflowItemsToSavedItems(items).map((item) => ({ s: item.stepId, o: item.options })),
   };
   return toBase64Url(JSON.stringify(payload));
 }

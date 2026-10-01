@@ -40,6 +40,23 @@ class ThrowingStorage {
 }
 
 describe('workflow-storage', () => {
+  it('never stores or shares workflow passwords, including legacy saved values', () => {
+    const storage = new MemoryStorage();
+    const password = 'top-secret-123';
+    const protect = { uid: 'private', stepId: 'protect', options: { password } };
+    const saved = saveWorkflowChain({ name: 'Private', items: [protect] }, storage);
+
+    expect(saved[0].items[0].options.password).toBeUndefined();
+    expect(storage.getItem(WORKFLOW_CHAINS_STORAGE_KEY)).not.toContain(password);
+    const share = encodeWorkflowShare([protect]);
+    expect(atob(share.replace(/-/g, '+').replace(/_/g, '/'))).not.toContain(password);
+    expect(decodeWorkflowShare(share)?.[0].options.password).toBeUndefined();
+
+    storage.setItem(WORKFLOW_CHAINS_STORAGE_KEY, JSON.stringify([{ ...saved[0], items: [{ stepId: 'protect', options: { password } }] }]));
+    expect(loadSavedWorkflowChains(storage)[0].items[0].options.password).toBeUndefined();
+    expect(storage.getItem(WORKFLOW_CHAINS_STORAGE_KEY)).not.toContain(password);
+  });
+
   it('stores only chain step ids and sanitized options', () => {
     const storage = new MemoryStorage();
 

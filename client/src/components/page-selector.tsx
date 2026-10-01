@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Loader2, Check, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { standardFontDataUrl } from '@/lib/pdfjs-assets';
 
 interface PageSelectorProps {
   file: File;
@@ -20,7 +21,9 @@ async function loadThumbnails(file: File, scale = 0.18): Promise<string[]> {
     import.meta.url,
   ).href;
   const bytes = await file.arrayBuffer();
-  const doc = await pdfjs.getDocument({ data: new Uint8Array(bytes) }).promise;
+  const doc = await pdfjs
+    .getDocument({ data: new Uint8Array(bytes), standardFontDataUrl: standardFontDataUrl() })
+    .promise;
   const thumbs: string[] = [];
   const canvas = document.createElement('canvas');
   for (let i = 1; i <= doc.numPages; i++) {
