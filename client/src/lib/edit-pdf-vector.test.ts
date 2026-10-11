@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { PDFDocument, StandardFonts } from 'pdf-lib';
-import {
-  drawFabricStateVector,
-  fabricFontSizeToPdf,
-  parseFabricColor,
-} from './edit-pdf-vector';
+import { PDFDocument, StandardFonts } from '@cantoo/pdf-lib';
+import { drawFabricStateVector, fabricFontSizeToPdf, parseFabricColor } from './edit-pdf-vector';
 
 function makePage() {
   const doc = async () => {
@@ -48,8 +44,24 @@ describe('drawFabricStateVector', () => {
       page,
       state: {
         objects: [
-          { type: 'rect', left: 100, top: 100, width: 200, height: 80, fill: '#ffff00', opacity: 0.35 },
-          { type: 'line', left: 50, top: 300, width: 100, height: 0, stroke: '#000000', strokeWidth: 2 },
+          {
+            type: 'rect',
+            left: 100,
+            top: 100,
+            width: 200,
+            height: 80,
+            fill: '#ffff00',
+            opacity: 0.35,
+          },
+          {
+            type: 'line',
+            left: 50,
+            top: 300,
+            width: 100,
+            height: 0,
+            stroke: '#000000',
+            strokeWidth: 2,
+          },
           { type: 'i-text', left: 20, top: 500, text: 'Hello PDF', fontSize: 24, fill: '#000000' },
         ],
       },
@@ -112,7 +124,11 @@ describe('drawFabricStateVector', () => {
     const ok = await drawFabricStateVector({
       pdfDoc: d,
       page,
-      state: { objects: [{ type: 'rect', left: 0, top: 0, width: 10, height: 10, fill: '#000', visible: false }] },
+      state: {
+        objects: [
+          { type: 'rect', left: 0, top: 0, width: 10, height: 10, fill: '#000', visible: false },
+        ],
+      },
       pageWidthPt: 595,
       pageHeightPt: 842,
       scale: 1.5,

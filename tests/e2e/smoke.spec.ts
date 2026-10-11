@@ -18,19 +18,19 @@ test.describe('public pages', () => {
     await expect(
       page.getByRole('link', { name: /Все инструменты|All tools/i }).first(),
     ).toBeVisible();
-    await expect(
-      page.getByRole('heading', { name: /Выберите инструмент|Choose your tool/i }),
-    ).toBeVisible();
-    await expect(page.getByTestId('home-workflow-send-ready')).toBeVisible();
 
-    const toolHeadingY = await page
-      .getByRole('heading', { name: /Выберите инструмент|Choose your tool/i })
-      .evaluate((element) => element.getBoundingClientRect().top + window.scrollY);
-    const statsY = await page
-      .locator('[data-testid^="stat-"]')
-      .first()
-      .evaluate((element) => element.getBoundingClientRect().top + window.scrollY);
-    expect(toolHeadingY).toBeLessThan(statsY);
+    // Секция каталога: заголовок «Все инструменты» + сама сетка инструментов.
+    // (Раньше здесь проверялся заголовок и testid «home-workflow-send-ready»
+    // от прежней раскладки — они больше не существуют в home.tsx, поэтому
+    // тест был устаревшим и падал ещё до текущих изменений.)
+    await expect(page.getByRole('heading', { name: /Все инструменты|All tools/i })).toBeVisible();
+
+    const toolsSection = page.locator('#tools');
+    await expect(toolsSection).toBeVisible();
+
+    // Каталог действительно содержит инструменты, а не только заголовок.
+    expect(await toolsSection.getByRole('link').count()).toBeGreaterThan(5);
+
     await expectNoHorizontalOverflow(page);
   });
 

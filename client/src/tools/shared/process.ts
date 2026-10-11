@@ -1,4 +1,5 @@
 import { runPdfTask, type RunPdfTaskOptions } from '@/workers/worker-client';
+import { zipEntries, zipBase64Entries, dataUrlToBase64 } from '@/lib/zip';
 import type { ToolOutputKind, ToolRegistryEntry } from '../types';
 
 export type ToolTextResultTarget = 'text' | 'html';
@@ -74,14 +75,7 @@ export async function createToolNamedPartsResult(
     return firstPart.bytes;
   }
 
-  const JSZip = (await import('jszip')).default;
-  const zip = new JSZip();
-
-  for (const part of parts) {
-    zip.file(part.name, part.bytes);
-  }
-
-  return zip.generateAsync({ type: 'uint8array' });
+  return zipEntries(parts.map((part) => ({ name: part.name, bytes: part.bytes })));
 }
 
 export async function createToolNumberedPartsResult(
@@ -113,20 +107,14 @@ export async function createToolImageArchiveResult(
     throw new Error(`Tool "${entry.slug}" does not produce an image archive result.`);
   }
 
-  const JSZip = (await import('jszip')).default;
-  const zip = new JSZip();
-
-  for (const image of images) {
-    const base64 = image.dataUrl.split(',')[1];
-
-    if (!base64) {
-      continue;
-    }
-
-    zip.file(`${baseName}-page-${image.page}.${format}`, base64, { base64: true });
-  }
-
-  return zip.generateAsync({ type: 'uint8array' });
+  return zipBase64Entries(
+    images
+      .map((image) => ({
+        name: `${baseName}-page-${image.page}.${format}`,
+        dataUrl: image.dataUrl,
+      }))
+      .map(({ name, dataUrl }) => ({ name, base64: dataUrlToBase64(dataUrl) ?? '' })),
+  );
 }
 
 export async function runToolMainThreadTask<T>(

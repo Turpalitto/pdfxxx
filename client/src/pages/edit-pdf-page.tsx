@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link } from 'wouter';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument } from '@cantoo/pdf-lib';
 import {
   MousePointer2,
   Type,
@@ -362,12 +362,10 @@ export default function EditPdfPage() {
 
         const pdfjs = await loadPdfJs();
         setLoadProgress(30);
-        const doc = await pdfjs
-          .getDocument({
-            data: new Uint8Array(bytesForPdfJs),
-            standardFontDataUrl: standardFontDataUrl(),
-          })
-          .promise;
+        const doc = await pdfjs.getDocument({
+          data: new Uint8Array(bytesForPdfJs),
+          standardFontDataUrl: standardFontDataUrl(),
+        }).promise;
         pdfjsDocRef.current?.destroy?.();
         pdfjsDocRef.current = doc;
         const count = doc.numPages;

@@ -103,7 +103,7 @@ export default defineConfig({
       },
       workbox: {
         // Прекэш — только оболочка и лёгкие чанки. Тяжёлые PDF/OCR-библиотеки
-        // (pdfjs/pdf-lib/fabric/tesseract/mammoth/xlsx/jszip) грузятся по
+        // (pdfjs/pdf-lib/fabric/tesseract/mammoth/xlsx/fflate) грузятся по
         // требованию и кэшируются через runtimeCaching после первого использования.
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,wasm}'],
         globIgnores: [
@@ -183,7 +183,11 @@ export default defineConfig({
             return 'pdfjs';
           }
 
-          if (id.includes('pdf-lib') || id.includes('@pdf-lib/fontkit')) {
+          if (
+            id.includes('cantoo/pdf-lib') ||
+            id.includes('pdf-lib') ||
+            id.includes('@pdf-lib/fontkit')
+          ) {
             return 'pdf-lib';
           }
 

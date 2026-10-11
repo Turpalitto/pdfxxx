@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { PDFDocument, PDFName, PDFString, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, PDFName, PDFString, StandardFonts, rgb } from '@cantoo/pdf-lib';
 
 // pdfjs-dist modern build needs full browser APIs (DOMMatrix, real worker
 // URL resolution, crypto hashing); run the converters on the legacy build
@@ -22,6 +22,7 @@ g.ImageData ??= class ImageDataStub {};
 }
 
 const { pdfToExcel, pdfToWord } = await import('./pdf-utils');
+const { readZipEntry } = await import('./zip');
 
 async function makeFixturePdf(): Promise<File> {
   const doc = await PDFDocument.create();
@@ -71,9 +72,7 @@ describe('converter golden checks (pdfToWord / pdfToExcel)', () => {
     const head = new TextDecoder().decode(docx.slice(0, 4));
     expect(head.startsWith('PK')).toBe(true);
 
-    const JSZip = (await import('jszip')).default;
-    const zip = await JSZip.loadAsync(docx);
-    const documentXml = await zip.file('word/document.xml')!.async('string');
+    const documentXml = (await readZipEntry(docx, 'word/document.xml'))!;
 
     expect(documentXml).toContain('Quarterly Revenue Report');
     expect(documentXml).toContain('Appendix Notes');
@@ -87,10 +86,8 @@ describe('converter golden checks (pdfToWord / pdfToExcel)', () => {
     const file = await makeFixturePdf();
     const docx = await pdfToWord(file);
 
-    const JSZip = (await import('jszip')).default;
-    const zip = await JSZip.loadAsync(docx);
-    const documentXml = await zip.file('word/document.xml')!.async('string');
-    const relsXml = await zip.file('word/_rels/document.xml.rels')!.async('string');
+    const documentXml = (await readZipEntry(docx, 'word/document.xml'))!;
+    const relsXml = (await readZipEntry(docx, 'word/_rels/document.xml.rels'))!;
 
     // Таблица: w:tbl + сетка колонок + ячейки с содержимым.
     expect(documentXml).toContain('<w:tbl>');
@@ -138,7 +135,7 @@ describe('converter golden checks (pdfToWord / pdfToExcel)', () => {
   });
 
   it('text-free pages keep the friendly OCR hint instead of crashing', async () => {
-    const { PDFDocument: EmptyDoc } = await import('pdf-lib');
+    const { PDFDocument: EmptyDoc } = await import('@cantoo/pdf-lib');
     const empty = await EmptyDoc.create();
     empty.addPage([595, 842]); // условный скан: ни текста, ни извлекаемого слоя
     const file = new File([await empty.save()], 'scan.pdf', { type: 'application/pdf' });
@@ -169,9 +166,7 @@ describe('converter golden checks (pdfToWord / pdfToExcel)', () => {
     const file = new File([await doc.save()], 'two-col.pdf', { type: 'application/pdf' });
     const docx = await pdfToWord(file);
 
-    const JSZip = (await import('jszip')).default;
-    const zip = await JSZip.loadAsync(docx);
-    const documentXml = await zip.file('word/document.xml')!.async('string');
+    const documentXml = (await readZipEntry(docx, 'word/document.xml'))!;
 
     // Reading order: заголовок, вся левая колонка, затем вся правая.
     const order = [

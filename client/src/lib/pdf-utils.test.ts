@@ -1085,6 +1085,120 @@ describe('detectTableRegions', () => {
     });
   });
 
+  describe('flattenPdf (BUG-14 / H1 regression guards)', () => {
+    async function buildFilledForm(): Promise<Uint8Array> {
+      const { PDFDocument } = await import('@cantoo/pdf-lib');
+      const doc = await PDFDocument.create();
+      const page = doc.addPage([300, 200]);
+      const field = doc.getForm().createTextField('user.name');
+      field.addToPage(page, { x: 20, y: 100, width: 200, height: 20 });
+      field.setText('Ada Lovelace');
+      return doc.save({ useObjectStreams: false });
+    }
+
+    it('bakes the form into page content instead of dropping it', async () => {
+      const { flattenPdf } = await import('@/lib/pdf-utils');
+      const { PDFDocument, PDFName } = await import('@cantoo/pdf-lib');
+
+      const filled = await buildFilledForm();
+      const out = await flattenPdf(new File([filled as BlobPart], 'form.pdf'));
+      const result = await PDFDocument.load(out);
+
+      // Форма перестала быть интерактивной…
+      expect(result.getForm().getFields().length).toBe(0);
+      // …но впечаталась в страницу как XObject (раньше here было 0 и данные пропадали).
+      const resources = result.getPages()[0].node.Resources();
+      const xObjects = resources?.lookup(PDFName.of('XObject')) as { keys(): string[] } | undefined;
+      expect(xObjects?.keys().length ?? 0).toBeGreaterThan(0);
+    });
+
+    it('keeps the document loadable after flattening', async () => {
+      const { flattenPdf } = await import('@/lib/pdf-utils');
+      const { PDFDocument } = await import('@cantoo/pdf-lib');
+      const out = await flattenPdf(new File([(await buildFilledForm()) as BlobPart], 'form.pdf'));
+      const reloaded = await PDFDocument.load(out);
+      expect(reloaded.getPageCount()).toBe(1);
+    });
+  });
+
+  describe('unlockPdf encryption guard', () => {
+    async function buildEncryptedFlagged(): Promise<Uint8Array> {
+      const { PDFDocument, PDFHexString, PDFNumber } = await import('@cantoo/pdf-lib');
+      const doc = await PDFDocument.create();
+      doc.addPage([200, 200]);
+      // Реальная запись /Encrypt, подключённая к trailer — эмулирует защищённый файл.
+      const dict = doc.context.obj({
+        Filter: 'Standard',
+        V: 2,
+        R: 3,
+        Length: 128,
+        P: PDFNumber.of(-1),
+        O: PDFHexString.fromText('0'.repeat(32)),
+        U: PDFHexString.fromText('0'.repeat(32)),
+      });
+      doc.context.trailerInfo.Encrypt = doc.context.register(dict);
+      return doc.save({ useObjectStreams: false });
+    }
+
+    it('explains that protected files cannot be unlocked in the browser', async () => {
+      const { unlockPdf } = await import('@/lib/pdf-utils');
+      const enc = await buildEncryptedFlagged();
+      await expect(unlockPdf(new File([enc as BlobPart], 'locked.pdf'))).rejects.toThrow(
+        /password-protected/i,
+      );
+    });
+  });
+
+  describe('fillPdfForm values (H2)', () => {
+    async function buildEmptyForm(): Promise<Uint8Array> {
+      const { PDFDocument } = await import('@cantoo/pdf-lib');
+      const doc = await PDFDocument.create();
+      const page = doc.addPage([300, 200]);
+      const field = doc.getForm().createTextField('user.name');
+      field.addToPage(page, { x: 20, y: 100, width: 200, height: 20 });
+      return doc.save({ useObjectStreams: false });
+    }
+
+    it('stores an ASCII value in the field', async () => {
+      const { fillPdfForm } = await import('@/lib/pdf-utils');
+      const { PDFDocument } = await import('@cantoo/pdf-lib');
+      const out = await fillPdfForm(new File([(await buildEmptyForm()) as BlobPart], 'f.pdf'), {
+        'user.name': 'Ada Lovelace',
+      });
+      const reloaded = await PDFDocument.load(out);
+      expect(reloaded.getForm().getTextField('user.name').getText()).toBe('Ada Lovelace');
+    });
+
+    it('no longer loses a Cyrillic value (previously an unhandled WinAnsi error)', async () => {
+      const { fillPdfForm } = await import('@/lib/pdf-utils');
+      const { PDFDocument } = await import('@cantoo/pdf-lib');
+      const out = await fillPdfForm(new File([(await buildEmptyForm()) as BlobPart], 'f.pdf'), {
+        'user.name': 'Иван Петров',
+      });
+      const reloaded = await PDFDocument.load(out);
+      // Значение сохраняется даже там, где Unicode-шрифт недоступен (напр. в node-тестах),
+      // а на ошибку кодирования appearance-слоя операция больше не падает целиком.
+      expect(reloaded.getForm().getTextField('user.name').getText()).toBe('Иван Петров');
+    });
+  });
+
+  describe('compressPdf real-compression path', () => {
+    it('returns a valid PDF no larger than the original for an image-less file', async () => {
+      const { compressPdf } = await import('@/lib/pdf-utils');
+      const { PDFDocument } = await import('@cantoo/pdf-lib');
+      const doc = await PDFDocument.create();
+      doc.addPage([300, 200]);
+      const original = await doc.save({ useObjectStreams: false });
+
+      for (const level of ['low', 'medium', 'high'] as const) {
+        const out = await compressPdf(new File([original as BlobPart], 'plain.pdf'), level);
+        expect(out.byteLength).toBeGreaterThan(0);
+        expect(out.byteLength).toBeLessThanOrEqual(original.byteLength);
+        await expect(PDFDocument.load(out)).resolves.toBeDefined();
+      }
+    });
+  });
+
   describe('batesNumbering', () => {
     it('is an async function accepting file and options', async () => {
       const { batesNumbering } = await import('@/lib/pdf-utils');

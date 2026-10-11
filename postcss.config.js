@@ -1,6 +1,8 @@
 export default {
   plugins: {
-    tailwindcss: {},
+    // Tailwind 4 поставляется отдельным PostCSS-плагином;
+    // прежний пакет `tailwindcss` как PostCSS-плагин больше не используется.
+    '@tailwindcss/postcss': {},
     autoprefixer: {},
   },
 };

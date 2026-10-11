@@ -1,6 +1,9 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Tailwind 4: единый импорт вместо трёх @tailwind-директив.
+   @config подключает прежний JS-конфиг, поэтому палитра (CSS-переменные
+   и theme.extend.colors) остаётся ровно такой же, как в Tailwind 3 —
+   дизайн-система не менялась. */
+@import 'tailwindcss';
+@config '../../tailwind.config.ts';
 
 /* LIGHT MODE */
 :root {

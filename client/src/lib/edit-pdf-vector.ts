@@ -1,4 +1,4 @@
-import { PDFDocument, PDFFont, PDFPage, StandardFonts, degrees, rgb } from 'pdf-lib';
+import { PDFDocument, PDFFont, PDFPage, StandardFonts, degrees, rgb } from '@cantoo/pdf-lib';
 
 // ============================================================
 // Vector export: fabric canvas JSON → native pdf-lib drawing ops.
@@ -64,14 +64,21 @@ export function parseFabricColor(value: unknown): Rgba | null {
       a: 1,
     };
   }
-  const rgbm = value.trim().match(/^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.%]+))?\s*\)$/i);
+  const rgbm = value
+    .trim()
+    .match(/^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.%]+))?\s*\)$/i);
   if (rgbm) {
     const aRaw = rgbm[4];
     let a = 1;
     if (aRaw !== undefined) {
       a = aRaw.endsWith('%') ? parseFloat(aRaw) / 100 : parseFloat(aRaw);
     }
-    return { r: parseFloat(rgbm[1]) / 255, g: parseFloat(rgbm[2]) / 255, b: parseFloat(rgbm[3]) / 255, a };
+    return {
+      r: parseFloat(rgbm[1]) / 255,
+      g: parseFloat(rgbm[2]) / 255,
+      b: parseFloat(rgbm[3]) / 255,
+      a,
+    };
   }
   if (value === 'black') return { r: 0, g: 0, b: 0, a: 1 };
   if (value === 'white') return { r: 1, g: 1, b: 1, a: 1 };
@@ -88,7 +95,17 @@ function isSupported(obj: FabricObjectJson): boolean {
   if (obj.originX && obj.originX !== 'left') return false;
   if (obj.originY && obj.originY !== 'top') return false;
   const t = obj.type ?? '';
-  return ['i-text', 'text', 'textbox', 'rect', 'circle', 'ellipse', 'line', 'path', 'image'].includes(t);
+  return [
+    'i-text',
+    'text',
+    'textbox',
+    'rect',
+    'circle',
+    'ellipse',
+    'line',
+    'path',
+    'image',
+  ].includes(t);
 }
 
 function nonAscii(text: string): boolean {
@@ -185,7 +202,8 @@ function drawCircleObject(obj: FabricObjectJson, ctx: DrawContext): void {
   const stroke = parseFabricColor(obj.stroke);
   if (!fill && !stroke) return;
   const rx =
-    ((obj.type === 'ellipse' ? (obj.radius ?? 0) : (obj.radius ?? 0)) * (obj.scaleX ?? 1)) / ctx.scale;
+    ((obj.type === 'ellipse' ? (obj.radius ?? 0) : (obj.radius ?? 0)) * (obj.scaleX ?? 1)) /
+    ctx.scale;
   const ry = ((obj.radius ?? 0) * (obj.scaleY ?? 1)) / ctx.scale;
   const w = 2 * (obj.radius ?? 0) * (obj.scaleX ?? 1);
   const cx = ((obj.left ?? 0) + w / 2) / ctx.scale;
@@ -253,7 +271,11 @@ function drawPathObject(obj: FabricObjectJson, ctx: DrawContext): void {
   });
 }
 
-async function drawImageObject(obj: FabricObjectJson, pdfDoc: PDFDocument, ctx: DrawContext): Promise<void> {
+async function drawImageObject(
+  obj: FabricObjectJson,
+  pdfDoc: PDFDocument,
+  ctx: DrawContext,
+): Promise<void> {
   if (typeof obj.src !== 'string' || !obj.src.startsWith('data:')) {
     throw new Error('unsupported image source');
   }
@@ -299,11 +321,14 @@ export async function drawFabricStateVector(opts: VectorDrawOptions): Promise<bo
   let font = opts.font;
   if (!font) {
     const needsFont = objects.some(
-      (o) => (o.type === 'i-text' || o.type === 'text' || o.type === 'textbox') && (o.text ?? '') !== '',
+      (o) =>
+        (o.type === 'i-text' || o.type === 'text' || o.type === 'textbox') && (o.text ?? '') !== '',
     );
     if (needsFont) {
       const unicode = objects.some(
-        (o) => (o.type === 'i-text' || o.type === 'text' || o.type === 'textbox') && nonAscii(o.text ?? ''),
+        (o) =>
+          (o.type === 'i-text' || o.type === 'text' || o.type === 'textbox') &&
+          nonAscii(o.text ?? ''),
       );
       if (unicode) {
         font = await embedEditorFont(opts.pdfDoc);

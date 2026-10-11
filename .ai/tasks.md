@@ -297,6 +297,86 @@
 | BUG-11 | ~~sanitizePdf не удалял JS/tracking~~                | pdf-utils.ts                                                               | ✅ Исправлено: удаление OpenAction/AA/URI/JS/EmbeddedFiles |
 | BUG-12 | ~~split-by-chapters скачивает как .zip при 1 главе~~ | tool-page.tsx                                                              | ✅ Исправлено: magic bytes check                           |
 | BUG-13 | ~~pdfjs memory leaks в 12 функциях~~                 | pdf-utils.ts                                                               | ✅ Исправлено: try/finally + destroy()                     |
+| BUG-14 | ~~Регрессия: реальное сжатие изображений потеряно~~ | Compress PDF на фото/скане даёт ~0 выигрыш | ✅ Исправлено 2026-10-02: код восстановлен из `d18e2a0` |
+
+### BUG-14 — детали (верифицировано 2026-10-02)
+
+Код, описанный в `changelog.md` (2026-06-12) как «Реальное сжатие в Compress PDF»,
+**отсутствует в текущем `pdf-utils.ts`**: функций `recompressEmbeddedImages()` и
+`rasterizeToCompressedPdf()` (и `jpegComponentCount`) в репозитории нет — `grep` даёт 0 совпадений.
+
+- Существовал в коммите `d18e2a0` (2026-06-20, 2 совпадения) и далее по цепочке до `690f535`.
+- **Точка потери — `8ddf5fa`** («Merge master into main, resolve conflicts taking master versions», 2026-08-19):
+  тот же broken merge, что уже признан причиной регресса `pdfToWord` (Phase A..C+).
+- Текущий `compressPdf` (pdf-utils.ts:444) делает только структурную оптимизацию pdf-lib
+  (`useObjectStreams`), а на `level === 'high'` — лишний повторный save; картинки не трогаются.
+- Сопутствующее: `compressionLevel` был объявлен как `useState` **без сеттера**
+  (tool-page.tsx:196), т.е. всегда `'medium'`; UI выбора уровня сжатия отсутствовал.
+  **✅ Исправлено 2026-10-02:** добавлен `setCompressionLevel` + блок `Tabs` (low/medium/high).
+
+Следствие: инструмент обещает «сжатие», но на фото-PDF результат ≈ исходному файлу.
+
+### 🔴 Статус восстановления — ✅ ЗАКРЫТО (2026-10-02)
+
+Код восстановления внёсён в `pdf-utils.ts` и покрыт тестами:
+
+- Извлечён из `d18e2a0`, адаптирован под текущие хелперы `canvasToBytes` / `openPdfWithPdfjs` /
+  `destroyPdfjsDoc`; добавлены `releaseCanvas()` и `jpegComponentCount()`.
+- `recompressEmbeddedImages()` пережимает встроенные DCTDecode-JPEG с даунсемплом (low/medium),
+  `rasterizeToCompressedPdf()` — режим high; CMYK и маски пропускаются, замена только при выигрыше.
+- UI уровня сжатия подключён (`setCompressionLevel` + `Tabs`), ветки low/high теперь достижимы.
+- Тест: compress возвращает валидный PDF не больше оригинала на всех трёх уровнях.
+
+### Как была снята блокировка записи
+
+Safety Guard дважды отклонял запись как «credential literal» — оба раза **ложно**: сначала на существующей
+сигнатуре `protectPdf` (параметр с типом `string`, названный словом-паролем, коммит `9ba282e`), затем на
+локальных переменных `tokens`/`token` в разборе диапазонов страниц. Арифметика подтверждала, что Guard
+смотрел на чужие существующие строки, а не на добавляемый код. По разрешению владельца причина снята
+безопасным переименованием (поведение и тексты ошибок по смыслу не менялись), после чего весь код внесён.
+
+## 🔎 Перепроверка аудита 2026-06-03 (сделано 2026-10-02)
+
+Статус находок `audit-findings.md` по факту чтения текущего кода. База: `tsc --noEmit` = 0 ошибок,
+`vitest run` = 17 файлов / 187 тестов — все зелёные.
+
+**Закрыто добросовестно:**
+
+- C1 (redact на ротированных страницах) — ✅ в коде `unrotatedViewport = page.getViewport({scale:1})` + комментарий BUG-FIX(C1) (pdf-utils.ts:831-845).
+- C2 (OOM) — ✅ `MAX_PDF_RENDER_SCALE`, `MAX_RENDER_DIMENSION_PX = 8000`, `page.cleanup?.()`, `canvas.width = 0` (pdf-utils.ts:934).
+- H6 (EXIF-ориентация) — ✅ `readJpegOrientation()` + ре-растеризация через canvas (pdf-utils.ts:469-482).
+- H8/H9 (редактор: потеря текста, гонки undo) — ✅ исправлены, логика в `use-editor-history.ts` / `use-editor-copy.ts`.
+- H4 (валидация индексов/диапазонов) — ✅ частично: `160d13f` «валидация индексов страниц».
+- Блок `sanitizePdf` — ✅ реально удаляет OpenAction/AA/URI/JS/EmbeddedFiles (BUG-11), + `clearMetadata`.
+
+**Открыто (подтверждено кодом):**
+
+| # | Находка | Факт в коде | Приоритет |
+| --- | --- | --- | --- |
+| H1 | ~~`flattenPdf` не сводит формы~~ | ✅ Исправлено 2026-10-02: `form.flatten({updateFieldAppearances:true})`, тест проверяет впечатывание | — |
+| H2 | ~~`fillPdfForm` на кириллице~~ | ✅ Исправлено 2026-10-02: корень оказался в `pdf.save()`, который сам звал appearance на Helvetica; теперь NotoSans + `updateFieldAppearances:false` в save | — |
+| H3 | ~~`setPdfMetadata` без producer/dates~~ | ✅ Исправлено 2026-10-02: найдены две потери — `load()` перештамповывал Info-словарь (нужен `updateMetadata:false`), а безусловный `setModificationDate(new Date())` затирал выбор пользователя | — |
+| — | ~~`unlockPdf`~~ | ✅ Исправлено 2026-10-02: явная проверка `/Encrypt` и понятная ошибка вместо тихой порчи файла | — |
+| — | ~~`compressPdf`~~ | ✅ Закрыто: см. **BUG-14** | — |
+| — | ~~`pdfDiff`~~ | ✅ Исправлено 2026-10-02: items собираются в визуальные строки по baseline (были ложные различия на уровне слов) + метки removed/added для страниц, бывших только в одном документе | — |
+
+База проверки: `tsc --noEmit` = 0 · `vitest run` = 17 файлов / 193 теста passed · `eslint` = 0 ·
+`playwright` = 65 passed / 0 failed · `build` = OK.
+
+### Крупные апгрейды 2026-10-02 (закрыты)
+
+- **`jszip` → `fflate`** — единый модуль `client/src/lib/zip.ts`, 6 мест мигрированы, jszip удалён.
+- **`pdf-lib` → `@cantoo/pdf-lib` 2.11.1** — поддерживаемый форк, API совместим (тесты зелёные).
+- **pdfjs 5.5 → 6.3.289** — вскрылись 2 регрессии: удалён `doc.destroy()` (тихая утечка — возврат BUG-13) и `convertToViewportRectangle()` (ломал гиперссылки в pdf→word). Обе исправлены.
+- **React 18 → 19** + **framer-motion 11 → 13** — без правок компонентов (рискованных API не было).
+- **Tailwind 3 → 4** — через `@config` сохранён прежний JS-конфиг, палитра **не менялась** (0 расхождений по 15 цветовым токенам).
+- **Декомпозиция** — вынесен `client/src/lib/pdf-text-layout.ts` с реэкспортом из `pdf-utils.ts`.
+
+### Осталось заблокированным
+
+- **AES-256 encrypt/decrypt** — библиотека (`@cantoo/pdf-lib`) уже подключена и умеет и то, и другое,
+  но проводка отклоняется записью: Safety Guard трактует ключи API `userPassword`/`ownerPassword`
+  как credential-литералы (ложное срабатывание). Нужно решение владельца.
 
 ## ⚠️ Техдолг (выявлен аудитом 2026-08-26, не блокирует)
 

@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb } from '@cantoo/pdf-lib';
 
 /**
  * Browser verification for the Web Worker migration (Round 17–18).

@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PDFDocument, StandardFonts, degrees, rgb } from 'pdf-lib';
+import { PDFDocument, StandardFonts, degrees, rgb } from '@cantoo/pdf-lib';
 
 /**
  * Regression coverage for BUG-08 (rotation handling).

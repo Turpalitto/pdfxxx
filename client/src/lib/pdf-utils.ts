@@ -9,8 +9,10 @@ import {
   StandardFonts,
   degrees,
   type PDFFont,
-} from 'pdf-lib';
+} from '@cantoo/pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
+import { strToU8 } from 'fflate';
+import { zipEntries, zipBase64Entries, dataUrlToBase64 } from './zip';
 import { standardFontDataUrl } from './pdfjs-assets';
 
 // ============================================================
@@ -83,7 +85,10 @@ export async function loadPdfJs(): Promise<any> {
 async function openPdfWithPdfjs(file: File | Uint8Array, timeoutMs = 30_000): Promise<any> {
   const pdfjs = await loadPdfJs();
   const bytes = file instanceof Uint8Array ? file : new Uint8Array(await file.arrayBuffer());
-  const loadingTask = pdfjs.getDocument({ data: bytes, standardFontDataUrl: standardFontDataUrl() });
+  const loadingTask = pdfjs.getDocument({
+    data: bytes,
+    standardFontDataUrl: standardFontDataUrl(),
+  });
   return withTimeout(
     loadingTask.promise,
     timeoutMs,
@@ -91,9 +96,24 @@ async function openPdfWithPdfjs(file: File | Uint8Array, timeoutMs = 30_000): Pr
   );
 }
 
-/** Безопасно закрывает документ pdfjs, игнорируя ошибки повторного destroy(). */
+/**
+ * Безопасно закрывает документ pdfjs.
+ *
+ * REGRESSION-FIX (pdfjs 6): в 5.x у PDFDocumentProxy был метод `destroy()`,
+ * и именно его вызывал этот хелпер — через `?.()`, поэтому после обновления
+ * до 6.x вызов молча перестал работать (метод удалён из API), и документы
+ * больше не освобождались: возврат утечки, которую чинили в BUG-13.
+ *
+ * Теперь закрываем через `loadingTask.destroy()` — он существует и в 5.x,
+ * и в 6.x. Старый `doc.destroy()` оставлен как фолбэк для совместимости.
+ */
 async function destroyPdfjsDoc(doc: any): Promise<void> {
   try {
+    const loadingTask = doc?.loadingTask;
+    if (typeof loadingTask?.destroy === 'function') {
+      await loadingTask.destroy();
+      return;
+    }
     await doc?.destroy?.();
   } catch {
     // destroy() не должен ронять основной поток выполнения.
@@ -441,24 +461,213 @@ export async function addPageNumbers(
   return pdf.save();
 }
 
+// ============================================================
+// COMPRESS — реальное сжатие, а не только структурная оптимизация.
+//   low / medium → Smart: пережать встроенные JPEG-картинки (DCTDecode),
+//                  уменьшив разрешение и качество. Текст и вектор не трогаются.
+//   high         → Rasterize: каждая страница рендерится в JPEG. Максимальное
+//                  сжатие на любом PDF, но текст становится картинкой.
+// Всё в браузере (canvas + pdfjs), без серверной обработки.
+//
+// ВОССТАНОВЛЕНО (BUG-14): этот блок существовал в d18e2a0 и был потерян в
+// broken merge 8ddf5fa (том же, что вернул pdfToWord к Phase A). Адаптирован
+// под текущие хелперы: canvasToBytes / openPdfWithPdfjs / destroyPdfjsDoc.
+// ============================================================
+
+const SMART_COMPRESS: Record<'low' | 'medium', { maxDim: number; quality: number }> = {
+  low: { maxDim: 2200, quality: 0.82 },
+  medium: { maxDim: 1600, quality: 0.62 },
+};
+
+/** Освобождает backing store canvas'а, не дожидаясь GC. */
+function releaseCanvas(canvas: HTMLCanvasElement | OffscreenCanvas): void {
+  canvas.width = 0;
+  canvas.height = 0;
+}
+
+// Число цветовых компонентов JPEG из маркера SOF (1=gray, 3=RGB/YCbCr, 4=CMYK).
+// Нужно чтобы пропускать CMYK — браузер декодирует Adobe-CMYK с инверсией цветов.
+function jpegComponentCount(bytes: Uint8Array): number | null {
+  let i = 2; // пропускаем SOI (FFD8)
+  const n = bytes.length;
+  while (i + 9 < n) {
+    if (bytes[i] !== 0xff) {
+      i++;
+      continue;
+    }
+    const marker = bytes[i + 1];
+    // SOF-маркеры несут число компонентов (исключаем C4=DHT, C8=JPG, CC=DAC).
+    if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+      return bytes[i + 9] ?? null;
+    }
+    // Маркеры без длины (SOI/EOI/RSTn) — шаг 2 байта.
+    if (marker === 0xd8 || marker === 0xd9 || (marker >= 0xd0 && marker <= 0xd7)) {
+      i += 2;
+      continue;
+    }
+    const len = (bytes[i + 2] << 8) | bytes[i + 3];
+    if (len < 2) return null;
+    i += 2 + len;
+  }
+  return null;
+}
+
+// Декодирует «сырой» поток DCTDecode (это готовый JPEG) в растровый bitmap.
+async function decodeJpegBitmap(bytes: Uint8Array): Promise<ImageBitmap | null> {
+  try {
+    const blob = new Blob([bytes as BlobPart], { type: 'image/jpeg' });
+    return await createImageBitmap(blob);
+  } catch {
+    return null;
+  }
+}
+
+// Проходит по всем image-XObject'ам и пережимает одиночные JPEG (DCTDecode):
+// даунсемпл до maxDim по длинной стороне + повторное кодирование с quality.
+// Заменяет поток только если результат реально меньше. Возвращает кол-во замен.
+async function recompressEmbeddedImages(
+  doc: PDFDocument,
+  maxDim: number,
+  quality: number,
+): Promise<number> {
+  const context = doc.context;
+  let replaced = 0;
+  for (const [ref, obj] of context.enumerateIndirectObjects()) {
+    if (!(obj instanceof PDFRawStream)) continue;
+    const dict = obj.dict;
+    try {
+      if (dict.get(PDFName.of('Subtype'))?.toString() !== '/Image') continue;
+
+      // Только одиночный DCTDecode (готовый JPEG). Обёрнутые/JPX/CCITT пропускаем.
+      if (dict.get(PDFName.of('Filter'))?.toString() !== '/DCTDecode') continue;
+
+      // Маски/прозрачность/кастомный Decode — пропускаем, чтобы не ловить артефакты.
+      if (
+        dict.get(PDFName.of('SMask')) ||
+        dict.get(PDFName.of('Mask')) ||
+        dict.get(PDFName.of('ImageMask')) ||
+        dict.get(PDFName.of('Decode'))
+      ) {
+        continue;
+      }
+
+      const original = obj.contents;
+      if (!original || original.length < 8 * 1024) continue; // мелочь не трогаем
+
+      // CMYK (4 компонента) пропускаем — иначе риск инверсии цветов на печатных PDF.
+      if (jpegComponentCount(original) === 4) continue;
+
+      const bitmap = await decodeJpegBitmap(original);
+      if (!bitmap) continue;
+      try {
+        const longSide = Math.max(bitmap.width, bitmap.height);
+        const scale = longSide > maxDim ? maxDim / longSide : 1;
+        const dstW = Math.max(1, Math.round(bitmap.width * scale));
+        const dstH = Math.max(1, Math.round(bitmap.height * scale));
+
+        const { canvas, ctx } = createRenderCanvas(dstW, dstH);
+        (ctx as CanvasRenderingContext2D).drawImage(
+          bitmap as unknown as CanvasImageSource,
+          0,
+          0,
+          dstW,
+          dstH,
+        );
+        const newBytes = await canvasToBytes(canvas, 'image/jpeg', quality);
+        releaseCanvas(canvas);
+
+        if (newBytes.length >= original.length) continue; // не меньше — оставляем как было
+
+        const newDict = context.obj({
+          Type: 'XObject',
+          Subtype: 'Image',
+          Width: dstW,
+          Height: dstH,
+          ColorSpace: 'DeviceRGB',
+          BitsPerComponent: 8,
+          Filter: 'DCTDecode',
+          Length: newBytes.length,
+        });
+        context.assign(ref, PDFRawStream.of(newDict, newBytes));
+        replaced++;
+      } finally {
+        bitmap.close();
+      }
+    } catch {
+      /* проблемную картинку пропускаем — остальные пережимаются */
+    }
+  }
+  return replaced;
+}
+
+// Растеризует каждую страницу в JPEG и собирает новый PDF (по картинке на лист).
+async function rasterizeToCompressedPdf(
+  file: File,
+  scale: number,
+  quality: number,
+): Promise<Uint8Array> {
+  const srcPdf = await openPdfWithPdfjs(file);
+  const outPdf = await PDFDocument.create();
+  try {
+    for (let i = 1; i <= srcPdf.numPages; i++) {
+      const page = await srcPdf.getPage(i);
+      const pointVp = page.getViewport({ scale: 1 }); // размер страницы в PDF-точках
+      const base = page.getViewport({ scale });
+      const maxArea = 25_000_000;
+      const safeScale =
+        base.width * base.height > maxArea
+          ? scale * Math.sqrt(maxArea / (base.width * base.height))
+          : scale;
+      const vp = page.getViewport({ scale: safeScale });
+      const { canvas, ctx } = createRenderCanvas(vp.width, vp.height);
+      await page.render({
+        canvasContext: ctx as CanvasRenderingContext2D,
+        viewport: vp,
+        canvas: canvas as HTMLCanvasElement,
+      }).promise;
+      const jpeg = await canvasToBytes(canvas, 'image/jpeg', quality);
+      releaseCanvas(canvas);
+      page.cleanup?.();
+
+      const img = await outPdf.embedJpg(jpeg);
+      const p = outPdf.addPage([pointVp.width, pointVp.height]);
+      p.drawImage(img, { x: 0, y: 0, width: pointVp.width, height: pointVp.height });
+    }
+  } finally {
+    await destroyPdfjsDoc(srcPdf);
+  }
+  return outPdf.save({ useObjectStreams: true });
+}
+
 export async function compressPdf(
   file: File,
   level: 'low' | 'medium' | 'high' = 'medium',
 ): Promise<Uint8Array> {
-  const bytes = await file.arrayBuffer();
-  const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
-  const firstPass = await pdf.save({ useObjectStreams: level !== 'low' });
+  const bytes = new Uint8Array(await file.arrayBuffer());
 
   if (level === 'high') {
-    const secondPdf = await PDFDocument.load(firstPass, { ignoreEncryption: true });
-    const secondPass = await secondPdf.save({ useObjectStreams: true });
-    const best = secondPass.byteLength < firstPass.byteLength ? secondPass : firstPass;
-    if (best.byteLength >= bytes.byteLength) return new Uint8Array(bytes);
-    return best;
+    // Растеризация даёт максимальное сжатие; при ошибке — структурный фолбэк.
+    try {
+      const raster = await rasterizeToCompressedPdf(file, 1.5, 0.6);
+      if (raster.byteLength < bytes.byteLength) return raster;
+    } catch {
+      /* ниже — структурный фолбэк */
+    }
+    const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
+    const saved = await pdf.save({ useObjectStreams: true });
+    return saved.byteLength < bytes.byteLength ? saved : bytes;
   }
 
-  if (firstPass.byteLength >= bytes.byteLength) return new Uint8Array(bytes);
-  return firstPass;
+  // low / medium — умное пережатие картинок + структурная оптимизация.
+  const settings = SMART_COMPRESS[level];
+  const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
+  try {
+    await recompressEmbeddedImages(pdf, settings.maxDim, settings.quality);
+  } catch {
+    /* даже если пережатие упало — сохраним со структурной оптимизацией */
+  }
+  const saved = await pdf.save({ useObjectStreams: true });
+  return saved.byteLength < bytes.byteLength ? saved : bytes;
 }
 
 export async function imagesToPdf(files: File[]): Promise<Uint8Array> {
@@ -590,14 +799,18 @@ export async function repairPdf(file: File): Promise<Uint8Array> {
 
 export async function flattenPdf(file: File): Promise<Uint8Array> {
   const bytes = await file.arrayBuffer();
-  const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
-  const newPdf = await PDFDocument.create();
-  const copiedPages = await newPdf.copyPages(src, src.getPageIndices());
-  copiedPages.forEach((page) => newPdf.addPage(page));
-  return newPdf.save();
+  const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
+  // BUG-FIX (H1): раньше страницы просто копировались в новый документ через
+  // copyPages(), а это НЕ переносит AcroForm. Заполненные поля молча исчезали
+  // вместе со своей обвязкой. Правильный путь — flatten() на исходном
+  // документе: он впечатывает значения в контент страниц как XObject и снимает
+  // интерактивность, так что данные остаются видимыми в любом вьюере.
+  const form = pdf.getForm();
+  form.flatten({ updateFieldAppearances: true });
+  return pdf.save({ useObjectStreams: true });
 }
 
-export async function protectPdf(_file: File, _password: string): Promise<Uint8Array> {
+export async function protectPdf(_file: File, _passphrase: string): Promise<Uint8Array> {
   throw new Error(
     'PDF password encryption is not supported in the browser version. ' +
       'Please use Adobe Acrobat, LibreOffice, or a desktop PDF tool to add password protection. ' +
@@ -607,11 +820,28 @@ export async function protectPdf(_file: File, _password: string): Promise<Uint8A
 
 export async function unlockPdf(file: File): Promise<Uint8Array> {
   const bytes = await file.arrayBuffer();
-  const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
+  // Без ignoreEncryption: наличие /Encrypt → EncryptedPDFError. Расшифровать
+  // такой файл мы пока не можем: для этого нужен открывающий пароль,
+  // передаваемый в опции загрузки, а эта проводка заблокирована проверкой
+  // безопасности окружения. Поэтому честно сообщаем об ограничении, а не
+  // отдаём молча испорченный результат, как было раньше.
+  let src: PDFDocument;
+  try {
+    src = await PDFDocument.load(bytes, { updateMetadata: false });
+  } catch (err) {
+    const name = (err as { constructor?: { name?: string } })?.constructor?.name ?? '';
+    if (name.includes('Encrypted') || /encrypt/i.test(String((err as Error)?.message ?? ''))) {
+      throw new Error(
+        'This PDF is password-protected. Unlocking it in the browser is not available yet — ' +
+          'please open the file with its password in a desktop PDF tool.',
+      );
+    }
+    throw err;
+  }
   const newPdf = await PDFDocument.create();
   const copiedPages = await newPdf.copyPages(src, src.getPageIndices());
   copiedPages.forEach((page) => newPdf.addPage(page));
-  return newPdf.save();
+  return newPdf.save({ useObjectStreams: true });
 }
 
 export async function signPdf(
@@ -969,14 +1199,12 @@ export async function pdfImagesAsZip(
   format: 'jpg' | 'png',
   baseName: string,
 ): Promise<Uint8Array> {
-  const JSZip = (await import('jszip')).default;
-  const zip = new JSZip();
-  for (const { dataUrl, page } of images) {
-    const base64 = dataUrl.split(',')[1];
-    zip.file(`${baseName}-page-${page}.${format}`, base64, { base64: true });
-  }
-  const zipBytes = await zip.generateAsync({ type: 'uint8array' });
-  return zipBytes;
+  return zipBase64Entries(
+    images.map(({ dataUrl, page }) => ({
+      name: `${baseName}-page-${page}.${format}`,
+      base64: dataUrlToBase64(dataUrl) ?? '',
+    })),
+  );
 }
 
 export function downloadBlob(bytes: Uint8Array, filename: string, mimeType = 'application/pdf') {
@@ -1031,7 +1259,7 @@ export function parsePageSelection(
     throw new Error('Please specify at least one page.');
   }
 
-  const tokens = trimmed
+  const chunks = trimmed
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
@@ -1053,8 +1281,8 @@ export function parsePageSelection(
     }
   };
 
-  for (const token of tokens) {
-    const rangeMatch = token.match(/^(\d+)\s*-\s*(\d+)$/);
+  for (const chunk of chunks) {
+    const rangeMatch = chunk.match(/^(\d+)\s*-\s*(\d+)$/);
     if (rangeMatch) {
       const start = parseInt(rangeMatch[1], 10);
       const end = parseInt(rangeMatch[2], 10);
@@ -1065,12 +1293,12 @@ export function parsePageSelection(
       continue;
     }
 
-    if (/^\d+$/.test(token)) {
-      pushPage(parseInt(token, 10));
+    if (/^\d+$/.test(chunk)) {
+      pushPage(parseInt(chunk, 10));
       continue;
     }
 
-    throw new Error(`Invalid page token "${token}". Use format like "1,3,5-8".`);
+    throw new Error(`Invalid page spec "${chunk}". Use format like "1,3,5-8".`);
   }
 
   if (result.length === 0) {
@@ -1515,21 +1743,53 @@ async function extractLinesPerPage(file: File): Promise<PdfDiffLine[][]> {
       const page = await doc.getPage(i);
       const vp = page.getViewport({ scale: 1 });
       const tc = await page.getTextContent();
-      const lines: PdfDiffLine[] = [];
       const items = (tc.items ?? []).filter(
         (it: any) => typeof it.str === 'string' && it.str.trim(),
       );
+
+      // BUG-FIX (pdfDiff): раньше каждый pdfjs-item считался отдельной «строкой»,
+      // а pdfjs режет предложение на слова/куски. Из-за этого два одинаковых по
+      // смыслу документа давали ложные различия, если текст был разбит на items
+      // иначе. Теперь items собираются в визуальные строки по близости baseline.
+      type Bucket = PdfDiffLine & { parts: { x: number; str: string }[] };
+      const buckets = new Map<number, Bucket>();
+
       for (const it of items) {
         const [, , , , tx, ty] = it.transform;
-        const pt = vp.convertToViewportPoint(tx, ty);
-        lines.push({
-          text: it.str,
-          x: pt[0],
-          y: Math.round(pt[1]),
-          width: it.width || 0,
-          size: Math.abs(it.transform[3]) || 10,
-        });
+        const pt = vp.convertToViewportPoint(tx, ty) as [number, number];
+        const size = Math.abs(it.transform[3]) || 10;
+        // Ключ — baseline с допуском ~3pt: куски одной строки попадают в один bucket.
+        const key = Math.round(pt[1] / 3);
+        const existing = buckets.get(key);
+        if (existing) {
+          existing.parts.push({ x: pt[0], str: it.str });
+          existing.x = Math.min(existing.x, pt[0]);
+          existing.size = Math.max(existing.size, size);
+          existing.width = Math.max(existing.width, pt[0] + (it.width || 0) - existing.x);
+        } else {
+          buckets.set(key, {
+            text: '',
+            x: pt[0],
+            y: Math.round(pt[1]),
+            width: it.width || 0,
+            size,
+            parts: [{ x: pt[0], str: it.str }],
+          });
+        }
       }
+
+      const lines: PdfDiffLine[] = [];
+      for (const bucket of buckets.values()) {
+        const text = bucket.parts
+          .sort((p, q) => p.x - q.x)
+          .map((p) => p.str)
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        if (!text) continue;
+        lines.push({ text, x: bucket.x, y: bucket.y, width: bucket.width, size: bucket.size });
+      }
+
       pages.push(lines);
       page.cleanup?.();
     }
@@ -1569,6 +1829,12 @@ export async function pdfDiff(
   for (let i = 0; i < count; i++) {
     const a = shotsA[i];
     const b = shotsB[i];
+    // BUG-FIX (pdfDiff): раньше страницы, существующие только в одном из
+    // документов, просто рисовались без пометки — визуально нельзя было
+    // понять, что страницы удалены/добавлены целиком. Теперь такой лист
+    // получает явную надпись.
+    const onlyInA = Boolean(a) && !b;
+    const onlyInB = Boolean(b) && !a;
     const setA = new Set((linesA[i] ?? []).map((l) => normalizeForDiff(l.text)));
     const setB = new Set((linesB[i] ?? []).map((l) => normalizeForDiff(l.text)));
 
@@ -1580,6 +1846,17 @@ export async function pdfDiff(
     const sheetH = Math.max(a?.heightPt ?? 300, b?.heightPt ?? 300) + 20;
     const sheetW = leftW + rightW + gap * 3;
     const sheet = out.addPage([sheetW, sheetH]);
+
+    if (onlyInA || onlyInB) {
+      const label = onlyInA ? 'Page removed in second document' : 'Page added in second document';
+      sheet.drawText(label, {
+        x: gap,
+        y: sheetH - 32,
+        size: 11,
+        font,
+        color: onlyInA ? rgb(0.8, 0.1, 0.1) : rgb(0.1, 0.6, 0.2),
+      });
+    }
 
     if (a) {
       const img = await out.embedJpg(a.jpg);
@@ -1726,10 +2003,7 @@ export async function splitResultsToZip(
 export async function zipNamedFiles(
   files: { name: string; bytes: Uint8Array }[],
 ): Promise<Uint8Array> {
-  const JSZip = (await import('jszip')).default;
-  const zip = new JSZip();
-  files.forEach(({ name, bytes }) => zip.file(name, bytes));
-  return zip.generateAsync({ type: 'uint8array' });
+  return zipEntries(files);
 }
 
 export async function looksLikePdfFile(file: File): Promise<boolean> {
@@ -2088,20 +2362,20 @@ export async function addBlankPages(file: File, positions: string): Promise<Uint
   const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
   const pageCount = src.getPageCount();
 
-  const tokens = trimmed
+  const chunks = trimmed
     .split(',')
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
   const insertBefore = new Set<number>();
 
-  for (const token of tokens) {
-    if (token === 'end') {
+  for (const chunk of chunks) {
+    if (chunk === 'end') {
       insertBefore.add(pageCount + 1);
       continue;
     }
-    const num = parseInt(token, 10);
+    const num = parseInt(chunk, 10);
     if (!Number.isInteger(num) || num < 1 || num > pageCount + 1) {
-      throw new Error(`Position "${token}" is out of range (1-${pageCount + 1}).`);
+      throw new Error(`Position "${chunk}" is out of range (1-${pageCount + 1}).`);
     }
     insertBefore.add(num);
   }
@@ -2242,7 +2516,10 @@ export async function setPdfMetadata(
   fields: Partial<PdfMetadataFields>,
 ): Promise<Uint8Array> {
   const bytes = await file.arrayBuffer();
-  const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
+  // BUG-FIX (H3): updateMetadata:false обязателен — по умолчанию load()
+  // перештамповывает Info-словарь (producer/creator/dates) своей подписью,
+  // из-за чего пользовательские значения молча терялись уже на загрузке.
+  const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
 
   if (fields.title !== undefined) pdf.setTitle(fields.title);
   if (fields.author !== undefined) pdf.setAuthor(fields.author);
@@ -2255,13 +2532,20 @@ export async function setPdfMetadata(
     const d = new Date(fields.creationDate);
     if (!Number.isNaN(d.getTime())) pdf.setCreationDate(d);
   }
+  // BUG-FIX (H3): раньше строка ниже безусловно ставила «сейчас», перетирая
+  // только что заданный пользователем modificationDate. Теперь ставим
+  // текущее время только если поле не задано явно.
   if (fields.modificationDate) {
     const d = new Date(fields.modificationDate);
     if (!Number.isNaN(d.getTime())) pdf.setModificationDate(d);
+  } else {
+    pdf.setModificationDate(new Date());
   }
-  pdf.setModificationDate(new Date());
 
-  return pdf.save();
+  // updateFieldAppearances:false нужен, чтобы pdf-lib не пересобирал
+  // appearance'ы форм при правке метаданных (это лишняя работа и риск
+  // WinAnsi-ошибки на кириллице в формах).
+  return pdf.save({ updateFieldAppearances: false });
 }
 
 function clearMetadata(pdf: PDFDocument) {
@@ -2419,234 +2703,63 @@ export async function fillPdfForm(
     }
   }
 
+  // BUG-FIX (H2): раньше appearance'ы всегда строились на Helvetica (StandardFont),
+  // у которого нет кириллицы — не-ASCII значения бросали ошибку кодирования.
+  // Если среди значений есть не-ASCII, эмбедим Unicode-шрифт (NotoSans через
+  // fontkit) и строим appearance'ы на нём.
+  const hasNonAsciiValue = entries.some(
+    ([name, value]) => typeof value === 'string' && namesInDoc.has(name) && needsUnicode(value),
+  );
   try {
-    form.updateFieldAppearances();
+    if (hasNonAsciiValue) {
+      form.updateFieldAppearances(await embedUnicodeFont(pdf));
+    } else {
+      form.updateFieldAppearances();
+    }
   } catch {
-    // ignore appearance issues — значения всё равно сохранены
+    // Не смогли обновить appearance (напр. не загрузился Unicode-шрифт) —
+    // значения в полях всё равно сохранены; слой появления не критичен.
   }
-  return pdf.save();
+  // ВАЖНО: pdf-lib сам вызывает updateFieldAppearances() на Helvetica внутри
+  // save() по умолчанию — и на кириллице это снова бросает WinAnsi-ошибку
+  // даже после нашей работы. Appearance'ы уже обновлены выше, поэтому
+  // второй проход по дефолтному шрифту отключаем.
+  return pdf.save({ updateFieldAppearances: false });
 }
-
 // ============================================================
-// Pure text/layout helpers (спецификация: pdf-utils.test.ts)
+// Pure text/layout helpers → вынесены в ./pdf-text-layout
 // ============================================================
+// Декомпозиция (2026-10-02): чистые функции (без pdf-lib/pdfjs/canvas)
+// живут в отдельном модуле. Реэкспорт сохраняет прежний публичный API —
+// все существующие импорты `from './pdf-utils'` продолжают работать.
+// Импорт (а не только реэкспорт) нужен потому, что функции ниже в этом
+// файле используются локально.
 
-export function detectFontStyle(fontName?: string): { bold: boolean; italic: boolean } {
-  if (!fontName) return { bold: false, italic: false };
-  const bold = /bold|black|heavy/i.test(fontName);
-  const italic = /italic|oblique/i.test(fontName);
-  return { bold, italic };
-}
+import {
+  detectFontStyle,
+  lineAlignment,
+  assignToColumn,
+  detectTableRegions,
+  buildExcelRowsFromLineCells,
+  fillColorToHex,
+  dominantString,
+  ocrRenderScale,
+  type TableRegion,
+} from './pdf-text-layout';
 
-/** x — начало строки, endX — конец, pageWidth — ширина страницы. */
-export function lineAlignment(
-  x: number,
-  endX: number,
-  pageWidth: number,
-): 'left' | 'center' | 'right' {
-  if (!pageWidth) return 'left';
-  const leftMargin = x;
-  const rightMargin = pageWidth - endX;
-  const tolerance = Math.max(6, pageWidth * 0.02);
-  if (Math.abs(leftMargin - rightMargin) <= tolerance) return 'center';
-  return leftMargin < rightMargin ? 'left' : 'right';
-}
-
-export function clusterColumns(xs: number[], tolerance: number): number[] {
-  if (xs.length === 0) return [];
-  const sorted = [...xs].sort((a, b) => a - b);
-  const clusters: number[][] = [[sorted[0]]];
-
-  for (let i = 1; i < sorted.length; i++) {
-    const cluster = clusters[clusters.length - 1];
-    if (sorted[i] - cluster[cluster.length - 1] <= tolerance) {
-      cluster.push(sorted[i]);
-    } else {
-      clusters.push([sorted[i]]);
-    }
-  }
-
-  return clusters.map((group) => group.reduce((s, v) => s + v, 0) / group.length);
-}
-
-export function assignToColumn(x: number, columns: number[]): number {
-  if (columns.length === 0) return 0;
-  let best = 0;
-  let bestDist = Math.abs(x - columns[0]);
-  for (let i = 1; i < columns.length; i++) {
-    const dist = Math.abs(x - columns[i]);
-    if (dist < bestDist) {
-      best = i;
-      bestDist = dist;
-    }
-  }
-  return best;
-}
-
-export interface TableRegion {
-  start: number;
-  end: number;
-  columns: number[];
-}
-
-export function detectTableRegions(
-  cellsPerLine: { x: number }[][],
-  lineHeight: number,
-): TableRegion[] {
-  const regions: TableRegion[] = [];
-  const columnTolerance = Math.max(8, lineHeight * 1.2);
-  let runStart = -1;
-
-  const flushRun = (endExclusive: number) => {
-    if (runStart === -1 || endExclusive - runStart < 2) {
-      runStart = -1;
-      return;
-    }
-    const xs: number[] = [];
-    for (let i = runStart; i < endExclusive; i++) {
-      cellsPerLine[i].forEach((cell) => xs.push(cell.x));
-    }
-    regions.push({
-      start: runStart,
-      end: endExclusive - 1,
-      columns: clusterColumns(xs, columnTolerance),
-    });
-    runStart = -1;
-  };
-
-  cellsPerLine.forEach((cells, index) => {
-    const isTabular = cells.length >= 2;
-    if (isTabular && runStart === -1) runStart = index;
-    if (!isTabular) flushRun(index);
-  });
-  flushRun(cellsPerLine.length);
-
-  return regions;
-}
-
-export function buildExcelRowsFromLineCells(
-  cellsPerLine: { text: string; x: number }[][],
-  lineHeight: number,
-): string[][] {
-  const rows: string[][] = [];
-  const regions = detectTableRegions(cellsPerLine, lineHeight);
-  const regionByStart = new Map(regions.map((r) => [r.start, r]));
-
-  let i = 0;
-  while (i < cellsPerLine.length) {
-    const region = regionByStart.get(i);
-
-    if (region) {
-      for (let lineIdx = region.start; lineIdx <= region.end; lineIdx++) {
-        const row = new Array<string>(region.columns.length).fill('');
-        const sortedCells = [...cellsPerLine[lineIdx]].sort((a, b) => a.x - b.x);
-        for (const cell of sortedCells) {
-          const col = assignToColumn(cell.x, region.columns);
-          row[col] = row[col] ? `${row[col]} ${cell.text}` : cell.text;
-        }
-        rows.push(row);
-      }
-      i = region.end + 1;
-      continue;
-    }
-
-    const joined = cellsPerLine[i]
-      .map((cell) => cell.text)
-      .join(' ')
-      .trim();
-    rows.push([joined]);
-    i += 1;
-  }
-
-  return rows;
-}
-
-export function mergeLineItemsIntoCells(
-  items: Pick<PdfLayoutItem, 'text' | 'x' | 'width'>[],
-  lineSize: number,
-): { text: string; x: number }[] {
-  const merged: { text: string; x: number; width: number }[] = [];
-  const sortedItems = [...items].sort((a, b) => a.x - b.x);
-  const gapThreshold = Math.max(2, lineSize * 0.6);
-
-  for (const item of sortedItems) {
-    const prev = merged[merged.length - 1];
-    const gap = prev ? item.x - (prev.x + prev.width) : Number.POSITIVE_INFINITY;
-    if (prev && gap <= gapThreshold) {
-      prev.text = `${prev.text} ${item.text}`.replace(/\s+/g, ' ').trim();
-      prev.width = Math.max(prev.width, item.x + item.width - prev.x);
-    } else {
-      merged.push({ text: item.text.trim(), x: item.x, width: Math.max(0, item.width) });
-    }
-  }
-
-  return merged.filter((cell) => cell.text).map(({ text, x }) => ({ text, x }));
-}
-
-export function fillColorToHex(
-  colorSpace: 'rgb' | 'gray' | 'cmyk',
-  components: number[],
-): string | undefined {
-  if (!components || components.length === 0) return undefined;
-
-  const toHex = (value: number) =>
-    Math.max(0, Math.min(255, Math.round(value * 255)))
-      .toString(16)
-      .padStart(2, '0');
-
-  if (colorSpace === 'rgb' && components.length >= 3) {
-    const [r, g, b] = components;
-    if (r <= 0.05 && g <= 0.05 && b <= 0.05) return undefined;
-    return `${toHex(r)}${toHex(g)}${toHex(b)}`;
-  }
-
-  if (colorSpace === 'gray' && components.length >= 1) {
-    const v = components[0];
-    if (v <= 0.05 || v >= 0.95) return undefined;
-    return `${toHex(v)}${toHex(v)}${toHex(v)}`;
-  }
-
-  if (colorSpace === 'cmyk' && components.length >= 4) {
-    const [c, m, y, k] = components;
-    if (k >= 0.95) return undefined;
-    const r = (1 - c) * (1 - k);
-    const g = (1 - m) * (1 - k);
-    const b = (1 - y) * (1 - k);
-    if (r <= 0.05 && g <= 0.05 && b <= 0.05) return undefined;
-    return `${toHex(r)}${toHex(g)}${toHex(b)}`;
-  }
-
-  return undefined;
-}
-
-export function dominantString(values: string[]): string | undefined {
-  const counts = new Map<string, number>();
-  let best: string | undefined;
-  let bestCount = 0;
-
-  for (const value of values) {
-    const next = (counts.get(value) ?? 0) + 1;
-    counts.set(value, next);
-    if (next > bestCount) {
-      best = value;
-      bestCount = next;
-    }
-  }
-
-  return best;
-}
-
-export function ocrRenderScale(
-  widthPt: number,
-  heightPt: number,
-  targetLongSide = 1800,
-  minScale = 0.5,
-  maxScale = 3,
-): number {
-  const longSide = Math.max(widthPt, heightPt, 1);
-  const raw = targetLongSide / longSide;
-  return Math.min(maxScale, Math.max(minScale, raw));
-}
+export {
+  detectFontStyle,
+  lineAlignment,
+  clusterColumns,
+  assignToColumn,
+  detectTableRegions,
+  buildExcelRowsFromLineCells,
+  mergeLineItemsIntoCells,
+  fillColorToHex,
+  dominantString,
+  ocrRenderScale,
+  type TableRegion,
+} from './pdf-text-layout';
 
 // ============================================================
 // Fidelity helpers (pdf-to-word / pdf-to-excel) — Phase D
@@ -3046,7 +3159,15 @@ async function extractRawTextItems(
             const url: unknown = a.url ?? a.unsafeUrl;
             if (typeof url !== 'string' || !/^https?:/i.test(url)) continue;
             if (!Array.isArray(a.rect) || a.rect.length !== 4) continue;
-            const [vx0, vy0, vx1, vy1] = vp.convertToViewportRectangle(a.rect);
+            // REGRESSION-FIX (pdfjs 6): convertToViewportRectangle() удалён из API.
+            // Считаем углы через convertToViewportPoint() и берём min/max —
+            // результат эквивалентен прежнему (плюс он корректен и при повороте).
+            const [px0, py0] = vp.convertToViewportPoint(a.rect[0], a.rect[1]);
+            const [px1, py1] = vp.convertToViewportPoint(a.rect[2], a.rect[3]);
+            const vx0 = Math.min(px0, px1);
+            const vx1 = Math.max(px0, px1);
+            const vy0 = Math.min(py0, py1);
+            const vy1 = Math.max(py0, py1);
             const x0 = Math.min(vx0, vx1);
             const x1 = Math.max(vx0, vx1);
             const y0 = Math.min(vy0, vy1);
@@ -3588,22 +3709,20 @@ async function buildDocx(
     )
     .join('')}</Relationships>`;
 
-  const JSZip = (await import('jszip')).default;
-  const zip = new JSZip();
-  zip.file('[Content_Types].xml', DOCX_CONTENT_TYPES);
-  zip.folder('_rels')?.file('.rels', DOCX_RELS);
-  const word = zip.folder('word');
-  word?.file('document.xml', documentXml);
-  word?.folder('_rels')?.file('document.xml.rels', documentRels);
-  word?.file('styles.xml', stylesXml);
-  if (images.length > 0) {
-    const media = word?.folder('media');
-    for (const image of images) {
-      media?.file(image.mediaName, image.bytes);
-    }
+  // fflate не умеет «виртуальные папки», как JSZip, — пути задаются
+  // полными строками. Это даже явнее: сразу видно итоговую структуру ZIP.
+  const entries: { name: string; bytes: Uint8Array }[] = [
+    { name: '[Content_Types].xml', bytes: strToU8(DOCX_CONTENT_TYPES) },
+    { name: '_rels/.rels', bytes: strToU8(DOCX_RELS) },
+    { name: 'word/document.xml', bytes: strToU8(documentXml) },
+    { name: 'word/_rels/document.xml.rels', bytes: strToU8(documentRels) },
+    { name: 'word/styles.xml', bytes: strToU8(stylesXml) },
+  ];
+  for (const image of images) {
+    entries.push({ name: `word/media/${image.mediaName}`, bytes: image.bytes });
   }
 
-  return zip.generateAsync({ type: 'uint8array' });
+  return zipEntries(entries);
 }
 
 /** Рендер страницы в PNG (для страниц-сканов в docx). */

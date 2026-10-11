@@ -193,7 +193,7 @@ export default function ToolPage() {
   const [rotation, setRotation] = useState<'90' | '180' | '270'>('90');
   const [pagesToDelete, setPagesToDelete] = useState('');
   const [pagesToExtract, setPagesToExtract] = useState('');
-  const [compressionLevel] = useState<'low' | 'medium' | 'high'>('medium');
+  const [compressionLevel, setCompressionLevel] = useState<'low' | 'medium' | 'high'>('medium');
   const [watermarkText, setWatermarkText] = useState('CONFIDENTIAL');
   const [watermarkOpacity, setWatermarkOpacity] = useState([0.3]);
   const [watermarkPosition, setWatermarkPosition] = useState<
@@ -1013,10 +1013,20 @@ export default function ToolPage() {
   return (
     <div className="min-h-screen">
       <div className="mx-auto max-w-6xl px-4 py-7 sm:px-6 sm:py-10">
-        <nav className="mb-5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground" aria-label={lang === 'ru' ? 'Хлебные крошки' : 'Breadcrumb'}>
-          <Link href="/" className="transition-colors hover:text-foreground">{lang === 'ru' ? 'Главная' : 'Home'}</Link>
+        <nav
+          className="mb-5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
+          aria-label={lang === 'ru' ? 'Хлебные крошки' : 'Breadcrumb'}
+        >
+          <Link href="/" className="transition-colors hover:text-foreground">
+            {lang === 'ru' ? 'Главная' : 'Home'}
+          </Link>
           <ChevronRight className="size-3" />
-          <Link href={`/?category=${tool.category}`} className="transition-colors hover:text-foreground">{lang === 'ru' ? 'Инструменты' : 'Tools'}</Link>
+          <Link
+            href={`/?category=${tool.category}`}
+            className="transition-colors hover:text-foreground"
+          >
+            {lang === 'ru' ? 'Инструменты' : 'Tools'}
+          </Link>
         </nav>
 
         <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
@@ -1065,7 +1075,11 @@ export default function ToolPage() {
                 onRemoveFile={removeFile}
                 label={tool.accept?.includes('.pdf') ? t.tool.dropPdf : t.tool.chooseFile}
                 description={`${tool.multiple ? t.tool.multipleFiles : t.tool.singleFile} • ${t.tool.maxSize} ${maxSizeMb}MB`}
-                selectLabel={lang === 'ru' ? `Выбрать файл${tool.multiple ? 'ы' : ''}` : `Choose file${tool.multiple ? 's' : ''}`}
+                selectLabel={
+                  lang === 'ru'
+                    ? `Выбрать файл${tool.multiple ? 'ы' : ''}`
+                    : `Choose file${tool.multiple ? 's' : ''}`
+                }
               />
 
               {(slug === 'compare-pdf' || slug === 'pdf-diff' || slug === 'overlay-pdf') && (
@@ -1236,19 +1250,42 @@ export default function ToolPage() {
               )}
 
               {slug === 'compress-pdf' && (
-                <div
-                  className="flex items-start gap-3 rounded-lg p-3 text-sm"
-                  style={{
-                    background: 'rgba(16,185,129,0.08)',
-                    border: '1px solid rgba(16,185,129,0.2)',
-                  }}
-                >
-                  <span className="mt-0.5 text-emerald-600 dark:text-emerald-400">✓</span>
-                  <span className="text-foreground/85">
-                    {lang === 'ru'
-                      ? 'Оптимизирует структуру PDF. Если новый файл больше оригинала, возвращается оригинал.'
-                      : 'Optimises PDF structure with object streams. If the result is larger than the original, the original is returned unchanged.'}
-                  </span>
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">
+                      {t.tool.compressionLevel}
+                    </Label>
+                    <Tabs
+                      value={compressionLevel}
+                      onValueChange={(v) => setCompressionLevel(v as 'low' | 'medium' | 'high')}
+                    >
+                      <TabsList>
+                        <TabsTrigger value="low" data-testid="compression-low">
+                          {t.tool.compressionLow}
+                        </TabsTrigger>
+                        <TabsTrigger value="medium" data-testid="compression-medium">
+                          {t.tool.compressionMedium}
+                        </TabsTrigger>
+                        <TabsTrigger value="high" data-testid="compression-high">
+                          {t.tool.compressionHigh}
+                        </TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                  </div>
+                  <div
+                    className="flex items-start gap-3 rounded-lg p-3 text-sm"
+                    style={{
+                      background: 'rgba(16,185,129,0.08)',
+                      border: '1px solid rgba(16,185,129,0.2)',
+                    }}
+                  >
+                    <span className="mt-0.5 text-emerald-600 dark:text-emerald-400">✓</span>
+                    <span className="text-foreground/85">
+                      {lang === 'ru'
+                        ? 'Уровень выше — плотнее пересборка структуры PDF (object streams). Если новый файл больше оригинала, возвращается оригинал.'
+                        : 'A higher level rebuilds the PDF structure more aggressively (object streams). If the result is larger than the original, the original is returned unchanged.'}
+                    </span>
+                  </div>
                 </div>
               )}
 
