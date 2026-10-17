@@ -31,3 +31,12 @@ Date: 2026-09-21
 ### Decision
 
 Preserved existing palette and registry; no architecture or PDF-processing changes
+
+## ADR-10172218 — Recorded decision
+
+Status: Accepted
+Date: 2026-10-17
+
+### Decision
+
+ADR-019 selective adaptation to current fflate/pdfjs; preserve table-cut guard and headers; no new dependencies

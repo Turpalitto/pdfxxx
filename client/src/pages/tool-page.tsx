@@ -547,11 +547,19 @@ export default function ToolPage() {
           break;
 
         case 'pdf-to-word':
-          result = await runToolMainThreadTask(entry, () => pdfToWord(files[0]));
+          result = await runOrFallback(entry, () => pdfToWord(files[0]), {
+            file: files[0],
+            onProgress: setProgress,
+            signal,
+          });
           break;
 
         case 'pdf-to-excel':
-          result = await runToolMainThreadTask(entry, () => pdfToExcel(files[0]));
+          result = await runOrFallback(entry, () => pdfToExcel(files[0]), {
+            file: files[0],
+            onProgress: setProgress,
+            signal,
+          });
           break;
 
         case 'pdf-to-text': {

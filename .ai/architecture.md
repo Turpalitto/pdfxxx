@@ -1,6 +1,6 @@
 # PDFX — Architecture
 
-> Source of truth. Last updated: 2026-09-14. Update after structural changes.
+> Source of truth. Last updated: 2026-10-17. Update after structural changes.
 
 ---
 
@@ -46,6 +46,7 @@ client/src/
 │   └── not-found.tsx
 │
 └── components/
+    ├── error-boundary.tsx     # Route render failures → EN/RU recovery fallback in App
     ├── navbar.tsx
     ├── footer.tsx
     ├── global-command-palette.tsx        # Лёгкий trigger + keyboard shortcut
@@ -181,6 +182,10 @@ handleDownload() → downloadBlob() / downloadText()
 ### `pdf-utils.ts` — PDF движок
 
 Все функции async, принимают `File`, возвращают `Uint8Array` или специфические типы.
+
+- `pdfToWord` использует `WordBodyBuilder` для одноуровневых bullet/decimal списков и пакует numbering.xml через fflate; начальные номера и page breaks сохраняются.
+- `wordToPdf` читает Mammoth HTML в отдельном DOMParser-документе, затем рисует заголовки/абзацы/списки через pdf-lib. `wordParagraphMarkers` восстанавливает starts/restarts, Roman/Letter и составные маркеры из OOXML, включая paragraph styles; текст/порядок повторов связывает абзацы независимо от footnotes/endnotes. `formatWordListNumber` покрыт unit-тестами. HTML не вставляется в живой DOM.
+- PDF→Word/Excel идут через registry-backed worker routing с main-thread fallback и отменой.
 
 **Паттерн pdfjs (обязательный):**
 

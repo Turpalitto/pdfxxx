@@ -19,6 +19,8 @@ const WORKER_OP_BY_SLUG: Partial<Record<string, WorkerOp>> = {
   'n-up-pdf': 'nUpPdf',
   'pdf-diff': 'pdfDiff',
   'pdf-to-pptx': 'pdfToPptx',
+  'pdf-to-word': 'pdfToWord',
+  'pdf-to-excel': 'pdfToExcel',
 };
 
 const CALLBACK_PROGRESS_SLUGS = new Set([

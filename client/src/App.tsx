@@ -9,6 +9,8 @@ import { ThemeProvider } from '@/lib/theme';
 import { LangProvider, useLang } from '@/lib/lang-context';
 import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
+import { ErrorBoundary } from '@/components/error-boundary';
+import { Button } from '@/components/ui/button';
 import {
   loadHomePage,
   loadContactPage,
@@ -118,7 +120,30 @@ function ThemedLayout() {
         <Navbar />
         <main id="main-content" className="flex-1">
           <div key={routeKey} className="page-enter">
-            <Router />
+            <ErrorBoundary
+              fallback={
+                <section className="mx-auto max-w-xl px-6 py-16 text-center" role="alert">
+                  <h1 className="text-2xl font-bold">
+                    {lang === 'ru' ? 'Не удалось открыть страницу' : 'Unable to open this page'}
+                  </h1>
+                  <p className="mt-3 text-muted-foreground">
+                    {lang === 'ru'
+                      ? 'Попробуйте перезагрузить страницу или вернуться на главную.'
+                      : 'Try reloading the page or returning to the home page.'}
+                  </p>
+                  <div className="mt-6 flex flex-wrap justify-center gap-3">
+                    <Button onClick={() => window.location.reload()}>
+                      {lang === 'ru' ? 'Перезагрузить' : 'Reload page'}
+                    </Button>
+                    <Button variant="outline" asChild>
+                      <a href="/">{lang === 'ru' ? 'На главную' : 'Go home'}</a>
+                    </Button>
+                  </div>
+                </section>
+              }
+            >
+              <Router />
+            </ErrorBoundary>
           </div>
         </main>
         <Footer />

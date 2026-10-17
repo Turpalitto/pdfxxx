@@ -1080,22 +1080,342 @@ export async function redactPagesWithMatcher(
   }
 }
 
+interface WordListMarker {
+  text: string;
+  marker: string | null;
+  level?: number;
+}
+
+/** Formats the numbering styles that Word commonly uses in list templates. */
+export function formatWordListNumber(value: number, format: string): string | null {
+  if (!Number.isSafeInteger(value) || value < 0) return null;
+  if (format === 'decimal') return String(value);
+  if (format === 'decimalZero') return String(value).padStart(2, '0');
+  if (format === 'none') return '';
+  if (format === 'upperLetter' || format === 'lowerLetter') {
+    if (value < 1) return null;
+    // Word's sequence is A..Z, AA, BB..ZZ, AAA (not spreadsheet column names).
+    const repeats = Math.floor((value - 1) / 26) + 1;
+    if (repeats > 1000) return null;
+    const text = String.fromCharCode(65 + ((value - 1) % 26)).repeat(repeats);
+    return format === 'lowerLetter' ? text.toLowerCase() : text;
+  }
+  if (format === 'upperRoman' || format === 'lowerRoman') {
+    if (value < 1 || value > 3999) return null;
+    const symbols: [number, string][] = [
+      [1000, 'M'],
+      [900, 'CM'],
+      [500, 'D'],
+      [400, 'CD'],
+      [100, 'C'],
+      [90, 'XC'],
+      [50, 'L'],
+      [40, 'XL'],
+      [10, 'X'],
+      [9, 'IX'],
+      [5, 'V'],
+      [4, 'IV'],
+      [1, 'I'],
+    ];
+    let n = value;
+    let text = '';
+    for (const [amount, symbol] of symbols) {
+      while (n >= amount) {
+        text += symbol;
+        n -= amount;
+      }
+    }
+    return format === 'lowerRoman' ? text.toLowerCase() : text;
+  }
+  return null;
+}
+
+/** Mammoth's HTML omits starts and formats; keep markers with their source text. */
+async function wordParagraphMarkers(bytes: ArrayBuffer): Promise<WordListMarker[]> {
+  const { unzipSync, strFromU8 } = await import('fflate');
+  const files = unzipSync(new Uint8Array(bytes), {
+    filter: (entry) =>
+      ['word/document.xml', 'word/numbering.xml', 'word/styles.xml'].includes(entry.name),
+  });
+  if (!files['word/numbering.xml'] || !files['word/document.xml']) return [];
+  const parse = (name: string) =>
+    new DOMParser().parseFromString(strFromU8(files[name]), 'application/xml');
+  const numbering = parse('word/numbering.xml');
+  const document = parse('word/document.xml');
+  const styles = files['word/styles.xml'] ? parse('word/styles.xml') : null;
+  const ns = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const elements = (node: Element | Document, name: string) =>
+    Array.from(node.getElementsByTagNameNS(ns, name));
+  const value = (node: Element | Document | undefined, name: string) =>
+    node ? elements(node, name)[0]?.getAttributeNS(ns, 'val') : undefined;
+  const counters = new Map<string, number>();
+  const nums = new Map(
+    elements(numbering, 'num').map((node) => [node.getAttributeNS(ns, 'numId'), node]),
+  );
+  const abstracts = new Map(
+    elements(numbering, 'abstractNum').map((node) => [
+      node.getAttributeNS(ns, 'abstractNumId'),
+      node,
+    ]),
+  );
+  const styleById = new Map(
+    (styles ? elements(styles, 'style') : []).map((node) => [
+      node.getAttributeNS(ns, 'styleId'),
+      node,
+    ]),
+  );
+  const levelDefinition = (id: string, index: number) => {
+    const num = nums.get(id);
+    const abstract = abstracts.get(value(num, 'abstractNumId') ?? null);
+    const override =
+      num &&
+      elements(num, 'lvlOverride').find(
+        (node) => Number(node.getAttributeNS(ns, 'ilvl')) === index,
+      );
+    const base =
+      abstract &&
+      elements(abstract, 'lvl').find(
+        (node) => Number(node.getAttributeNS(ns, 'ilvl') ?? 0) === index,
+      );
+    const overridden = override && elements(override, 'lvl')[0];
+    const property = (name: string) => value(overridden, name) ?? value(base, name);
+    const rawStart = Number(value(override, 'startOverride') ?? property('start') ?? 1);
+    const rawRestart = Number(property('lvlRestart') ?? index);
+    const legal =
+      (overridden && elements(overridden, 'isLgl')[0]) || (base && elements(base, 'isLgl')[0]);
+    return {
+      start: Number.isSafeInteger(rawStart) && rawStart >= 0 ? rawStart : 1,
+      format: property('numFmt') ?? 'decimal',
+      pattern: property('lvlText') ?? `%${index + 1}.`,
+      restart:
+        Number.isInteger(rawRestart) && rawRestart >= 0 && rawRestart <= index ? rawRestart : index,
+      legal: Boolean(
+        legal && !['0', 'false', 'off'].includes(legal.getAttributeNS(ns, 'val') ?? '1'),
+      ),
+      suffix: property('suff') === 'nothing' ? '' : ' ',
+    };
+  };
+  return elements(document, 'p').flatMap<WordListMarker>((paragraph) => {
+    const text = elements(paragraph, 't')
+      .map((node) => node.textContent ?? '')
+      .join('');
+    const numPr = elements(paragraph, 'numPr')[0];
+    let id = value(numPr, 'numId');
+    let level = value(numPr, 'ilvl');
+    let styleId = value(paragraph, 'pStyle');
+    const visited = new Set<string>();
+    while (styleId && !visited.has(styleId)) {
+      visited.add(styleId);
+      const style = styleById.get(styleId);
+      const styleNumPr = style && elements(style, 'numPr')[0];
+      id ??= value(styleNumPr, 'numId');
+      level ??= value(styleNumPr, 'ilvl');
+      styleId = value(style, 'basedOn');
+    }
+    // Word can also associate the paragraph style on the numbering level itself.
+    if (!id) {
+      const paragraphStyle = value(paragraph, 'pStyle');
+      for (const [numId, num] of nums) {
+        const abstract = abstracts.get(value(num, 'abstractNumId') ?? null);
+        const lvl =
+          abstract &&
+          elements(abstract, 'lvl').find(
+            (node) => paragraphStyle && value(node, 'pStyle') === paragraphStyle,
+          );
+        if (lvl && numId) {
+          id = numId;
+          level ??= lvl.getAttributeNS(ns, 'ilvl') ?? '0';
+          break;
+        }
+      }
+    }
+    if (!id || id === '0') return [{ text, marker: null }];
+    const index = Number(level ?? 0);
+    if (!Number.isInteger(index) || index < 0 || index > 8) return [{ text, marker: null }];
+    const definition = levelDefinition(id, index);
+    const key = `${id}:${index}`;
+    const current = counters.has(key) ? counters.get(key)! + 1 : definition.start;
+    counters.set(key, current);
+    // lvlRestart=0 means keep counting across parent items.
+    for (const nested of counters.keys()) {
+      const nestedIndex = Number(nested.split(':')[1]);
+      const restart = levelDefinition(id, nestedIndex).restart;
+      if (nested.startsWith(`${id}:`) && nestedIndex > index && restart > 0 && index < restart)
+        counters.delete(nested);
+    }
+    let supported = true;
+    const marker =
+      definition.format === 'bullet'
+        ? '•'
+        : definition.format === 'none'
+          ? ''
+          : definition.pattern.replace(/%([1-9])/g, (_, digit: string) => {
+              const parentIndex = Number(digit) - 1;
+              if (parentIndex > index) return '';
+              const parent = levelDefinition(id, parentIndex);
+              const number = counters.get(`${id}:${parentIndex}`) ?? parent.start;
+              const formatted = formatWordListNumber(
+                number,
+                definition.legal ? 'decimal' : parent.format,
+              );
+              if (formatted === null) supported = false;
+              return formatted ?? '';
+            });
+    return [
+      {
+        text,
+        marker: supported ? marker + (marker ? definition.suffix : '') : null,
+        level: index,
+      },
+    ];
+  });
+}
+
 export async function wordToPdf(file: File): Promise<Uint8Array> {
   const arrayBuffer = await file.arrayBuffer();
-  let text = '';
+  let html = '';
   try {
     const mammoth = (await import('mammoth')).default;
-    const result = await mammoth.extractRawText({ arrayBuffer });
-    text = result.value;
+    const result = await mammoth.convertToHtml({ arrayBuffer });
+    html = result.value;
   } catch {
     throw new Error("Failed to read the Word document. Please make sure it's a valid .docx file.");
   }
-  if (!text.trim()) {
+  const document = new DOMParser().parseFromString(html, 'text/html');
+  const sourceMarkers = await wordParagraphMarkers(arrayBuffer);
+  // Read inert HTML only: never insert document content into the live page.
+  const textOf = (node: Node): string => {
+    if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? '';
+    if (node instanceof Element && node.tagName === 'BR') return '\n';
+    if (node instanceof Element && /^(UL|OL)$/.test(node.tagName)) return '';
+    const text = Array.from(node.childNodes).map(textOf).join('');
+    return node instanceof Element && node.tagName === 'P' ? text + '\n' : text;
+  };
+  // Notes add their own ol/li; they must never affect main-document numbering.
+  const noteSelector = '[id^="footnote-"], [id^="endnote-"]';
+  const withoutReferences = (element: Element) => {
+    const clone = element.cloneNode(true) as Element;
+    clone
+      .querySelectorAll('a[href^="#footnote-"], a[href^="#endnote-"]')
+      .forEach((node) => node.remove());
+    return textOf(clone).replace(/\s+/g, '');
+  };
+  const records = new Map<string, { items: WordListMarker[]; next: number }>();
+  for (const item of sourceMarkers) {
+    const key = item.text.replace(/\s+/g, '');
+    const bucket = records.get(key) ?? { items: [], next: 0 };
+    bucket.items.push(item);
+    records.set(key, bucket);
+  }
+  const paragraphs = Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li')).filter(
+    (element) => element.tagName === 'LI' || !element.closest('li'),
+  );
+  const markers = new Map<Element, WordListMarker>();
+  for (const item of paragraphs) {
+    if (item.closest(noteSelector)) continue;
+    const bucket = records.get(withoutReferences(item));
+    const source = bucket?.items[bucket.next];
+    if (source && bucket) {
+      markers.set(item, source);
+      bucket.next += 1;
+    }
+  }
+  const blocks = paragraphs
+    .map((element) => {
+      const text = textOf(element).trim();
+      const heading = /^H[1-6]$/.test(element.tagName) ? Number(element.tagName[1]) : 0;
+      const list = element.tagName === 'LI' ? element.parentElement : null;
+      let depth = 0;
+      for (let parent = list; parent; parent = parent.parentElement) {
+        if (/^(UL|OL)$/.test(parent.tagName)) depth += 1;
+      }
+      const source = markers.get(element);
+      if (source?.level !== undefined) depth = source.level + 1;
+      const index = list ? Array.from(list.children).indexOf(element) : 0;
+      const start = Number(list?.getAttribute('start') ?? 1);
+      const marker =
+        source?.marker ??
+        (list
+          ? list.tagName === 'OL'
+            ? `${(Number.isFinite(start) ? start : 1) + index}. `
+            : '• '
+          : '');
+      return { text, heading, depth, marker };
+    })
+    .filter((block) => block.text);
+
+  if (blocks.length === 0) {
     throw new Error(
       'The document appears to be empty or contains only images. Text conversion requires document text.',
     );
   }
-  return textToPdf(text);
+  const pdf = await PDFDocument.create();
+  const unicode = needsUnicode(blocks.map((block) => block.marker + block.text).join(''));
+  const regular = unicode
+    ? await embedUnicodeFont(pdf)
+    : await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = unicode ? regular : await pdf.embedFont(StandardFonts.HelveticaBold);
+  const width = 595;
+  const height = 842;
+  const margin = 50;
+  let page = pdf.addPage([width, height]);
+  let y = height - margin;
+  let deadline = performance.now() + 50;
+
+  for (const block of blocks) {
+    const size = block.heading ? [0, 22, 18, 15, 13, 13, 13][block.heading] : 12;
+    const font = block.heading ? bold : regular;
+    const lineHeight = size * 1.45;
+    const indent = Math.min(block.depth * 18, 144);
+    const markerWidth = font.widthOfTextAtSize(block.marker, size);
+    const x = margin + indent + markerWidth;
+    const maxWidth = width - margin - x;
+    y -= block.heading ? 10 : 0;
+    let firstLine = true;
+
+    const drawLine = (text: string) => {
+      if (y < margin + lineHeight) {
+        page = pdf.addPage([width, height]);
+        y = height - margin;
+      }
+      if (firstLine && block.marker) {
+        page.drawText(block.marker, { x: margin + indent, y, size, font });
+      }
+      if (text) page.drawText(text, { x, y, size, font });
+      firstLine = false;
+      y -= lineHeight;
+    };
+
+    for (const paragraph of block.text.split('\n')) {
+      let line = '';
+      for (const word of paragraph.split(/\s+/).filter(Boolean)) {
+        const candidate = line ? `${line} ${word}` : word;
+        if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
+          line = candidate;
+          continue;
+        }
+        if (line) {
+          drawLine(line);
+          line = '';
+        }
+        // Long URLs/words must wrap too, rather than run beyond the page edge.
+        for (const character of line ? ` ${word}` : word) {
+          if (font.widthOfTextAtSize(line + character, size) > maxWidth && line) {
+            drawLine(line);
+            line = '';
+          }
+          line += character;
+        }
+      }
+      drawLine(line);
+    }
+    y -= block.heading ? 6 : 4;
+    if (performance.now() >= deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      deadline = performance.now() + 50;
+    }
+  }
+  return pdf.save();
 }
 
 export async function pdfToText(file: File): Promise<string> {
@@ -3525,6 +3845,100 @@ async function extractPdfLayout(
 // PDF → Office / Markdown
 // ============================================================
 
+export interface DetectedListItem {
+  kind: 'bullet' | 'ordered';
+  marker: string;
+  start?: number;
+  suffix?: '.' | ')';
+}
+
+/** Require whitespace after the marker: decimals, years and negative numbers stay text. */
+export function detectListItem(text: string): DetectedListItem | null {
+  const bullet = text.match(/^([•●▪◦‣·–—*-])\s+\S/);
+  if (bullet) return { kind: 'bullet', marker: bullet[1] };
+  const ordered = text.match(/^(0|[1-9]\d{0,2})([.)])\s+\S/);
+  if (!ordered) return null;
+  return {
+    kind: 'ordered',
+    marker: ordered[1] + ordered[2],
+    start: Number(ordered[1]),
+    suffix: ordered[2] as '.' | ')',
+  };
+}
+
+/** Remove the marker across style boundaries without trimming the first body character. */
+export function stripListMarker(runs: StyledRun[], marker: string): StyledRun[] {
+  const text = runs.map((run) => run.text).join('');
+  const leading = text.match(/^\s*/)?.[0].length ?? 0;
+  if (!text.slice(leading).startsWith(marker)) return runs;
+  const end = leading + marker.length;
+  let remaining = end + (text.slice(end).match(/^\s*/)?.[0].length ?? 0);
+  const result: StyledRun[] = [];
+  for (const run of runs) {
+    const text = run.text.slice(remaining);
+    remaining = Math.max(0, remaining - run.text.length);
+    if (text) result.push({ ...run, text });
+  }
+  return result;
+}
+
+interface OrderedListGroup {
+  id: number;
+  start: number;
+  suffix: '.' | ')';
+}
+
+/** Keep numbering groups separate and preserve source starts/restarts (including “3)”). */
+class WordBodyBuilder {
+  private parts: string[] = [];
+  private groups: OrderedListGroup[] = [];
+  private lastItem: DetectedListItem | null = null;
+  private listItems = 0;
+
+  addRaw(xml: string): void {
+    this.parts.push(xml);
+    this.lastItem = null;
+  }
+
+  addListItem(xml: string, item: DetectedListItem): void {
+    let id = 1;
+    if (item.kind === 'ordered') {
+      if (
+        this.lastItem?.kind !== 'ordered' ||
+        this.lastItem.suffix !== item.suffix ||
+        (this.lastItem.start ?? 0) + 1 !== item.start
+      ) {
+        this.groups.push({ id: this.groups.length + 2, start: item.start!, suffix: item.suffix! });
+      }
+      id = this.groups[this.groups.length - 1].id;
+    }
+    const numPr = `<w:numPr><w:ilvl w:val="0"/><w:numId w:val="${id}"/></w:numPr>`;
+    this.parts.push(xml.replace(/(<w:pPr>)(<w:pStyle[^>]*\/>)?/, `$1$2${numPr}`));
+    this.lastItem = item;
+    this.listItems += 1;
+  }
+
+  finish(): string {
+    return this.parts.join('');
+  }
+
+  numberingXml(): string | null {
+    if (this.listItems === 0) return null;
+    // Use a Unicode font for U+2022, not Symbol's incompatible character mapping.
+    const bullet =
+      '<w:abstractNum w:abstractNumId="0"><w:multiLevelType w:val="singleLevel"/><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="•"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/></w:rPr></w:lvl></w:abstractNum>';
+    const abstracts = this.groups.map(
+      (group) =>
+        `<w:abstractNum w:abstractNumId="${group.id - 1}"><w:multiLevelType w:val="singleLevel"/><w:lvl w:ilvl="0"><w:start w:val="${group.start}"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1${group.suffix}"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl></w:abstractNum>`,
+    );
+    const nums = this.groups.map(
+      (group) =>
+        `<w:num w:numId="${group.id}"><w:abstractNumId w:val="${group.id - 1}"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="${group.start}"/></w:lvlOverride></w:num>`,
+    );
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">${bullet}${abstracts.join('')}<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>${nums.join('')}</w:numbering>`;
+  }
+}
+
 function escapeXml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
@@ -3572,9 +3986,10 @@ function runsXml(runs: StyledRun[], opts: { link?: boolean } = {}): string {
 /** Параграф строки с runs, стилями заголовков, spacing и опциональной ссылкой. */
 export function lineToParagraphXml(
   line: PdfLayoutLine,
-  opts: { headingLevel: number; linkRelId?: string },
+  opts: { headingLevel: number; linkRelId?: string; listItem?: DetectedListItem },
 ): string {
-  const runs = itemsToStyledRuns(line.items, line.size);
+  const originalRuns = itemsToStyledRuns(line.items, line.size);
+  const runs = opts.listItem ? stripListMarker(originalRuns, opts.listItem.marker) : originalRuns;
   if (runs.length === 0) return '';
 
   const props: string[] = [];
@@ -3677,6 +4092,7 @@ async function buildDocx(
   pageSize: [number, number],
   images: DocxImage[],
   links: { id: string; url: string }[],
+  numberingXml: string | null = null,
 ): Promise<Uint8Array> {
   const sectPr = `<w:sectPr><w:pgSz w:w="${Math.round(pageSize[0] * 20)}" w:h="${Math.round(pageSize[1] * 20)}"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr>`;
   const heading1Style = `<w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:pPr><w:outlineLvl w:val="0"/></w:pPr></w:style>`;
@@ -3707,17 +4123,30 @@ async function buildDocx(
         true,
       ),
     )
-    .join('')}</Relationships>`;
+    .join(
+      '',
+    )}${numberingXml ? relationshipXml('rNum1', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering', 'numbering.xml') : ''}</Relationships>`;
 
   // fflate не умеет «виртуальные папки», как JSZip, — пути задаются
   // полными строками. Это даже явнее: сразу видно итоговую структуру ZIP.
   const entries: { name: string; bytes: Uint8Array }[] = [
-    { name: '[Content_Types].xml', bytes: strToU8(DOCX_CONTENT_TYPES) },
+    {
+      name: '[Content_Types].xml',
+      bytes: strToU8(
+        numberingXml
+          ? DOCX_CONTENT_TYPES.replace(
+              '</Types>',
+              '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/></Types>',
+            )
+          : DOCX_CONTENT_TYPES,
+      ),
+    },
     { name: '_rels/.rels', bytes: strToU8(DOCX_RELS) },
     { name: 'word/document.xml', bytes: strToU8(documentXml) },
     { name: 'word/_rels/document.xml.rels', bytes: strToU8(documentRels) },
     { name: 'word/styles.xml', bytes: strToU8(stylesXml) },
   ];
+  if (numberingXml) entries.push({ name: 'word/numbering.xml', bytes: strToU8(numberingXml) });
   for (const image of images) {
     entries.push({ name: `word/media/${image.mediaName}`, bytes: image.bytes });
   }
@@ -3763,13 +4192,13 @@ export async function pdfToWord(file: File): Promise<Uint8Array> {
 
   const images: DocxImage[] = [];
   const links: { id: string; url: string }[] = [];
-  const bodyParts: string[] = [];
+  const body = new WordBodyBuilder();
   let docPrId = 1;
 
   for (let pageIndex = 0; pageIndex < layout.length; pageIndex++) {
     // Page break between source PDF pages (keep pages separated in DOCX).
     if (pageIndex > 0) {
-      bodyParts.push('<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
+      body.addRaw('<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
     }
     const page = layout[pageIndex];
 
@@ -3789,7 +4218,7 @@ export async function pdfToWord(file: File): Promise<Uint8Array> {
           cyEmu: Math.round(displayHeightPt * DOCX_EMU_PER_PT),
           docPrId: docPrId++,
         });
-        bodyParts.push(
+        body.addRaw(
           drawingParagraphXml(
             relId,
             `image-p${pageIndex + 1}.png`,
@@ -3805,7 +4234,17 @@ export async function pdfToWord(file: File): Promise<Uint8Array> {
       }
     }
 
-    const cellsPerLine = page.lines.map(lineCells);
+    // A separately positioned bullet/number must not make a list look like a table.
+    const cellsPerLine = page.lines.map((line) => {
+      const cells = lineCells(line);
+      // Only marker + body is list-like; numbered rows with additional cells
+      // remain available to the existing table detector.
+      const item = detectListItem(line.text);
+      return item &&
+        (cells.length === 1 || (cells.length === 2 && cells[0].text.trim() === item.marker))
+        ? []
+        : cells;
+    });
     const regions = detectTableRegions(cellsPerLine, page.lines[0]?.size ?? medianSize);
     const regionByStart = new Map(regions.map((region) => [region.start, region]));
 
@@ -3813,7 +4252,7 @@ export async function pdfToWord(file: File): Promise<Uint8Array> {
     while (lineIndex < page.lines.length) {
       const region = regionByStart.get(lineIndex);
       if (region) {
-        bodyParts.push(
+        body.addRaw(
           tableRegionToXml(cellsPerLine, region, {
             usableWidthPt: Math.max(72, page.width - 144),
             fallbackSize: medianSize,
@@ -3835,13 +4274,22 @@ export async function pdfToWord(file: File): Promise<Uint8Array> {
         links.push({ id: linkRelId, url: link.url });
       }
 
-      const xml = lineToParagraphXml(line, { headingLevel: level, linkRelId });
-      if (xml) bodyParts.push(xml);
+      const listItem = level === 0 ? detectListItem(line.text) : null;
+      const xml = lineToParagraphXml(line, {
+        headingLevel: level,
+        linkRelId,
+        listItem: listItem ?? undefined,
+      });
+      if (xml) {
+        if (listItem) body.addListItem(xml, listItem);
+        else body.addRaw(xml);
+      }
       lineIndex += 1;
     }
   }
 
-  if (bodyParts.length === 0) {
+  const bodyXml = body.finish();
+  if (bodyXml.length === 0) {
     throw new Error(
       'No extractable text found. If this is a scan, run OCR PDF first, then convert to Word.',
     );
@@ -3849,10 +4297,11 @@ export async function pdfToWord(file: File): Promise<Uint8Array> {
 
   const firstPage = layout[0];
   return buildDocx(
-    bodyParts.join(''),
+    bodyXml,
     [firstPage?.width ?? 595, firstPage?.height ?? 842],
     images,
     links,
+    body.numberingXml(),
   );
 }
 

@@ -81,6 +81,12 @@ ctx.onmessage = async (e: MessageEvent<WorkerRequest>) => {
       case 'pdfToPptx':
         result = await pdfUtils.pdfToPptx(file, onProgress);
         break;
+      case 'pdfToWord':
+        result = await pdfUtils.pdfToWord(file);
+        break;
+      case 'pdfToExcel':
+        result = await pdfUtils.pdfToExcel(file);
+        break;
       case 'ocrPdf':
         result = await pdfUtils.ocrPdf(file, (args[0] as string) ?? 'eng', onProgress);
         break;

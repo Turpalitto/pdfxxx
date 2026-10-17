@@ -1,39 +1,33 @@
 # Current Context
 
 <!-- PROJECT-MEMORY-KIT:AUTOMATIC -->
-- **Current focus:** Implement PDFX Direction 3 redesign
-- **Last completed step:** Rebuilt home around search, category rail, quick tools, popular rows, workflow recommendation and compact catalog; removed repeated marketing sections; refined mobile upload flow
-- **What changed:** Rebuilt home around search, category rail, quick tools, popular rows, workflow recommendation and compact catalog; removed repeated marketing sections; refined mobile upload flow
-- **What needs verification:** tsc passed; build passed; vitest 142 passed; browser desktop/mobile/search/category/console QA passed
-- **Next logical step:** Collect user feedback from local preview
-- **Important warnings:** Playwright browser runtime unavailable locally; browser QA completed through in-app browser
-- **Affected files:** client/src/pages/home.tsx,client/src/pages/tool-page.tsx,client/src/components/file-upload.tsx,design-qa.md
+- **Current focus:** Fix footnote numbering resets and preserve Roman, letter and hierarchical Word-to-PDF markers
+- **Last completed step:** Replaced document-wide count guard with paragraph text/occurrence mapping excluding notes; restored numbering through inherited styles, formats, levels and overrides; added regression coverage
+- **What changed:** Replaced document-wide count guard with paragraph text/occurrence mapping excluding notes; restored numbering through inherited styles, formats, levels and overrides; added regression coverage
+- **What needs verification:** Browser regression red then green; TypeScript, ESLint, Prettier, build passed; Vitest 213 passed; full Playwright 81 passed/3 skipped before final letter-sequence correction, targeted numbering desktop/mobile 2 passed afterward
+- **Next logical step:** User authorized committing and pushing the validated changes to synchronize local main with origin/main.
+- **Important warnings:** Nonstandard formats, Roman outside 1-3999 and excessively long repeated letter labels remain fallback; full Word layout fidelity not claimed
+- **Affected files:** client/src/lib/pdf-utils.ts,client/src/lib/docx-lists.test.ts,tests/e2e/conversion-improvements.spec.ts,.ai/changelog.md,.ai/tasks.md,.ai/architecture.md,.ai/decisions.md
 - **Git status:** M .ai/architecture.md
  M .ai/changelog.md
+ M .ai/decisions.md
  M .ai/tasks.md
- M AGENTS.md
+ M DECISIONS.md
+ M PROJECT_STATE.md
  M client/src/App.tsx
- M client/src/components/file-upload.tsx
- M client/src/components/global-command-palette.tsx
- M client/src/components/tool-card.tsx
- M client/src/components/ui/command.tsx
- M client/src/lib/edit-pdf-vector.test.ts
- M client/src/lib/edit-pdf-vector.ts
  M client/src/lib/pdf-converters-golden.test.ts
- M client/src/lib/pdf-utils.test.ts
  M client/src/lib/pdf-utils.ts
- M client/src/pages/edit-pdf-page.tsx
- M client/src/pages/home.tsx
- M client/src/pages/privacy.tsx
  M client/src/pages/tool-page.tsx
- M tests/e2e/smoke.spec.ts
-?? ARCHITECTURE.md
-?? DECISIONS.md
-?? PROJECT_STATE.md
-?? TODO.md
-?? client/src/components/global-command-palette-dialog.tsx
-?? design-qa-desktop.png
-?? design-qa-mobile.png
-?? design-qa.md
-?? graph/
-?? memory/
+ M client/src/tools/registry.test.ts
+ M client/src/tools/registry.ts
+ M client/src/workers/pdf-worker-types.ts
+ M client/src/workers/pdf-worker.ts
+ M graph/project_graph.json
+ M memory/.project-memory.json
+ M memory/CURRENT_CONTEXT.md
+?? client/src/components/error-boundary.tsx
+?? client/src/lib/docx-lists.test.ts
+?? memory/sessions/2026-10-17_18-21_github-branch-assessment.md
+?? memory/sessions/2026-10-17_22-18_selective-office-improvements.md
+?? memory/sessions/2026-10-17_23-37_office-transfer-review.md
+?? tests/e2e/conversion-improvements.spec.ts

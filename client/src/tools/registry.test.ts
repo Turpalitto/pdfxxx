@@ -33,6 +33,8 @@ describe('toolRegistry', () => {
 
     expect(hybridSlugs).toContain('grayscale-pdf');
     expect(hybridSlugs).toContain('pdf-to-pptx');
+    expect(hybridSlugs).toContain('pdf-to-word');
+    expect(hybridSlugs).toContain('pdf-to-excel');
     expect(hybridSlugs).not.toContain('ocr-pdf');
   });
 

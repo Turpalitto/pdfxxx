@@ -134,6 +134,55 @@ describe('converter golden checks (pdfToWord / pdfToExcel)', () => {
     expect(numericRow).toBeDefined();
   });
 
+  it('pdfToWord creates editable lists and preserves starts, restarts, styles and page breaks', async () => {
+    const doc = await PDFDocument.create();
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+    const page = doc.addPage([595, 842]);
+    page.drawText('Lists', { x: 50, y: 780, size: 22, font: bold });
+    // Marker and body are separate items/styles, and must not become a table.
+    page.drawText('3)', { x: 50, y: 730, size: 12, font: bold });
+    page.drawText('First item', { x: 80, y: 730, size: 12, font });
+    page.drawText('4)', { x: 50, y: 710, size: 12, font: bold });
+    page.drawText('Second item', { x: 80, y: 710, size: 12, font });
+    page.drawText('Paragraph between lists.', { x: 50, y: 660, size: 12, font });
+    page.drawText('1. Restarted item', { x: 50, y: 620, size: 12, font });
+    page.drawText('• Bullet item', { x: 50, y: 580, size: 12, font });
+    page.drawText('2026. A year, not a list', { x: 50, y: 540, size: 12, font });
+    page.drawText('-5 is a negative number', { x: 50, y: 520, size: 12, font });
+    const second = doc.addPage([595, 842]);
+    second.drawText('Repeated header', { x: 50, y: 800, size: 12, font });
+    second.drawText('Final paragraph.', { x: 50, y: 700, size: 12, font });
+    const docx = await pdfToWord(new File([await doc.save()], 'lists.pdf'));
+    const xml = (await readZipEntry(docx, 'word/document.xml'))!;
+    const numbering = (await readZipEntry(docx, 'word/numbering.xml'))!;
+    const rels = (await readZipEntry(docx, 'word/_rels/document.xml.rels'))!;
+    const types = (await readZipEntry(docx, '[Content_Types].xml'))!;
+
+    expect(xml.match(/<w:numPr>/g)).toHaveLength(4);
+    expect(xml).not.toContain('<w:tbl>');
+    expect(xml).toContain('>First item<');
+    expect(xml).toContain('>Second item<');
+    expect(xml).not.toContain('>3)<');
+    expect(xml).toContain('2026. A year, not a list');
+    expect(xml).toContain('-5 is a negative number');
+    expect(xml).toContain('Repeated header');
+    expect(xml).toContain('<w:br w:type="page"/>');
+    expect(numbering).toContain('<w:startOverride w:val="3"/>');
+    expect(numbering).toContain('<w:startOverride w:val="1"/>');
+    expect(numbering).toContain('w:val="%1)"');
+    expect(numbering).toContain('w:val="%1."');
+    expect(numbering).toContain('w:val="bullet"');
+    expect(rels).toContain('Target="numbering.xml"');
+    expect(types).toContain('PartName="/word/numbering.xml"');
+  });
+
+  it('pdfToWord omits numbering parts when there are no lists', async () => {
+    const docx = await pdfToWord(await makeFixturePdf());
+    expect(await readZipEntry(docx, 'word/numbering.xml')).toBeNull();
+    expect(await readZipEntry(docx, 'word/_rels/document.xml.rels')).not.toContain('numbering.xml');
+  });
+
   it('text-free pages keep the friendly OCR hint instead of crashing', async () => {
     const { PDFDocument: EmptyDoc } = await import('@cantoo/pdf-lib');
     const empty = await EmptyDoc.create();

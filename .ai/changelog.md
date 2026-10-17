@@ -4,6 +4,36 @@
 
 ---
 
+## 2026-10-17 — Исправление нумерации Word→PDF после review
+
+- Убрано глобальное сопоставление по количеству HTML li: исходные абзацы связываются по тексту и порядку повторов, ссылки на notes исключаются из ключа, footnotes/endnotes не участвуют в сопоставлении. Обычный абзац и пункт списка с одинаковым текстом различаются.
+- Восстанавливаются numbering properties из цепочки paragraph styles, startOverride, Roman/Letter (оба регистра), decimalZero, составные lvlText, isLgl и lvlRestart=0. Буквенная последовательность соответствует Word: a…z, aa, bb…, а не Excel-колонкам. Римские значения вне 1…3999 и чрезмерно длинные буквенные маркеры остаются на fallback.
+- Регрессионный браузерный тест сначала воспроизвёл сброс 3./4.→1./2., затем прошёл на desktop/mobile. Проверены сноски и концевые сноски, starts/restarts, II.c)/III.c), legal 3.3.1., продолжение вложенных списков и style-inherited numbering.
+- Проверки: TypeScript, ESLint, Prettier, production build проходят; Vitest **213 passed**. Полный Playwright после основного исправления: **81 passed / 3 skipped**; после уточнения буквенной последовательности повторный целевой numbering-тест: **2 passed** (desktop/mobile).
+
+## 2026-10-17 — Проверка выборочного переноса
+
+- Standards review: нарушений зафиксированных правил проекта не найдено. TypeScript, ESLint, форматирование и Vitest **197 passed**. Полный Playwright: **79 passed, 3 skipped** (desktop-only пропуск mobile-layout и два opt-in OCR-сценария).
+- Spec review: обнаружена потеря starts/restarts Word→PDF при сносках: Mammoth добавляет отдельные `ol/li` для notes, глобальное сравнение количества markers/li сбрасывает всю восстановленную нумерацию. Отдельный DOCX воспроизводит 2 source numPr против 3 HTML li.
+- Подтверждено ограничение Word→PDF: upperRoman/lowerLetter и многоуровневые форматы используют десятичный HTML fallback; исходные маркеры не сохраняются. Римский fixture даёт обычный HTML ol без информации о III/IV.
+- В этом раунде проверки код приложения не менялся; исправления нумерации остаются открытыми задачами.
+
+## 2026-10-17 — Выборочный перенос улучшений в локальный main
+
+- PDF→Word и PDF→Excel выполняются через registry-backed worker routing с существующими cancel/fallback; добавлены WorkerOp и worker handlers. OCR не менялся.
+- PDF→Word создаёт настоящие одноуровневые маркированные/десятичные списки через numbering.xml, relationships и content types на текущем fflate. Сохраняются начальные номера, перезапуски, разделитель «.»/«)», стили тела и page breaks. Колонтитулы не удаляются; table-cut guard не менялся.
+- Word→PDF использует Mammoth HTML: заголовки, абзацы, маркированные/нумерованные списки, вложенные отступы, кириллица, перенос длинных слов и пагинация. Начала десятичной нумерации восстанавливаются из OOXML, поскольку Mammoth не переносит их в HTML. Сложные/пользовательские форматы нумерации остаются на HTML fallback; полный Word-layout fidelity не заявляется.
+- Добавлен ErrorBoundary вокруг маршрутов: EN/RU экран восстановления, перезагрузка/переход на главную, существующий opt-in error reporter. Внутренний текст ошибки в UI не выводится, навигация остаётся доступной.
+- Добавлены golden/unit/browser regression checks для списков, реального worker-пути и fallback, Word→PDF, EN/RU recovery на desktop/mobile. Новых пакетов нет; GitHub не менялся.
+- Проверено: `tsc --noEmit`, ESLint, Prettier и production build проходят; Vitest **197 passed**; Playwright conversion-improvements + worker-tools **46 passed** (desktop/mobile). Полный E2E-набор вне этих двух suites в этой сессии не запускался.
+
+## 2026-10-17 — Проверка GitHub-веток относительно main
+
+- Проверены шесть remote-веток после `git fetch origin`; `master` и `arena/01a08bb4-pdfxxx` полностью входят в `main`.
+- В `arena/01a08ce9-pdfxxx` (`1d52473`) найдены кандидаты для выборочного переноса: DOCX-списки, Word/Excel в worker, cloud import. Нужна адаптация к текущему fflate/pdfjs и CSP; автоматическое удаление колонтитулов и изменение table-cut guard требуют отдельной проверки.
+- В старом `5ca08f7` есть Word→PDF через Mammoth HTML с заголовками/списками; итоговая Claude-ветка и main используют extractRawText. В `815dfd0` есть React ErrorBoundary, отсутствующий в текущем client/src.
+- Это статическое сравнение истории и кода; ветки не сливались, тесты веток не запускались, код приложения не менялся.
+
 ## 2026-10-02 — Крупный пласт: 2 пакета, 3 апгрейда стека, H3/pdfDiff, декомпозиция
 
 ### Восстановлено и исправлено в коде
